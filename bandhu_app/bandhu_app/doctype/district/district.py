@@ -5,7 +5,7 @@
 from frappe.model.document import Document
 
 
-class Unit(Document):
+class District(Document):
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
 
@@ -14,11 +14,8 @@ class Unit(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
-		cad: DF.Link | None
-		doctor: DF.Link | None
-		nurse: DF.Link | None
-		unit_code: DF.Data | None
-		unit_name: DF.Data | None
+		district_name: DF.Data | None
+		state: DF.Link | None
 	# end: auto-generated types
 
 	pass

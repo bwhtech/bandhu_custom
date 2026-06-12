@@ -14,6 +14,7 @@ class VehicleUsageLog(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		clinic: DF.Data | None
 		clinic_session: DF.Link | None
 		date: DF.Date | None
 		distance: DF.Int
@@ -22,7 +23,7 @@ class VehicleUsageLog(Document):
 		odometer_end: DF.Int
 		odometer_start: DF.Int
 		places_visited: DF.SmallText | None
-		project: DF.Link | None
+		project: DF.Data | None
 		start_time: DF.Time | None
 		vehicle: DF.Link
 	# end: auto-generated types

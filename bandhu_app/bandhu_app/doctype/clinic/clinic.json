@@ -1,10 +1,12 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:clinic_name",
  "creation": "2026-04-17 20:15:01.877060",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "project",
   "clinic_name",
   "vehicle",
   "column_break_ndvc",
@@ -16,7 +18,8 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Clinic Name",
-   "reqd": 1
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "vehicle",
@@ -32,6 +35,12 @@
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Bandhu Projects"
   }
  ],
  "grid_page_length": 50,
@@ -42,10 +51,11 @@
    "link_fieldname": "clinic"
   }
  ],
- "modified": "2026-04-24 16:37:50.389237",
+ "modified": "2026-06-12 09:14:33.650566",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Clinic",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {

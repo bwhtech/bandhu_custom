@@ -50,7 +50,7 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Active\nCompleted\nIn-Active"
+   "options": "Active\nCompleted"
   },
   {
    "fieldname": "description",
@@ -60,8 +60,13 @@
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-05-07 08:14:28.793489",
+ "links": [
+  {
+   "link_doctype": "Clinic",
+   "link_fieldname": "project"
+  }
+ ],
+ "modified": "2026-06-01 20:46:06.252574",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Bandhu Projects",

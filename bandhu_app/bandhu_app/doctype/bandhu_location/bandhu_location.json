@@ -7,6 +7,9 @@
  "field_order": [
   "location_name",
   "lsg",
+  "lsg_code",
+  "column_break_prbi",
+  "phcchc",
   "district",
   "state"
  ],
@@ -30,12 +33,26 @@
    "fieldname": "state",
    "fieldtype": "Data",
    "label": "State"
+  },
+  {
+   "fieldname": "phcchc",
+   "fieldtype": "Data",
+   "label": "PHC/CHC"
+  },
+  {
+   "fieldname": "column_break_prbi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "lsg_code",
+   "fieldtype": "Data",
+   "label": "LSG Code"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-20 17:05:45.151777",
+ "modified": "2026-06-08 11:36:39.403821",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Bandhu Location",

@@ -17,6 +17,8 @@ class BandhuLocation(Document):
 		district: DF.Data | None
 		location_name: DF.Data | None
 		lsg: DF.Data | None
+		lsg_code: DF.Data | None
+		phcchc: DF.Data | None
 		state: DF.Data | None
 	# end: auto-generated types
 

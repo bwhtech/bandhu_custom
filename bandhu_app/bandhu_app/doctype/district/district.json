@@ -1,35 +1,33 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "SITE-.####",
- "creation": "2026-04-13 08:23:14.227555",
+ "creation": "2026-06-08 09:53:32.102502",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "site_name",
-  "location"
+  "district_name",
+  "state"
  ],
  "fields": [
   {
-   "fieldname": "site_name",
+   "fieldname": "district_name",
    "fieldtype": "Data",
-   "label": "Site Name"
+   "label": "District Name"
   },
   {
-   "fieldname": "location",
+   "fieldname": "state",
    "fieldtype": "Link",
-   "label": "Location",
-   "options": "Bandhu Location"
+   "label": "State",
+   "options": "State"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-02 11:34:19.391990",
+ "modified": "2026-06-08 09:54:05.141513",
  "modified_by": "Administrator",
  "module": "Bandhu App",
- "name": "Site",
- "naming_rule": "Expression",
+ "name": "District",
  "owner": "Administrator",
  "permissions": [
   {
@@ -47,9 +45,7 @@
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
- "show_title_field_in_link": 1,
  "sort_field": "creation",
  "sort_order": "DESC",
- "states": [],
- "title_field": "site_name"
+ "states": []
 }

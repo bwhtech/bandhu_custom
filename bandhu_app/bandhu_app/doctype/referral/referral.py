@@ -16,6 +16,7 @@ class Referral(Document):
 
 		from bandhu_app.bandhu_app.doctype.referral_followup.referral_followup import ReferralFollowup
 
+		age: DF.Data | None
 		clinic_session: DF.Data | None
 		created_by: DF.Data | None
 		created_on: DF.Datetime | None

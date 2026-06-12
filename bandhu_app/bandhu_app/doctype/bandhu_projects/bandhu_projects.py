@@ -19,7 +19,7 @@ class BandhuProjects(Document):
 		funding_source: DF.Data | None
 		project: DF.Data
 		start_date: DF.Date
-		status: DF.Literal["Active", "Completed", "In-Active"]
+		status: DF.Literal["Active", "Completed"]
 	# end: auto-generated types
 
 	pass

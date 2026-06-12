@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "CS-.YY.-.MM.-.DD.-.SITE.-.###",
+ "autoname": "CS-.YY.-.MM.-.DD.-.site.-.###",
  "creation": "2026-04-13 08:14:19.128869",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -23,7 +23,7 @@
   "additional_details_section",
   "departure_time",
   "arrival_time",
-  "distance_travelled",
+  "distance_travelled_km",
   "column_break_ltxj",
   "notes"
  ],
@@ -109,22 +109,17 @@
   },
   {
    "fieldname": "departure_time",
-   "fieldtype": "Datetime",
+   "fieldtype": "Time",
    "label": "Departure Time"
   },
   {
    "fieldname": "arrival_time",
-   "fieldtype": "Datetime",
+   "fieldtype": "Time",
    "label": "Arrival Time"
   },
   {
    "fieldname": "column_break_ltxj",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "distance_travelled",
-   "fieldtype": "Data",
-   "label": "Distance Travelled"
   },
   {
    "fieldname": "notes",
@@ -145,6 +140,11 @@
    "hidden": 1,
    "label": "Vehicle",
    "options": "Vehicle"
+  },
+  {
+   "fieldname": "distance_travelled_km",
+   "fieldtype": "Data",
+   "label": "Distance Travelled (km)"
   }
  ],
  "grid_page_length": 50,
@@ -155,7 +155,7 @@
    "link_fieldname": "custom_clinic_session"
   }
  ],
- "modified": "2026-05-06 21:16:47.235741",
+ "modified": "2026-06-12 10:17:45.877560",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Bandhu Clinic Session",

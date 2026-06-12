@@ -16,6 +16,7 @@ class Clinic(Document):
 
 		clinic_name: DF.Data
 		notes: DF.SmallText | None
+		project: DF.Link | None
 		vehicle: DF.Link | None
 	# end: auto-generated types
 
