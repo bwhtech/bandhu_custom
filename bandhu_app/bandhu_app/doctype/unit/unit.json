@@ -8,9 +8,10 @@
  "field_order": [
   "unit_name",
   "doctor",
+  "unit_code",
   "column_break_dnkn",
   "nurse",
-  "driver"
+  "cad"
  ],
  "fields": [
   {
@@ -22,6 +23,7 @@
    "fieldname": "doctor",
    "fieldtype": "Link",
    "label": "Doctor",
+   "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Doctor\"]]",
    "options": "Healthcare Practitioner"
   },
   {
@@ -32,19 +34,26 @@
    "fieldname": "nurse",
    "fieldtype": "Link",
    "label": "Nurse",
+   "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Nurse\"]]",
    "options": "Healthcare Practitioner"
   },
   {
-   "fieldname": "driver",
+   "fieldname": "unit_code",
+   "fieldtype": "Data",
+   "label": "Unit Code"
+  },
+  {
+   "fieldname": "cad",
    "fieldtype": "Link",
-   "label": "Driver",
+   "label": "CAD",
+   "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Clinic Assistant cum Driver (CAD)\"]]",
    "options": "Healthcare Practitioner"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-15 22:35:55.647812",
+ "modified": "2026-06-12 21:41:45.519378",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Unit",

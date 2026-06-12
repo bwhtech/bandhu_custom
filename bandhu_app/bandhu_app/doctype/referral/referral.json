@@ -10,6 +10,7 @@
   "patient_encounter",
   "clinic_session",
   "patient",
+  "age",
   "referral_by_source",
   "status",
   "helpline_flag",
@@ -154,6 +155,12 @@
    "in_list_view": 1,
    "label": "Required Action From",
    "options": "None\nProgramme\nClinic"
+  },
+  {
+   "fetch_from": "patient_encounter.patient_age",
+   "fieldname": "age",
+   "fieldtype": "Data",
+   "label": "Age"
   }
  ],
  "grid_page_length": 50,
@@ -164,7 +171,7 @@
    "link_fieldname": "patient"
   }
  ],
- "modified": "2026-05-07 08:22:57.596769",
+ "modified": "2026-06-02 10:05:11.262681",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Referral",
