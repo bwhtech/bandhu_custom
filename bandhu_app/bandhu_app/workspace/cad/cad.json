@@ -1,0 +1,62 @@
+{
+ "app": "bandhu_app",
+ "charts": [],
+ "content": "[{\"id\":\"2eIMLBa5iP\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h2\\\">Welcome to the CAD workspace</span>\",\"col\":12}},{\"id\":\"OntaXMeXKm\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"n7EcA4hYNx\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patients\",\"col\":12}},{\"id\":\"7p1YHRHqmo\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"U61S-_D-3Q\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle\",\"col\":4}},{\"id\":\"Go2rIocur2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle Usage Log\",\"col\":4}},{\"id\":\"nobKeonkG2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle Refuel Log\",\"col\":4}}]",
+ "creation": "2026-06-12 09:28:59.549037",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "CAD",
+ "link_type": "DocType",
+ "links": [],
+ "modified": "2026-06-12 23:01:23.541793",
+ "modified_by": "Administrator",
+ "module": "Bandhu App",
+ "name": "CAD",
+ "number_cards": [],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 0.0,
+ "shortcuts": [
+  {
+   "color": "Yellow",
+   "doc_view": "List",
+   "label": "Patients",
+   "link_to": "Patient",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Yellow",
+   "doc_view": "List",
+   "label": "Vehicle",
+   "link_to": "Vehicle",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Yellow",
+   "doc_view": "New",
+   "label": "Vehicle Usage Log",
+   "link_to": "Vehicle Usage Log",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Yellow",
+   "doc_view": "New",
+   "label": "Vehicle Refuel Log",
+   "link_to": "Vehicle Refuel Log",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "CAD",
+ "type": "Workspace"
+}
