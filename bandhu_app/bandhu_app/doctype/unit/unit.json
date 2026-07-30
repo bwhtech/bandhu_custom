@@ -46,14 +46,14 @@
    "fieldname": "cad",
    "fieldtype": "Link",
    "label": "CAD",
-   "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Clinic Assistant cum Driver (CAD)\"]]",
+   "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Clinic Assistant cum Driver\"]]",
    "options": "Healthcare Practitioner"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-12 21:41:45.519378",
+ "modified": "2026-07-30 17:17:15.587318",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Unit",

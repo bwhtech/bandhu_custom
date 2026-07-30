@@ -1,7 +1,7 @@
 {
  "app": "bandhu_app",
  "charts": [],
- "content": "[{\"id\":\"2eIMLBa5iP\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h2\\\">Welcome to the CAD workspace</span>\",\"col\":12}},{\"id\":\"OntaXMeXKm\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"n7EcA4hYNx\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patients\",\"col\":12}},{\"id\":\"7p1YHRHqmo\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"U61S-_D-3Q\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle\",\"col\":4}},{\"id\":\"Go2rIocur2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle Usage Log\",\"col\":4}},{\"id\":\"nobKeonkG2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle Refuel Log\",\"col\":4}}]",
+ "content": "[{\"id\":\"2eIMLBa5iP\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h2\\\">Welcome to the CAD workspace</span>\",\"col\":12}},{\"id\":\"OntaXMeXKm\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"n7EcA4hYNx\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patients\",\"col\":12}},{\"id\":\"7p1YHRHqmo\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"U61S-_D-3Q\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle\",\"col\":4}},{\"id\":\"Go2rIocur2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle Usage Log\",\"col\":4}},{\"id\":\"nobKeonkG2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle Refuel Log\",\"col\":4}},{\"id\":\"KNm4POuo7z\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"FDtyncKbZU\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"2it9wis0KT\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Completed Patients\",\"col\":12}}]",
  "creation": "2026-06-12 09:28:59.549037",
  "custom_blocks": [],
  "docstatus": 0,
@@ -13,14 +13,20 @@
  "label": "CAD",
  "link_type": "DocType",
  "links": [],
- "modified": "2026-06-12 23:01:23.541793",
+ "modified": "2026-07-30 17:07:54.418281",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "CAD",
  "number_cards": [],
  "owner": "Administrator",
  "public": 1,
- "quick_lists": [],
+ "quick_lists": [
+  {
+   "document_type": "Patient Encounter",
+   "label": "Completed Patients",
+   "quick_list_filter": "[[\"Patient Encounter\",\"custom_workflow_state\",\"=\",\"Completed\"],[\"Patient Encounter\",\"encounter_date\",\"Timespan\",\"today\"]]"
+  }
+ ],
  "roles": [],
  "sequence_id": 0.0,
  "shortcuts": [
@@ -42,7 +48,7 @@
   },
   {
    "color": "Yellow",
-   "doc_view": "New",
+   "doc_view": "List",
    "label": "Vehicle Usage Log",
    "link_to": "Vehicle Usage Log",
    "stats_filter": "[]",

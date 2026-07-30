@@ -23,26 +23,30 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Medicines",
-   "options": "Item"
+   "options": "Item",
+   "permlevel": 1
   },
   {
    "fieldname": "dosage_frequency",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Dosage Frequency",
-   "options": "OD\nBD\nTID\nQID"
+   "options": "OD\nBD\nTID\nQID",
+   "permlevel": 1
   },
   {
    "fieldname": "duration_days",
    "fieldtype": "Int",
    "in_list_view": 1,
-   "label": "Duration Days"
+   "label": "Duration Days",
+   "permlevel": 1
   },
   {
    "fieldname": "quantity",
    "fieldtype": "Int",
    "in_list_view": 1,
    "label": "Quantity",
+   "permlevel": 1,
    "read_only": 1
   },
   {
@@ -54,20 +58,23 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Source",
-   "options": "In-House\nExternal"
+   "options": "In-House\nExternal",
+   "permlevel": 2
   },
   {
    "default": "0",
    "fieldname": "dispensed",
    "fieldtype": "Check",
    "in_list_view": 1,
-   "label": "Dispensed?"
+   "label": "Dispensed?",
+   "permlevel": 2
   },
   {
    "fieldname": "instructions",
    "fieldtype": "Small Text",
    "in_list_view": 1,
-   "label": "Instructions"
+   "label": "Instructions",
+   "permlevel": 1
   },
   {
    "fieldname": "dispensed_by",
@@ -75,14 +82,15 @@
    "in_list_view": 1,
    "label": "Dispensed by?",
    "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Nurse\"]]",
-   "options": "Healthcare Practitioner"
+   "options": "Healthcare Practitioner",
+   "permlevel": 2
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-05-05 21:09:13.743541",
+ "modified": "2026-07-10 19:49:48.263533",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Prescription",

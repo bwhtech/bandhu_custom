@@ -21,7 +21,7 @@ class TestResult(Document):
 		result_type: DF.Literal["Positive", "Negative", "Value"]
 		result_value: DF.Data | None
 		status: DF.Literal["Pending", "Completed"]
-		test_name: DF.Data | None
+		test_name: DF.Literal["Malaria", "Dengue", "Other"]
 	# end: auto-generated types
 
 	pass

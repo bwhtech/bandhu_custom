@@ -63,6 +63,7 @@
    "description": "hospital name / helpline / specialist name",
    "fieldname": "referred_to",
    "fieldtype": "Data",
+   "hidden": 1,
    "label": "Referred to "
   },
   {
@@ -171,7 +172,7 @@
    "link_fieldname": "patient"
   }
  ],
- "modified": "2026-06-02 10:05:11.262681",
+ "modified": "2026-06-27 20:20:40.234244",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Referral",
