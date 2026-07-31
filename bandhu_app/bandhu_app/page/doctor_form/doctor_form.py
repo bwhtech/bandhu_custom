@@ -3,6 +3,24 @@ from datetime import date
 import frappe
 
 
+def _require_doctor_access() -> None:
+	roles = frappe.get_roles()
+	if "Doctor" not in roles and "System Manager" not in roles:
+		frappe.throw(
+			"You do not have permission to access this page.",
+			frappe.PermissionError,
+		)
+
+
+def _get_history(patient: str):
+	return frappe.db.get_all(
+		"Patient Encounter",
+		filters={"patient": patient},
+		fields=["name", "encounter_date"],
+		order_by="encounter_date desc, creation desc",
+	)
+
+
 def _get_doctor_session():
 	today = date.today().isoformat()
 	user = frappe.session.user
@@ -47,6 +65,7 @@ def _get_encounters(session, workflow_state):
 
 @frappe.whitelist()
 def get_registered_patients():
+	_require_doctor_access()
 	session = _get_doctor_session()
 	if not session:
 		return []
@@ -55,6 +74,7 @@ def get_registered_patients():
 
 @frappe.whitelist()
 def get_completed_patients():
+	_require_doctor_access()
 	session = _get_doctor_session()
 	if not session:
 		return []
@@ -63,9 +83,19 @@ def get_completed_patients():
 
 @frappe.whitelist()
 def get_patient_history(patient: str):
-	return frappe.db.get_all(
-		"Patient Encounter",
-		filters={"patient": patient},
-		fields=["name", "encounter_date"],
-		order_by="encounter_date desc, creation desc",
-	)
+	_require_doctor_access()
+	if "System Manager" not in frappe.get_roles():
+		session = _get_doctor_session()
+		if not session:
+			return []
+		linked = frappe.db.get_value(
+			"Patient Encounter",
+			{"custom_clinic_session": session, "patient": patient},
+			"name",
+		)
+		if not linked:
+			frappe.throw(
+				"You are not permitted to view this patient's history.",
+				frappe.PermissionError,
+			)
+	return _get_history(patient)
