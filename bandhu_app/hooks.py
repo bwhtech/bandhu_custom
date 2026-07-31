@@ -264,5 +264,8 @@ doc_events = {
 		"before_insert": "bandhu_app.bandhu_app.utils.custom_bandhu_id.set_bandhu_id",
 		"after_insert": "bandhu_app.bandhu_app.utils.patient_qr.create_patient_qr",
 		"validate": "bandhu_app.bandhu_app.utils.patient.validate_bmi",
-	}
+	},
+	"Patient Encounter": {
+		"validate": "bandhu_app.bandhu_app.utils.patient_encounter.validate_workflow_state",
+	},
 }

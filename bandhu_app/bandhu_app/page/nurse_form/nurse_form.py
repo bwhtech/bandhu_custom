@@ -33,7 +33,7 @@ def get_session_status() -> dict:
 	user = frappe.session.user
 
 	roles = frappe.get_roles(user)
-	if "Nurse" not in roles:
+	if "Nurse" not in roles and "System Manager" not in roles:
 		return {"has_session": False, "message": "You do not have the Nurse role."}
 
 	practitioner = frappe.db.get_value(
