@@ -1,6 +1,7 @@
 from datetime import date
 
 import frappe
+from frappe import _
 
 
 def _require_session_access(session_name: str) -> None:
@@ -10,19 +11,19 @@ def _require_session_access(session_name: str) -> None:
 		return
 	if "Nurse" not in roles:
 		frappe.throw(
-			"You do not have permission to access this clinic session.",
+			_("You do not have permission to access this clinic session."),
 			frappe.PermissionError,
 		)
 	practitioner = frappe.db.get_value("Healthcare Practitioner", {"user_id": user}, "name")
 	if not practitioner:
 		frappe.throw(
-			"No Healthcare Practitioner linked to your account.",
+			_("No Healthcare Practitioner linked to your account."),
 			frappe.PermissionError,
 		)
 	assigned_nurse = frappe.db.get_value("Bandhu Clinic Session", session_name, "assigned_nurse")
 	if not assigned_nurse or assigned_nurse != practitioner:
 		frappe.throw(
-			"You are not assigned to this clinic session.",
+			_("You are not assigned to this clinic session."),
 			frappe.PermissionError,
 		)
 
@@ -34,7 +35,7 @@ def get_session_status() -> dict:
 
 	roles = frappe.get_roles(user)
 	if "Nurse" not in roles and "System Manager" not in roles:
-		return {"has_session": False, "message": "You do not have the Nurse role."}
+		return {"has_session": False, "message": _("You do not have the Nurse role.")}
 
 	practitioner = frappe.db.get_value(
 		"Healthcare Practitioner",
@@ -43,7 +44,7 @@ def get_session_status() -> dict:
 	)
 
 	if not practitioner:
-		return {"has_session": False, "message": "No Healthcare Practitioner linked to your account."}
+		return {"has_session": False, "message": _("No Healthcare Practitioner linked to your account.")}
 
 	session = frappe.db.get_value(
 		"Bandhu Clinic Session",
@@ -63,7 +64,7 @@ def get_session_status() -> dict:
 	if not session:
 		return {
 			"has_session": False,
-			"message": "No session scheduled for today. Please contact Programme Manager.",
+			"message": _("No session scheduled for today. Please contact Programme Manager."),
 		}
 
 	return {

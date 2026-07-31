@@ -1,4 +1,5 @@
 import frappe
+from frappe import _
 
 VALID_WORKFLOW_STATES = {
 	"Waiting for Doctor",
@@ -16,6 +17,6 @@ def validate_workflow_state(doc, method):
 
 	if state not in VALID_WORKFLOW_STATES:
 		frappe.throw(
-			f"Invalid workflow state: {state}",
+			_("Invalid workflow state: {0}").format(state),
 			frappe.ValidationError,
 		)

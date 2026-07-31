@@ -1,13 +1,14 @@
 from datetime import date
 
 import frappe
+from frappe import _
 
 
 def _require_doctor_access() -> None:
 	roles = frappe.get_roles()
 	if "Doctor" not in roles and "System Manager" not in roles:
 		frappe.throw(
-			"You do not have permission to access this page.",
+			_("You do not have permission to access this page."),
 			frappe.PermissionError,
 		)
 
@@ -95,7 +96,7 @@ def get_patient_history(patient: str):
 		)
 		if not linked:
 			frappe.throw(
-				"You are not permitted to view this patient's history.",
+				_("You are not permitted to view this patient's history."),
 				frappe.PermissionError,
 			)
 	return _get_history(patient)
