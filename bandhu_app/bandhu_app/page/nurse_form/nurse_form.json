@@ -1,0 +1,26 @@
+{
+ "content": null,
+ "creation": "2026-07-13 17:50:07.577157",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-07-13 17:50:07.577157",
+ "modified_by": "Administrator",
+ "module": "Bandhu App",
+ "name": "nurse-form",
+ "owner": "Administrator",
+ "page_name": "nurse-form",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Nurse"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Nurse"
+}

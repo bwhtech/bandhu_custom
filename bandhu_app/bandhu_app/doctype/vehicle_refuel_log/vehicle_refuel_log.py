@@ -17,6 +17,7 @@ class VehicleRefuelLog(Document):
 		amount: DF.Currency
 		bill_number: DF.Data | None
 		date: DF.Date
+		driver: DF.Link | None
 		fill_type: DF.Literal["Full Tank", "Partial"]
 		fuel_station: DF.Data
 		fuel_type: DF.Literal["Petrol", "Diesel", "CNG", "Electric"]

@@ -6,20 +6,48 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "test_name",
+  "result_type",
+  "result_value",
   "notes"
  ],
  "fields": [
   {
    "fieldname": "notes",
    "fieldtype": "Small Text",
-   "label": "Notes"
+   "in_list_view": 1,
+   "label": "Notes",
+   "permlevel": 2
+  },
+  {
+   "fieldname": "test_name",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Test Name",
+   "options": "Malaria\nDengue\nLeptospirosis\nHb\nGRBS",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "result_value",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Result Value",
+   "permlevel": 2
+  },
+  {
+   "fieldname": "result_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Result Type",
+   "options": "Positive\nNegative\nValue",
+   "permlevel": 2
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-04-18 16:44:51.702889",
+ "modified": "2026-07-10 19:51:20.407924",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Test Instructions",

@@ -43,7 +43,7 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {"Patient": "public/js/patient.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -263,5 +263,9 @@ doc_events = {
 	"Patient": {
 		"before_insert": "bandhu_app.bandhu_app.utils.custom_bandhu_id.set_bandhu_id",
 		"after_insert": "bandhu_app.bandhu_app.utils.patient_qr.create_patient_qr",
-	}
+		"validate": "bandhu_app.bandhu_app.utils.patient.validate_bmi",
+	},
+	"Patient Encounter": {
+		"validate": "bandhu_app.bandhu_app.utils.patient_encounter.validate_workflow_state",
+	},
 }

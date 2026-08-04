@@ -8,6 +8,7 @@
   "core_details_section",
   "vehicle",
   "odometer_reading",
+  "driver",
   "column_break_okrm",
   "date",
   "time",
@@ -124,6 +125,13 @@
   {
    "fieldname": "column_break_jqti",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "driver",
+   "fieldtype": "Link",
+   "label": "Driver",
+   "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Clinic Assistant cum Driver\"]]",
+   "options": "Healthcare Practitioner"
   }
  ],
  "grid_page_length": 50,
@@ -138,7 +146,7 @@
    "link_fieldname": "vehicle"
   }
  ],
- "modified": "2026-05-01 11:55:55.797495",
+ "modified": "2026-07-30 17:19:57.443767",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Vehicle Refuel Log",

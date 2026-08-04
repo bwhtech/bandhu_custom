@@ -5,9 +5,9 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "encounter",
   "patient",
   "test_name",
-  "encounter",
   "column_break_msqn",
   "result_type",
   "result_value",
@@ -36,8 +36,9 @@
   },
   {
    "fieldname": "test_name",
-   "fieldtype": "Data",
-   "label": "Test Name"
+   "fieldtype": "Select",
+   "label": "Test Name",
+   "options": "Malaria\nDengue\nOther"
   },
   {
    "fieldname": "result_type",
@@ -81,7 +82,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-06 14:19:11.589294",
+ "modified": "2026-06-27 20:53:11.657964",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Test Result",

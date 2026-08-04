@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:employment_sector_name",
  "creation": "2026-06-12 08:35:34.931114",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -11,16 +12,18 @@
   {
    "fieldname": "employment_sector_name",
    "fieldtype": "Data",
-   "label": "Employment Sector Name"
+   "label": "Employment Sector Name",
+   "unique": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-12 08:38:30.633452",
+ "modified": "2026-06-16 13:38:49.084209",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Sectors",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
