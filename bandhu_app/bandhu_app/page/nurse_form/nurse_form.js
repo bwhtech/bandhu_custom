@@ -1,8 +1,8 @@
-var _nurse_css =
-	".nurse-dash{--max-w:var(--page-max-width,900px);max-width:var(--max-w);margin:0 auto;padding:0 var(--padding-md);}" +
+const NURSE_CSS =
+	".nurse-dash{--max-w:var(--page-max-width,1000px);max-width:var(--max-w);margin:0 auto;padding:0 var(--padding-md);}" +
 	".nurse-dash .empty-state{display:flex;flex-direction:column;align-items:center;padding:var(--padding-2xl) var(--padding-md);border:1px solid var(--border-color);border-radius:var(--border-radius-md);color:var(--text-muted);background:var(--bg-color);}" +
 	".nurse-dash .table-wrap{overflow:auto;border:1px solid var(--table-border-color);border-radius:var(--border-radius-md);margin-top:var(--margin-sm);max-height:360px;}" +
-	".nurse-dash .table{margin-bottom:0;min-width:400px;}" +
+	".nurse-dash .table{margin-bottom:0;min-width:480px;}" +
 	".nurse-dash .table thead{position:sticky;top:0;z-index:1;}" +
 	".nurse-dash .table th{background:var(--subtle-fg);padding:8px 12px;font-size:var(--text-sm);font-weight:var(--weight-semibold);color:var(--heading-color);white-space:nowrap;border-bottom:1px solid var(--table-border-color);}" +
 	".nurse-dash .table td{padding:10px 12px;vertical-align:middle;border-bottom:1px solid var(--table-border-color);}" +
@@ -13,209 +13,208 @@ var _nurse_css =
 	".nurse-dash .queue-section{margin-bottom:var(--margin-2xl);}" +
 	".nurse-dash .queue-section:last-child{margin-bottom:0;}" +
 	".nurse-dash .session-bar{display:flex;align-items:center;gap:var(--padding-sm);flex-wrap:wrap;padding:0 0 var(--padding-lg) 0;font-size:var(--text-sm);color:var(--text-muted);}" +
+	".nurse-action-btns{display:flex;flex-wrap:wrap;gap:6px;}" +
+	".nurse-action-btn{white-space:nowrap;}" +
+	".detail-row{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px solid var(--border-color);font-size:var(--text-sm);}" +
+	".detail-row span:first-child{color:var(--text-muted);}" +
 	"@media(max-width:768px){" +
 	".nurse-dash{padding:0 var(--padding-sm);}" +
 	".nurse-dash .table{min-width:350px;}" +
 	".nurse-dash .table td,.nurse-dash .table th{padding:8px 10px;}}";
 
-var _nurse_session = null;
+let nurseSession = null;
+let encountersByName = {};
 
-frappe.pages["nurse-form"].on_page_load = function (wrapper) {
-	var page = frappe.ui.make_app_page({
-		parent: wrapper,
-		title: __("Nurse Dashboard"),
-		single_column: true,
-	});
-
-	page.set_secondary_action(__("Refresh"), function () {
-		load_dashboard(page);
-	});
-
-	load_dashboard(page);
-};
-
-function load_dashboard(page) {
+async function loadDashboard(page) {
 	frappe.dom.freeze();
-	frappe.call({
-		method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_session_status",
-		callback: function (r) {
-			frappe.dom.unfreeze();
-			var data = r.message || {};
-
-			if (!data.has_session) {
-				page.main.html(
-					"<style>" +
-						_nurse_css +
-						"</style>" +
-						'<div class="nurse-dash">' +
-						render_welcome() +
-						'<div class="empty-state">' +
-						'<i class="fa fa-calendar-o" style="font-size:32px;margin-bottom:10px;opacity:0.4;"></i>' +
-						'<span style="font-size:var(--text-sm);">' +
-						frappe.utils.escape_html(data.message) +
-						"</span></div></div>"
-				);
-				return;
-			}
-
-			_nurse_session = data;
-
-			if (data.status === "Planned") {
-				page.main.html(
-					"<style>" +
-						_nurse_css +
-						"</style>" +
-						'<div class="nurse-dash">' +
-						render_welcome() +
-						render_session_info(data) +
-						'<div style="padding:var(--padding-xl) 0;display:flex;justify-content:center;">' +
-						'<button class="btn btn-primary btn-lg nurse-start-session">' +
-						'<i class="fa fa-play"></i> ' +
-						__("Start Session") +
-						"</button></div></div>"
-				);
-
-				page.main.on("click", ".nurse-start-session", function () {
-					start_session(page);
-				});
-			} else if (data.status === "In Progress") {
-				load_queues(page);
-			} else if (data.status === "Completed") {
-				page.main.html(
-					"<style>" +
-						_nurse_css +
-						"</style>" +
-						'<div class="nurse-dash">' +
-						render_welcome() +
-						render_session_info(data) +
-						'<div class="empty-state">' +
-						'<i class="fa fa-check-circle" style="font-size:32px;color:var(--green-500);margin-bottom:10px;"></i>' +
-						'<span style="font-size:var(--text-sm);">' +
-						__("Session completed. Great work!") +
-						"</span></div></div>"
-				);
-			}
-		},
-	});
-}
-
-function start_session(page) {
-	frappe.dom.freeze();
-	frappe.call({
-		method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.start_session",
-		args: { session_name: _nurse_session.session_name },
-		callback: function (r) {
-			frappe.dom.unfreeze();
-			if (r.message && r.message.success) {
-				frappe.show_alert({ message: __("Session started"), indicator: "green" });
-				load_dashboard(page);
-			}
-		},
-		error: function () {
-			frappe.dom.unfreeze();
-			frappe.show_alert({ message: __("Failed to start session"), indicator: "red" });
-		},
-	});
-}
-
-function end_session(page) {
-	frappe.confirm(__("End the current session?"), function () {
-		frappe.dom.freeze();
-		frappe.call({
-			method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.end_session",
-			args: { session_name: _nurse_session.session_name },
-			callback: function (r) {
-				frappe.dom.unfreeze();
-				if (r.message && r.message.success) {
-					frappe.show_alert({ message: __("Session ended"), indicator: "green" });
-					load_dashboard(page);
-				}
-			},
-			error: function () {
-				frappe.dom.unfreeze();
-				frappe.show_alert({ message: __("Failed to end session"), indicator: "red" });
-			},
+	let data;
+	try {
+		const r = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_session_status",
 		});
-	});
-}
-
-function load_queues(page) {
-	frappe.dom.freeze();
-	var session_name = _nurse_session.session_name;
-	var done = 0;
-	var data = {};
-
-	function check_done() {
-		done++;
-		if (done < 3) return;
+		data = r.message || {};
+	} catch (e) {
+		return;
+	} finally {
 		frappe.dom.unfreeze();
-		page.main.html(
-			"<style>" +
-				_nurse_css +
-				"</style>" +
-				'<div class="nurse-dash">' +
-				render_welcome() +
-				render_session_info(_nurse_session) +
-				render_end_session_button() +
-				render_queue_section(__("Patients for Tests"), data.tests || []) +
-				render_queue_section(__("Patients for Medicines"), data.medicines || []) +
-				render_queue_section(__("Completed Patients"), data.completed || []) +
-				"</div>"
-		);
-
-		page.main.on("click", ".nurse-end-session", function () {
-			end_session(page);
-		});
-
-		page.main.on("click", ".nurse-queue-row", function () {
-			var name = $(this).data("name");
-			frappe.set_route("Form", "Patient Encounter", name);
-		});
 	}
 
-	frappe.call({
-		method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_patients_for_tests",
-		args: { session_name: session_name },
-		callback: function (r) {
-			data.tests = r.message || [];
-			check_done();
-		},
-	});
+	if (!data.has_session) {
+		page.main.html(
+			"<style>" +
+				NURSE_CSS +
+				"</style>" +
+				'<div class="nurse-dash">' +
+				renderWelcome() +
+				'<div class="empty-state">' +
+				'<i class="fa fa-calendar-o" style="font-size:32px;margin-bottom:10px;opacity:0.4;"></i>' +
+				'<span style="font-size:var(--text-sm);">' +
+				frappe.utils.escape_html(data.message) +
+				"</span></div></div>"
+		);
+		return;
+	}
 
-	frappe.call({
-		method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_patients_for_medicines",
-		args: { session_name: session_name },
-		callback: function (r) {
-			data.medicines = r.message || [];
-			check_done();
-		},
-	});
+	nurseSession = data;
 
-	frappe.call({
-		method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_completed_patients",
-		args: { session_name: session_name },
-		callback: function (r) {
-			data.completed = r.message || [];
-			check_done();
-		},
+	if (data.status === "Planned") {
+		page.main.html(
+			"<style>" +
+				NURSE_CSS +
+				"</style>" +
+				'<div class="nurse-dash">' +
+				renderWelcome() +
+				renderSessionInfo(data) +
+				'<div style="padding:var(--padding-xl) 0;display:flex;justify-content:center;">' +
+				'<button class="btn btn-primary btn-lg nurse-start-session">' +
+				'<i class="fa fa-play"></i> ' +
+				__("Start Session") +
+				"</button></div></div>"
+		);
+
+		page.main.off("click").on("click", ".nurse-start-session", () => startSession(page));
+	} else if (data.status === "In Progress") {
+		await loadQueues(page);
+	} else if (data.status === "Completed") {
+		page.main.html(
+			"<style>" +
+				NURSE_CSS +
+				"</style>" +
+				'<div class="nurse-dash">' +
+				renderWelcome() +
+				renderSessionInfo(data) +
+				'<div class="empty-state">' +
+				'<i class="fa fa-check-circle" style="font-size:32px;color:var(--green-500);margin-bottom:10px;"></i>' +
+				'<span style="font-size:var(--text-sm);">' +
+				__("Session completed. Great work!") +
+				"</span></div></div>"
+		);
+	}
+}
+
+async function startSession(page) {
+	frappe.dom.freeze();
+	try {
+		const r = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.start_session",
+			args: { session_name: nurseSession.session_name },
+		});
+		if (r.message && r.message.success) {
+			frappe.show_alert({ message: __("Session started"), indicator: "green" });
+			await loadDashboard(page);
+		}
+	} catch (e) {
+		frappe.show_alert({ message: __("Failed to start session"), indicator: "red" });
+	} finally {
+		frappe.dom.unfreeze();
+	}
+}
+
+function endSession(page) {
+	frappe.confirm(__("End the current session?"), async () => {
+		frappe.dom.freeze();
+		try {
+			const r = await frappe.call({
+				method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.end_session",
+				args: { session_name: nurseSession.session_name },
+			});
+			if (r.message && r.message.success) {
+				frappe.show_alert({ message: __("Session ended"), indicator: "green" });
+				await loadDashboard(page);
+			}
+		} catch (e) {
+			frappe.show_alert({ message: __("Failed to end session"), indicator: "red" });
+		} finally {
+			frappe.dom.unfreeze();
+		}
 	});
 }
 
-function render_welcome() {
-	var name =
-		typeof frappe.user.full_name === "function"
-			? frappe.user.full_name()
-			: frappe.user.full_name || "Nurse";
+async function loadQueues(page) {
+	frappe.dom.freeze();
+	const sessionName = nurseSession.session_name;
+	let tests, medicines, completed;
+	try {
+		[tests, medicines, completed] = await Promise.all([
+			frappe.call({
+				method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_patients_for_tests",
+				args: { session_name: sessionName },
+			}),
+			frappe.call({
+				method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_patients_for_medicines",
+				args: { session_name: sessionName },
+			}),
+			frappe.call({
+				method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_completed_patients",
+				args: { session_name: sessionName },
+			}),
+		]);
+	} catch (e) {
+		return;
+	} finally {
+		frappe.dom.unfreeze();
+	}
+
+	const testRows = tests.message || [];
+	const medicineRows = medicines.message || [];
+	const completedRows = completed.message || [];
+	encountersByName = Object.fromEntries([...testRows, ...medicineRows, ...completedRows].map((p) => [p.name, p]));
+
+	page.main.html(
+		"<style>" +
+			NURSE_CSS +
+			"</style>" +
+			'<div class="nurse-dash">' +
+			renderWelcome() +
+			renderSessionInfo(nurseSession) +
+			renderEndSessionButton() +
+			renderQueueSection(__("Patients for Tests"), testRows, "test") +
+			renderQueueSection(__("Patients for Medicines"), medicineRows, "medicine") +
+			renderQueueSection(__("Completed Patients"), completedRows, null) +
+			"</div>"
+	);
+
+	page.main.off("click");
+
+	page.main.on("click", ".nurse-end-session", () => endSession(page));
+
+	page.main.on("click", ".nurse-queue-row", function () {
+		frappe.set_route("Form", "Patient Encounter", $(this).data("name"));
+	});
+
+	page.main.on("click", ".nurse-action-btn", function (e) {
+		e.stopPropagation();
+		const encounter = $(this).data("encounter");
+		const action = $(this).data("action");
+		dispatchNurseAction(page, encounter, action);
+	});
+}
+
+function dispatchNurseAction(page, encounter, action) {
+	switch (action) {
+		case "details":
+			openDetailsDialog(encounter);
+			break;
+		case "enter_results":
+			openTestResultsDialog(page, encounter);
+			break;
+		case "dispense":
+			openDispenseDialog(page, encounter);
+			break;
+	}
+}
+
+function renderWelcome() {
 	return (
 		'<div style="padding:var(--padding-lg) 0 var(--padding-xl) 0;">' +
 		"<h3 style='font-size:var(--text-2xl);font-weight:var(--weight-semibold);color:var(--heading-color);margin:0;'>" +
-		__("Welcome, {0}", [name]) +
+		__("Welcome, {0}", [frappe.user_info().fullname]) +
 		"</h3></div>"
 	);
 }
 
-function render_session_info(session) {
-	var status_color = session.status === "In Progress" ? "var(--green-500)" : "var(--text-muted)";
+function renderSessionInfo(session) {
+	const statusColor = session.status === "In Progress" ? "var(--green-500)" : "var(--text-muted)";
 	return (
 		'<div class="session-bar">' +
 		'<i class="fa fa-hospital-o"></i> ' +
@@ -225,14 +224,14 @@ function render_session_info(session) {
 		frappe.utils.escape_html(session.site || "") +
 		'<span style="color:var(--border-color);">|</span>' +
 		'<i class="fa fa-circle" style="color:' +
-		status_color +
+		statusColor +
 		';font-size:8px;"></i> ' +
 		frappe.utils.escape_html(session.status) +
 		"</div>"
 	);
 }
 
-function render_end_session_button() {
+function renderEndSessionButton() {
 	return (
 		'<div style="padding:0 0 var(--padding-lg) 0;">' +
 		'<button class="btn btn-danger btn-sm nurse-end-session">' +
@@ -242,8 +241,222 @@ function render_end_session_button() {
 	);
 }
 
-function render_queue_section(title, patients) {
-	var count = '<span class="queue-meta"> (' + patients.length + ")</span>";
+async function openDetailsDialog(encounter) {
+	const row = encountersByName[encounter];
+	if (!row) return;
+
+	frappe.dom.freeze();
+	let patient;
+	try {
+		const r = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_patient_registration_details",
+			args: { encounter },
+		});
+		patient = r.message || {};
+	} catch (e) {
+		return;
+	} finally {
+		frappe.dom.unfreeze();
+	}
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Patient Details"),
+		size: "large",
+		fields: [{ fieldtype: "HTML", fieldname: "details_html" }],
+	});
+	dialog.fields_dict.details_html.$wrapper.html(renderPatientDetailsHtml(patient, row));
+	dialog.show();
+}
+
+function detailRow(label, value) {
+	if (value === null || value === undefined || value === "") return "";
+	return (
+		'<div class="detail-row"><span>' +
+		frappe.utils.escape_html(label) +
+		"</span><span>" +
+		frappe.utils.escape_html(String(value)) +
+		"</span></div>"
+	);
+}
+
+function renderPatientDetailsHtml(patient, row) {
+	const registration =
+		detailRow(__("Clinic ID"), patient.custom_bandhu_id) +
+		detailRow(__("ABHA ID"), patient.custom_abha_id) +
+		detailRow(__("Mobile"), patient.mobile) +
+		detailRow(__("Date of Birth"), patient.dob) +
+		detailRow(__("Height (m)"), patient.custom_height_m) +
+		detailRow(__("Weight (kg)"), patient.custom_weight_kg) +
+		detailRow(__("BMI"), patient.custom_bmi) +
+		detailRow(__("Temperature"), patient.custom_temperature) +
+		detailRow(__("Native State"), patient.custom_native_state) +
+		detailRow(__("Native District"), patient.custom_native_district) +
+		detailRow(__("Sector of Employment"), patient.custom_sector_of_employment) +
+		detailRow(__("Company"), patient.custom_name_of_company);
+
+	const tests = (row.tests || [])
+		.map((t) => {
+			const result = t.result_type
+				? frappe.utils.escape_html(t.result_type) + (t.result_value ? " (" + frappe.utils.escape_html(t.result_value) + ")" : "")
+				: __("pending");
+			return (
+				"<li>" +
+				frappe.utils.escape_html(t.test_name) +
+				" -- " +
+				result +
+				(t.notes ? "<br><small>" + frappe.utils.escape_html(t.notes) + "</small>" : "") +
+				"</li>"
+			);
+		})
+		.join("");
+
+	const prescriptions = (row.prescriptions || [])
+		.map((p) => {
+			const meta = [p.dosage_frequency, p.duration_days ? p.duration_days + "d" : null, p.quantity ? "x" + p.quantity : null]
+				.filter(Boolean)
+				.join(" ");
+			return (
+				"<li>" +
+				frappe.utils.escape_html(p.medicines) +
+				(meta ? " (" + frappe.utils.escape_html(meta) + ")" : "") +
+				(p.dispensed ? " -- " + __("Dispensed") : "") +
+				(p.instructions ? "<br><small>" + frappe.utils.escape_html(p.instructions) + "</small>" : "") +
+				"</li>"
+			);
+		})
+		.join("");
+
+	return (
+		"<h5>" +
+		__("Registration Details") +
+		"</h5>" +
+		registration +
+		(tests ? "<h5 style='margin-top:16px;'>" + __("Tests") + "</h5><ul>" + tests + "</ul>" : "") +
+		(prescriptions ? "<h5 style='margin-top:16px;'>" + __("Prescriptions") + "</h5><ul>" + prescriptions + "</ul>" : "")
+	);
+}
+
+function openTestResultsDialog(page, encounter) {
+	const row = encountersByName[encounter];
+	if (!row) return;
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Enter Test Results"),
+		size: "large",
+		fields: [
+			{
+				fieldtype: "Table",
+				fieldname: "results",
+				label: __("Tests"),
+				cannot_add_rows: true,
+				cannot_delete_rows: true,
+				in_place_edit: false,
+				fields: [
+					{ fieldtype: "Data", fieldname: "test_name", label: __("Test"), in_list_view: 1, read_only: 1 },
+					{
+						fieldtype: "Select",
+						fieldname: "result_type",
+						label: __("Result"),
+						options: "\nPositive\nNegative\nValue",
+						in_list_view: 1,
+					},
+					{ fieldtype: "Data", fieldname: "result_value", label: __("Value"), in_list_view: 1 },
+					{ fieldtype: "Small Text", fieldname: "notes", label: __("Doctor's Notes"), read_only: 1 },
+				],
+				data: (row.tests || []).map((t) => ({ ...t })),
+			},
+		],
+		primary_action_label: __("Save Results"),
+		primary_action: async (values) => {
+			dialog.hide();
+			await submitNurseAction(page, "submit_test_results", {
+				encounter,
+				results: values.results,
+			});
+		},
+	});
+	dialog.show();
+}
+
+function openDispenseDialog(page, encounter) {
+	const row = encountersByName[encounter];
+	if (!row) return;
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Dispense Medicine"),
+		size: "large",
+		fields: [
+			{
+				fieldtype: "Table",
+				fieldname: "prescriptions",
+				label: __("Medicines"),
+				cannot_add_rows: true,
+				cannot_delete_rows: true,
+				in_place_edit: false,
+				fields: [
+					{ fieldtype: "Data", fieldname: "medicines", label: __("Medicine"), in_list_view: 1, read_only: 1 },
+					{ fieldtype: "Small Text", fieldname: "instructions", label: __("Instructions"), read_only: 1 },
+					{ fieldtype: "Check", fieldname: "dispensed", label: __("Dispensed"), in_list_view: 1, default: 1 },
+				],
+				data: (row.prescriptions || []).map((p) => ({ ...p })),
+			},
+		],
+		primary_action_label: __("Complete"),
+		primary_action: async (values) => {
+			const dispensedRows = (values.prescriptions || []).filter((p) => p.dispensed).map((p) => p.name);
+			dialog.hide();
+			await submitNurseAction(page, "dispense_medicine", {
+				encounter,
+				dispensed_rows: dispensedRows,
+			});
+		},
+	});
+	dialog.show();
+}
+
+async function submitNurseAction(page, method, args) {
+	frappe.dom.freeze();
+	try {
+		const r = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form." + method,
+			args,
+		});
+		if (r.message && r.message.success) {
+			frappe.show_alert({ message: __("Saved"), indicator: "green" });
+			await loadQueues(page);
+		}
+	} catch (e) {
+	} finally {
+		frappe.dom.unfreeze();
+	}
+}
+
+function actionButton(encounterName, action, label, primary) {
+	return (
+		'<button type="button" class="btn btn-xs ' +
+		(primary ? "btn-primary" : "btn-default") +
+		' nurse-action-btn" data-encounter="' +
+		frappe.utils.escape_html(encounterName) +
+		'" data-action="' +
+		action +
+		'">' +
+		frappe.utils.escape_html(label) +
+		"</button>"
+	);
+}
+
+function renderQueueActionButtons(p, action) {
+	const buttons = [actionButton(p.name, "details", __("Details"), false)];
+	if (action === "test") {
+		buttons.push(actionButton(p.name, "enter_results", __("Enter Results"), true));
+	} else if (action === "medicine") {
+		buttons.push(actionButton(p.name, "dispense", __("Dispense"), true));
+	}
+	return '<div class="nurse-action-btns">' + buttons.join("") + "</div>";
+}
+
+function renderQueueSection(title, patients, action) {
+	const count = '<span class="queue-meta"> (' + patients.length + ")</span>";
 
 	if (!patients.length) {
 		return (
@@ -261,9 +474,9 @@ function render_queue_section(title, patients) {
 		);
 	}
 
-	var rows = patients
-		.map(function (p) {
-			return (
+	const rows = patients
+		.map(
+			(p) =>
 				'<tr class="nurse-queue-row" data-name="' +
 				frappe.utils.escape_html(p.name) +
 				'">' +
@@ -276,9 +489,11 @@ function render_queue_section(title, patients) {
 				"<td>" +
 				frappe.utils.escape_html(p.patient_sex || "") +
 				"</td>" +
+				"<td>" +
+				renderQueueActionButtons(p, action) +
+				"</td>" +
 				"</tr>"
-			);
-		})
+		)
 		.join("");
 
 	return (
@@ -299,6 +514,9 @@ function render_queue_section(title, patients) {
 		"<th>" +
 		__("Sex") +
 		"</th>" +
+		"<th>" +
+		__("Actions") +
+		"</th>" +
 		"</tr></thead>" +
 		"<tbody>" +
 		rows +
@@ -306,3 +524,15 @@ function render_queue_section(title, patients) {
 		"</table></div></div>"
 	);
 }
+
+frappe.pages["nurse-form"].on_page_load = function (wrapper) {
+	const page = frappe.ui.make_app_page({
+		parent: wrapper,
+		title: __("Nurse"),
+		single_column: true,
+	});
+
+	page.set_secondary_action(__("Refresh"), () => loadDashboard(page));
+
+	loadDashboard(page);
+};

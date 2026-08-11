@@ -5,6 +5,12 @@ app_description = "CMID"
 app_email = "adypatanwar07@gmail.com"
 app_license = "mit"
 
+role_home_page = {
+	"Doctor": "app/doctor-form",
+	"Nurse": "app/nurse-form",
+	"Clinic Assistant cum Driver": "app/cad-form",
+}
+
 # Apps
 # ------------------
 
@@ -267,5 +273,6 @@ doc_events = {
 	},
 	"Patient Encounter": {
 		"validate": "bandhu_app.bandhu_app.utils.patient_encounter.validate_workflow_state",
+		"on_update": "bandhu_app.bandhu_app.utils.patient_encounter.sync_to_queue",
 	},
 }

@@ -1,10 +1,11 @@
-from datetime import date
-
 import frappe
 from frappe import _
 
+from bandhu_app.bandhu_app.utils.patient_details import get_encounter_clinical_details, get_patient_details
+from bandhu_app.bandhu_app.utils.session import find_active_session
 
-def _require_session_access(session_name: str) -> None:
+
+def require_session_access(session_name: str) -> None:
 	user = frappe.session.user
 	roles = frappe.get_roles(user)
 	if "System Manager" in roles:
@@ -28,9 +29,18 @@ def _require_session_access(session_name: str) -> None:
 		)
 
 
+def get_nurse_practitioner():
+	return frappe.db.get_value("Healthcare Practitioner", {"user_id": frappe.session.user}, "name")
+
+
+def load_session_encounter(encounter: str):
+	doc = frappe.get_doc("Patient Encounter", encounter)
+	require_session_access(doc.custom_clinic_session)
+	return doc
+
+
 @frappe.whitelist()
 def get_session_status() -> dict:
-	today = date.today().isoformat()
 	user = frappe.session.user
 
 	roles = frappe.get_roles(user)
@@ -46,20 +56,7 @@ def get_session_status() -> dict:
 	if not practitioner:
 		return {"has_session": False, "message": _("No Healthcare Practitioner linked to your account.")}
 
-	session = frappe.db.get_value(
-		"Bandhu Clinic Session",
-		{"date": today, "assigned_nurse": practitioner, "status": ["!=", "Completed"]},
-		["name", "status", "start_time", "end_time", "clinic", "site"],
-		as_dict=True,
-	)
-
-	if not session:
-		session = frappe.db.get_value(
-			"Bandhu Clinic Session",
-			{"date": today, "assigned_nurse": practitioner},
-			["name", "status", "start_time", "end_time", "clinic", "site"],
-			as_dict=True,
-		)
+	session = find_active_session("assigned_nurse", practitioner)
 
 	if not session:
 		return {
@@ -78,7 +75,7 @@ def get_session_status() -> dict:
 
 @frappe.whitelist()
 def start_session(session_name: str) -> dict:
-	_require_session_access(session_name)
+	require_session_access(session_name)
 	frappe.db.set_value(
 		"Bandhu Clinic Session",
 		session_name,
@@ -89,7 +86,7 @@ def start_session(session_name: str) -> dict:
 
 @frappe.whitelist()
 def end_session(session_name: str) -> dict:
-	_require_session_access(session_name)
+	require_session_access(session_name)
 	frappe.db.set_value(
 		"Bandhu Clinic Session",
 		session_name,
@@ -98,14 +95,13 @@ def end_session(session_name: str) -> dict:
 	return {"success": True}
 
 
-@frappe.whitelist()
-def get_patients_for_tests(session_name: str) -> list:
-	_require_session_access(session_name)
+def get_encounters_with_details(session_name, workflow_state):
 	encounters = frappe.db.get_all(
 		"Patient Encounter",
-		filters={"custom_clinic_session": session_name, "custom_workflow_state": "Awaiting Test"},
+		filters={"custom_clinic_session": session_name, "custom_workflow_state": workflow_state},
 		fields=[
 			"name",
+			"patient",
 			"patient_name",
 			"patient_age",
 			"patient_sex",
@@ -114,93 +110,81 @@ def get_patients_for_tests(session_name: str) -> list:
 		],
 		order_by="encounter_date desc, creation desc",
 	)
+	for encounter in encounters:
+		encounter.update(get_encounter_clinical_details(encounter.name))
+	return encounters
 
-	result = []
-	for enc in encounters:
-		pending_tests = frappe.db.get_all(
-			"Test Instructions",
-			filters={"parent": enc.name},
-			fields=["test_name"],
-		)
-		result.append(
-			{
-				"name": enc.name,
-				"patient_name": enc.patient_name,
-				"patient_age": enc.patient_age,
-				"patient_sex": enc.patient_sex,
-				"encounter_date": enc.encounter_date,
-				"tests": [row.test_name for row in pending_tests],
-				"workflow_status": enc.custom_workflow_state,
-			}
-		)
 
-	return result
+@frappe.whitelist()
+def get_patients_for_tests(session_name: str) -> list:
+	require_session_access(session_name)
+	return get_encounters_with_details(session_name, "Awaiting Test")
 
 
 @frappe.whitelist()
 def get_patients_for_medicines(session_name: str) -> list:
-	_require_session_access(session_name)
-	encounters = frappe.db.get_all(
-		"Patient Encounter",
-		filters={"custom_clinic_session": session_name, "custom_workflow_state": "Awaiting Medicine"},
-		fields=[
-			"name",
-			"patient_name",
-			"patient_age",
-			"patient_sex",
-			"encounter_date",
-			"custom_workflow_state",
-		],
-		order_by="encounter_date desc, creation desc",
-	)
-
-	result = []
-	for enc in encounters:
-		prescriptions = frappe.db.get_all(
-			"Prescription",
-			filters={"parent": enc.name},
-			fields=["medicines"],
-		)
-		result.append(
-			{
-				"name": enc.name,
-				"patient_name": enc.patient_name,
-				"patient_age": enc.patient_age,
-				"patient_sex": enc.patient_sex,
-				"encounter_date": enc.encounter_date,
-				"medicines": [row.medicines for row in prescriptions],
-				"workflow_status": enc.custom_workflow_state,
-			}
-		)
-
-	return result
+	require_session_access(session_name)
+	return get_encounters_with_details(session_name, "Awaiting Medicine")
 
 
 @frappe.whitelist()
 def get_completed_patients(session_name: str) -> list:
-	_require_session_access(session_name)
-	encounters = frappe.db.get_all(
-		"Patient Encounter",
-		filters={"custom_clinic_session": session_name, "custom_workflow_state": "Completed"},
-		fields=[
-			"name",
-			"patient_name",
-			"patient_age",
-			"patient_sex",
-			"encounter_date",
-			"custom_workflow_state",
-		],
-		order_by="encounter_date desc, creation desc",
-	)
+	require_session_access(session_name)
+	return get_encounters_with_details(session_name, "Completed")
 
-	return [
-		{
-			"name": enc.name,
-			"patient_name": enc.patient_name,
-			"patient_age": enc.patient_age,
-			"patient_sex": enc.patient_sex,
-			"encounter_date": enc.encounter_date,
-			"workflow_status": enc.custom_workflow_state,
-		}
-		for enc in encounters
-	]
+
+@frappe.whitelist()
+def get_patient_registration_details(encounter: str) -> dict:
+	doc = load_session_encounter(encounter)
+	return get_patient_details(doc.patient)
+
+
+@frappe.whitelist()
+def submit_test_results(encounter: str, results: list | str) -> dict:
+	doc = load_session_encounter(encounter)
+	if doc.custom_workflow_state != "Awaiting Test":
+		frappe.throw(_("This patient is not awaiting a test."), frappe.ValidationError)
+
+	results = frappe.parse_json(results)
+	rows_by_name = {row.name: row for row in doc.custom_test_instructions}
+	for result in results:
+		row = rows_by_name.get(result.get("name"))
+		if not row:
+			frappe.throw(_("Unknown test row."), frappe.ValidationError)
+		row.result_type = result.get("result_type")
+		row.result_value = result.get("result_value")
+
+	doc.custom_workflow_state = "Awaiting Doctor Review"
+	try:
+		doc.save(ignore_permissions=True)
+	except frappe.ValidationError:
+		frappe.db.rollback()
+		raise
+
+	return {"success": True}
+
+
+@frappe.whitelist()
+def dispense_medicine(encounter: str, dispensed_rows: list | str | None = None) -> dict:
+	doc = load_session_encounter(encounter)
+	if doc.custom_workflow_state != "Awaiting Medicine":
+		frappe.throw(_("This patient is not awaiting medicine."), frappe.ValidationError)
+
+	practitioner = get_nurse_practitioner()
+	dispensed_set = set(frappe.parse_json(dispensed_rows) or [])
+	rows_by_name = {row.name: row for row in doc.custom_bandhu_prescription}
+	for row_name in dispensed_set:
+		row = rows_by_name.get(row_name)
+		if not row:
+			frappe.throw(_("Unknown prescription row."), frappe.ValidationError)
+		row.dispensed = 1
+		row.dispensed_by = practitioner
+
+	doc.custom_workflow_state = "Completed"
+	try:
+		doc.save(ignore_permissions=True)
+	except frappe.ValidationError:
+		frappe.db.rollback()
+		raise
+
+	return {"success": True}

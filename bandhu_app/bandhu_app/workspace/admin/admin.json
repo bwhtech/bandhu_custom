@@ -1,7 +1,7 @@
 {
  "app": "frappe",
  "charts": [],
- "content": "[{\"id\":\"svhROOO8hc\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h2\\\">Admin</span>\",\"col\":12}},{\"id\":\"QkFF9Vyji-\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"LiLCpOur0c\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"SDKV6BOECu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project\",\"col\":6}},{\"id\":\"PAZ1P-VDyt\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Unit\",\"col\":6}},{\"id\":\"dUbpCwsq0E\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"BfzzI8JO2J\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"R_-WXPPbX_\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Site \",\"col\":6}},{\"id\":\"1YeGxof0ys\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Location\",\"col\":6}},{\"id\":\"nsBUEoltBC\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"lXwNUrynE0\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"c5FIOPo6Yv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Healthcare Practitioner\",\"col\":6}},{\"id\":\"RiCNs6Lujd\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle\",\"col\":6}},{\"id\":\"V00RD2h7C9\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"F22d4OkkgK\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"VPcNKsK5e_\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Users\",\"col\":6}},{\"id\":\"E8MXtzx7mB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Roles\",\"col\":6}},{\"id\":\"6lUDMNJGee\",\"type\":\"spacer\",\"data\":{\"col\":12}}]",
+ "content": "[{\"id\": \"svhROOO8hc\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h2\\\">Admin</span>\", \"col\": 12}}, {\"id\": \"QkFF9Vyji-\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"sCadForm01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CAD Front Desk\", \"col\": 4}}, {\"id\": \"sDoctorForm01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Doctor\", \"col\": 4}}, {\"id\": \"sNurseForm01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Nurse\", \"col\": 4}}, {\"id\": \"LiLCpOur0c\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"SDKV6BOECu\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Project\", \"col\": 6}}, {\"id\": \"PAZ1P-VDyt\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Unit\", \"col\": 6}}, {\"id\": \"dUbpCwsq0E\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"BfzzI8JO2J\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"R_-WXPPbX_\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Site \", \"col\": 6}}, {\"id\": \"1YeGxof0ys\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Location\", \"col\": 6}}, {\"id\": \"nsBUEoltBC\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"lXwNUrynE0\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"c5FIOPo6Yv\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Healthcare Practitioner\", \"col\": 6}}, {\"id\": \"RiCNs6Lujd\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Vehicle\", \"col\": 6}}, {\"id\": \"V00RD2h7C9\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"F22d4OkkgK\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"VPcNKsK5e_\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Users\", \"col\": 6}}, {\"id\": \"E8MXtzx7mB\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Roles\", \"col\": 6}}, {\"id\": \"6lUDMNJGee\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"sOnbStaff01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Onboard Staff\", \"col\": 12}}, {\"id\": \"92332ba909\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"4fe2bd9e34\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"d704ca04f1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sessions Running Now\", \"col\": 12}}]",
  "creation": "2026-04-16 23:27:02.949058",
  "custom_blocks": [],
  "docstatus": 0,
@@ -15,7 +15,7 @@
  "label": "Admin",
  "link_type": "DocType",
  "links": [],
- "modified": "2026-07-30 17:10:24.641531",
+ "modified": "2026-08-11 15:30:00.000000",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Admin",
@@ -27,6 +27,27 @@
  "roles": [],
  "sequence_id": 26.0,
  "shortcuts": [
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "CAD Front Desk",
+   "link_to": "cad-form",
+   "type": "Page"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "Doctor",
+   "link_to": "doctor-form",
+   "type": "Page"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "Nurse",
+   "link_to": "nurse-form",
+   "type": "Page"
+  },
   {
    "color": "Grey",
    "doc_view": "List",
@@ -90,6 +111,20 @@
    "link_to": "Healthcare Practitioner",
    "stats_filter": "[]",
    "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "Sessions Running Now",
+   "link_to": "Bandhu Clinic Session",
+   "stats_filter": "[[\"Bandhu Clinic Session\", \"status\", \"=\", \"In Progress\"]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Onboard Staff",
+   "link_to": "staff-onboarding",
+   "type": "Page"
   }
  ],
  "title": "Admin",

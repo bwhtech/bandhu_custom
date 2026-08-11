@@ -4,20 +4,17 @@
  "doctype": "Page",
  "idx": 0,
  "module": "Bandhu App",
- "name": "nurse-form",
+ "name": "staff-onboarding",
  "owner": "Administrator",
- "page_name": "nurse-form",
+ "page_name": "staff-onboarding",
  "roles": [
   {
    "role": "System Manager"
-  },
-  {
-   "role": "Nurse"
   }
  ],
  "script": null,
  "standard": "Yes",
  "style": null,
  "system_page": 0,
- "title": "Nurse"
+ "title": "Staff Onboarding"
 }

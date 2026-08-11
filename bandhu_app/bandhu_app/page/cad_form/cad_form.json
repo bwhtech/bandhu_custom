@@ -4,20 +4,20 @@
  "doctype": "Page",
  "idx": 0,
  "module": "Bandhu App",
- "name": "nurse-form",
+ "name": "cad-form",
  "owner": "Administrator",
- "page_name": "nurse-form",
+ "page_name": "cad-form",
  "roles": [
   {
    "role": "System Manager"
   },
   {
-   "role": "Nurse"
+   "role": "Clinic Assistant cum Driver"
   }
  ],
  "script": null,
  "standard": "Yes",
  "style": null,
  "system_page": 0,
- "title": "Nurse"
+ "title": "CAD Front Desk"
 }

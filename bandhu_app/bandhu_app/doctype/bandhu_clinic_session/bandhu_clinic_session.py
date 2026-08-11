@@ -1,8 +1,15 @@
 # Copyright (c) 2026, CMID and contributors
 # For license information, please see license.txt
 
-# import frappe
+import frappe
+from frappe import _
 from frappe.model.document import Document
+
+ASSIGNMENT_ROLE_BY_FIELD = {
+	"assigned_doctor": "Doctor",
+	"assigned_nurse": "Nurse",
+	"assigned_driver": "Clinic Assistant cum Driver",
+}
 
 
 class BandhuClinicSession(Document):
@@ -31,4 +38,22 @@ class BandhuClinicSession(Document):
 		vehicle: DF.Link | None
 	# end: auto-generated types
 
-	pass
+	def validate(self):
+		self.validate_assignment_roles()
+
+	def validate_assignment_roles(self):
+		for fieldname, required_role in ASSIGNMENT_ROLE_BY_FIELD.items():
+			practitioner = self.get(fieldname)
+			if not practitioner:
+				continue
+			actual_role = frappe.db.get_value("Healthcare Practitioner", practitioner, "custom_role")
+			if actual_role != required_role:
+				frappe.throw(
+					_("{0} must be a Healthcare Practitioner with role {1}, but {2} has role {3}.").format(
+						self.meta.get_field(fieldname).label,
+						required_role,
+						practitioner,
+						actual_role or _("(none)"),
+					),
+					frappe.ValidationError,
+				)
