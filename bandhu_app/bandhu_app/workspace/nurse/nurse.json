@@ -24,7 +24,14 @@
  "parent_page": "",
  "public": 1,
  "quick_lists": [],
- "roles": [],
+ "roles": [
+  {
+   "role": "Nurse"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
  "sequence_id": 31.0,
  "shortcuts": [
   {

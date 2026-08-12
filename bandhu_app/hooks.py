@@ -5,12 +5,6 @@ app_description = "CMID"
 app_email = "adypatanwar07@gmail.com"
 app_license = "mit"
 
-role_home_page = {
-	"Doctor": "app/doctor-form",
-	"Nurse": "app/nurse-form",
-	"Clinic Assistant cum Driver": "app/cad-form",
-}
-
 # Apps
 # ------------------
 
@@ -32,7 +26,7 @@ role_home_page = {
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/bandhu_app/css/bandhu_app.css"
-# app_include_js = "/assets/bandhu_app/js/bandhu_app.js"
+app_include_js = "/assets/bandhu_app/js/workspace_redirect.js?v=2"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/bandhu_app/css/bandhu_app.css"
@@ -93,6 +87,11 @@ doctype_js = {"Patient": "public/js/patient.js"}
 
 # before_install = "bandhu_app.install.before_install"
 # after_install = "bandhu_app.install.after_install"
+
+# Migration
+# ------------
+
+after_migrate = ["bandhu_app.bandhu_app.utils.desk_visibility.restrict_other_app_desktop_icons"]
 
 # Uninstallation
 # ------------
