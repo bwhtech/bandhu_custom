@@ -101,11 +101,54 @@ def search_patient(query: str) -> list:
 	)
 
 
+PATIENT_CARD_PRINT_FORMAT = "Bandhu Patient Card"
+
+
+@frappe.whitelist()
+def get_patient_card_html(patient: str) -> str:
+	"""Render the printable card for one patient.
+
+	The CAD role holds no Patient DocType permission at all — every patient-facing call on
+	this page crosses that boundary behind require_cad_access(), and this is the same
+	crossing. It renders one named patient into a fixed print format that carries only what
+	is already printed on the card, so it grants no wider read than the CAD already has via
+	search_patient.
+	"""
+	require_cad_access()
+
+	patient = (patient or "").strip()
+	if not frappe.db.exists("Patient", patient):
+		frappe.throw(_("Patient not found."), frappe.DoesNotExistError)
+
+	# Rendering a print format checks the Patient print permission, which this role does not
+	# hold. The flag is Frappe's own way to render on behalf of a caller that has already
+	# been authorised by other means, as require_cad_access() has done above.
+	frappe.flags.ignore_print_permissions = True
+	try:
+		return frappe.get_print(
+			"Patient",
+			patient,
+			print_format=PATIENT_CARD_PRINT_FORMAT,
+			no_letterhead=True,
+		)
+	finally:
+		frappe.flags.ignore_print_permissions = False
+
+
+def resolve_registration_origin(session: str) -> tuple[str | None, str | None]:
+	"""The LSG and unit whose numeric codes get baked into the patient's Clinic ID."""
+	session_site, unit = frappe.db.get_value("Bandhu Clinic Session", session, ["site", "unit"])
+	location = frappe.db.get_value("Site", session_site, "location") if session_site else None
+
+	return location, unit
+
+
 @frappe.whitelist()
 def register_patient(
 	full_name: str,
 	dob: str,
 	sex: str,
+	session: str | None = None,
 	mobile: str | None = None,
 	height_cm: float | None = None,
 	weight_kg: float | None = None,
@@ -115,7 +158,13 @@ def register_patient(
 	company_name: str | None = None,
 	abha_id: str | None = None,
 ) -> str:
-	require_cad_access()
+	# Gate on the session rather than the role alone: the session decides which LSG and
+	# unit codes end up in the patient's permanent Clinic ID.
+	session = (session or "").strip() or None
+	if session:
+		require_session_access(session)
+	else:
+		require_cad_access()
 
 	full_name = (full_name or "").strip()
 	dob = (dob or "").strip()
@@ -143,8 +192,12 @@ def register_patient(
 	first_name = name_parts[0]
 	last_name = name_parts[1] if len(name_parts) > 1 else None
 
+	registered_lsg, registered_unit = resolve_registration_origin(session) if session else (None, None)
+
 	patient_fields = {
 		"doctype": "Patient",
+		"custom_registered_lsg": registered_lsg,
+		"custom_registered_unit": registered_unit,
 		"first_name": first_name,
 		"last_name": last_name,
 		"sex": sex,
@@ -252,14 +305,15 @@ def get_today_queue(session: str) -> list:
 	patients = frappe.get_all(
 		"Patient",
 		filters={"name": ["in", list(patient_names)]},
-		fields=["name", "patient_name"],
+		fields=["name", "patient_name", "custom_bandhu_id"],
 	)
-	name_by_patient = {p.name: p.patient_name for p in patients}
+	patient_by_name = {p.name: p for p in patients}
 
 	return [
 		{
 			"patient": row.patient,
-			"patient_name": name_by_patient.get(row.patient, ""),
+			"patient_name": patient_by_name.get(row.patient, {}).get("patient_name", ""),
+			"clinic_id": patient_by_name.get(row.patient, {}).get("custom_bandhu_id", ""),
 			"current_stage": row.current_stage,
 			"status": row.status,
 		}

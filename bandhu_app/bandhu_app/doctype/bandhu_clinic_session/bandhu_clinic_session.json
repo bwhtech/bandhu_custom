@@ -10,6 +10,7 @@
   "status",
   "site",
   "project",
+  "unit",
   "column_break_qtbr",
   "date",
   "start_time",
@@ -48,6 +49,13 @@
    "label": "Site",
    "options": "Site",
    "reqd": 1
+  },
+  {
+   "description": "Its numeric code becomes the third digit of every Clinic ID issued in this session.",
+   "fieldname": "unit",
+   "fieldtype": "Link",
+   "label": "Unit",
+   "options": "Unit"
   },
   {
    "fieldname": "column_break_qtbr",

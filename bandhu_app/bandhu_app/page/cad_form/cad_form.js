@@ -8,7 +8,9 @@ const CAD_CSS =
 	".cad-dash .search-row{display:flex;gap:var(--padding-sm);}" +
 	".cad-dash .search-row input{flex:1;}" +
 	".cad-dash .cad-search-results{margin-top:var(--margin-sm);}" +
-	".cad-dash .patient-result-row{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--border-color);border-radius:var(--border-radius-md);margin-bottom:6px;cursor:pointer;background:var(--bg-color);}" +
+	".cad-dash .patient-result-row{display:flex;align-items:center;gap:var(--padding-sm);padding:10px 12px;border:1px solid var(--border-color);border-radius:var(--border-radius-md);margin-bottom:6px;cursor:pointer;background:var(--bg-color);}" +
+	".cad-dash .patient-result-row .pr-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}" +
+	".cad-dash .queue-clinic-id{font-family:monospace;letter-spacing:0.5px;white-space:nowrap;}" +
 	".cad-dash .patient-result-row:hover{border-color:var(--primary-color);}" +
 	".cad-dash .patient-result-row .pr-name{font-weight:var(--weight-semibold);color:var(--heading-color);}" +
 	".cad-dash .patient-result-row .pr-meta{font-size:var(--text-xs);color:var(--text-muted);}" +
@@ -161,11 +163,15 @@ function renderFrontDesk(page, data) {
 		__("Patient") +
 		"</th>" +
 		"<th>" +
+		__("Clinic ID") +
+		"</th>" +
+		"<th>" +
 		__("Stage") +
 		"</th>" +
 		"<th>" +
 		__("Status") +
 		"</th>" +
+		"<th></th>" +
 		"</tr></thead>" +
 		'<tbody class="cad-queue-body"></tbody>' +
 		"</table></div></div>" +
@@ -175,6 +181,46 @@ function renderFrontDesk(page, data) {
 	bindSearchEvents(page);
 	bindRegisterEvents(page);
 	loadQueue(page);
+	focus_scan_input(page);
+}
+
+// A USB barcode scanner is a keyboard: it types the Clinic ID and presses Enter. That only
+// reaches the search box if the box already holds focus when the card is scanned.
+function focus_scan_input(page) {
+	page.main.find(".cad-search-input").trigger("focus");
+}
+
+// The CAD role holds no print permission on Patient, so /printview would refuse. The card
+// comes back through the page's own role-gated endpoint instead.
+async function print_patient_card(patient) {
+	if (!patient) return;
+
+	frappe.dom.freeze();
+	let card_html;
+	try {
+		const response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_patient_card_html",
+			args: { patient },
+		});
+		card_html = response.message;
+	} catch (e) {
+		return;
+	} finally {
+		frappe.dom.unfreeze();
+	}
+
+	if (!card_html) return;
+
+	const card_window = window.open("", "_blank");
+	if (!card_window) {
+		frappe.msgprint(__("Allow pop-ups for this site to print the patient card."));
+		return;
+	}
+
+	card_window.document.write(card_html);
+	card_window.document.close();
+	card_window.focus();
+	card_window.print();
 }
 
 function renderWelcome() {
@@ -212,7 +258,7 @@ function renderSearchSection() {
 		"</h4>" +
 		'<div class="search-row">' +
 		'<input type="text" class="form-control cad-search-input" placeholder="' +
-		frappe.utils.escape_html(__("Search by Clinic ID, ABHA ID, Mobile, Name or DOB")) +
+		frappe.utils.escape_html(__("Scan the patient's card, or search by Clinic ID, ABHA ID, Mobile, Name or DOB")) +
 		'">' +
 		'<button class="btn btn-primary cad-search-btn">' +
 		__("Search") +
@@ -313,32 +359,83 @@ function bindSearchEvents(page) {
 		if (e.which === 13) searchPatients(page);
 	});
 
+	// bound before the row handler so printing a card does not also queue the patient
+	page.main.off("click", ".pr-print-btn").on("click", ".pr-print-btn", function (event) {
+		event.stopPropagation();
+		print_patient_card($(this).data("patient"));
+	});
+
+	page.main.off("click", ".queue-print-btn").on("click", ".queue-print-btn", function () {
+		print_patient_card($(this).data("patient"));
+	});
+
 	page.main.off("click", ".patient-result-row").on("click", ".patient-result-row", function () {
 		const patient = $(this).data("patient");
 		frappe.confirm(__("Add this patient to today's queue?"), async () => {
 			await addPatientToQueue(page, patient, () => {
 				page.main.find(".cad-search-results").empty();
 				page.main.find(".cad-search-input").val("");
+				focus_scan_input(page);
 			});
 		});
 	});
 }
 
 async function searchPatients(page) {
-	const query = page.main.find(".cad-search-input").val();
-	if (!query || !query.trim()) return;
+	const query = (page.main.find(".cad-search-input").val() || "").trim();
+	if (!query) return;
 
+	let results;
 	frappe.dom.freeze();
 	try {
 		const r = await frappe.call({
 			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.search_patient",
-			args: { query: query.trim() },
+			args: { query },
 		});
-		renderSearchResults(page, r.message || []);
+		results = r.message || [];
 	} catch (e) {
+		return;
 	} finally {
 		frappe.dom.unfreeze();
 	}
+
+	const scanned = match_scanned_card(query, results);
+	if (scanned) {
+		queue_scanned_patient(page, scanned);
+		return;
+	}
+
+	renderSearchResults(page, results);
+}
+
+// Ten digits is the current Clinic ID; BMC-##### is the format issued before this one and
+// still printed on cards in circulation.
+const CLINIC_ID_PATTERN = /^(?:\d{10}|BMC-\d+)$/i;
+
+function match_scanned_card(query, results) {
+	if (!CLINIC_ID_PATTERN.test(query)) return null;
+
+	const exact = results.filter((patient) => (patient.custom_bandhu_id || "").toUpperCase() === query.toUpperCase());
+
+	// Anything other than a single exact hit goes to the normal list, so the CAD sees the
+	// ambiguity rather than having the screen pick a patient for them.
+	return exact.length === 1 ? exact[0] : null;
+}
+
+function queue_scanned_patient(page, patient) {
+	frappe.confirm(
+		__("Add {0} ({1}) to today's queue?", [patient.patient_name || "", patient.custom_bandhu_id || ""]),
+		async () => {
+			await addPatientToQueue(page, patient.name, () => {
+				page.main.find(".cad-search-results").empty();
+				page.main.find(".cad-search-input").val("");
+				focus_scan_input(page);
+			});
+		},
+		() => {
+			page.main.find(".cad-search-input").val("").trigger("focus");
+		}
+	);
 }
 
 function renderSearchResults(page, results) {
@@ -357,12 +454,19 @@ function renderSearchResults(page, results) {
 				'<div class="patient-result-row" data-patient="' +
 				frappe.utils.escape_html(p.name) +
 				'">' +
+				'<div class="pr-info">' +
 				'<span class="pr-name">' +
 				frappe.utils.escape_html(p.patient_name || "") +
 				"</span>" +
 				'<span class="pr-meta">' +
 				meta +
 				"</span>" +
+				"</div>" +
+				'<button class="btn btn-xs btn-default pr-print-btn" data-patient="' +
+				frappe.utils.escape_html(p.name) +
+				'">' +
+				__("Print Card") +
+				"</button>" +
 				"</div>"
 			);
 		})
@@ -420,6 +524,7 @@ async function submitRegistration(page) {
 		full_name: values.full_name.trim(),
 		dob: values.dob,
 		sex: values.sex,
+		session: cadSession.session_name,
 	};
 	if (values.mobile) args.mobile = values.mobile;
 	if (values.height_cm) args.height_cm = values.height_cm;
@@ -450,7 +555,13 @@ async function submitRegistration(page) {
 		page.main.find(".cad-register-form").hide();
 		page.main.find(".cad-field").val("");
 		page.main.find(".sex-btn").removeClass("btn-primary active").addClass("btn-default");
+		focus_scan_input(page);
 	});
+
+	// No print prompt here. The patient's row in the queue carries its own Print Card
+	// button, so the card can be printed now or at any point during the visit without a
+	// dialog interrupting the next registration.
+	frappe.show_alert({ message: __("Patient registered."), indicator: "green" });
 }
 
 async function addPatientToQueue(page, patient, onSuccess) {
@@ -485,7 +596,7 @@ function renderQueueTable(page, rows) {
 
 	if (!rows.length) {
 		body.html(
-			'<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">' + __("No patients in queue yet.") + "</td></tr>"
+			'<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">' + __("No patients in queue yet.") + "</td></tr>"
 		);
 		return;
 	}
@@ -497,17 +608,33 @@ function renderQueueTable(page, rows) {
 				"<td>" +
 				frappe.utils.escape_html(row.patient_name || "") +
 				"</td>" +
+				'<td class="queue-clinic-id">' +
+				frappe.utils.escape_html(group_clinic_id(row.clinic_id)) +
+				"</td>" +
 				"<td>" +
 				frappe.utils.escape_html(row.current_stage || "") +
 				"</td>" +
 				"<td>" +
 				frappe.utils.escape_html(row.status || "") +
 				"</td>" +
+				'<td><button class="btn btn-xs btn-default queue-print-btn" data-patient="' +
+				frappe.utils.escape_html(row.patient || "") +
+				'">' +
+				__("Print Card") +
+				"</button></td>" +
 				"</tr>"
 		)
 		.join("");
 
 	body.html(html);
+}
+
+// Ten digits in one run are hard to read off a screen and repeat back to a patient.
+function group_clinic_id(clinic_id) {
+	if (!clinic_id) return "";
+	if (!/^\d{10}$/.test(clinic_id)) return clinic_id;
+
+	return clinic_id.slice(0, 2) + " " + clinic_id[2] + " " + clinic_id.slice(3, 5) + " " + clinic_id.slice(5);
 }
 
 frappe.pages["cad-form"].on_page_load = function (wrapper) {

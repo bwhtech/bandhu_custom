@@ -35,6 +35,7 @@ class BandhuClinicSession(Document):
 		site: DF.Link
 		start_time: DF.Datetime | None
 		status: DF.Literal["Planned", "In Progress", "Completed"]
+		unit: DF.Link | None
 		vehicle: DF.Link | None
 	# end: auto-generated types
 

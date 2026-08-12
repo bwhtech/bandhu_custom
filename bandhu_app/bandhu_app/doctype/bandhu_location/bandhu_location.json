@@ -8,6 +8,7 @@
   "location_name",
   "lsg",
   "lsg_code",
+  "lsg_numeric_code",
   "column_break_prbi",
   "phcchc",
   "district",
@@ -47,6 +48,14 @@
    "fieldname": "lsg_code",
    "fieldtype": "Data",
    "label": "LSG Code"
+  },
+  {
+   "description": "Two digits. Forms the first block of every Clinic ID issued at this location. Never change once patients have been registered here.",
+   "fieldname": "lsg_numeric_code",
+   "fieldtype": "Data",
+   "label": "LSG Numeric Code",
+   "length": 2,
+   "unique": 1
   }
  ],
  "grid_page_length": 50,

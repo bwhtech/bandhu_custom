@@ -8,6 +8,7 @@ from frappe.utils import today
 from bandhu_app.bandhu_app.page.cad_form.cad_form import (
 	create_encounter,
 	get_form_options,
+	get_patient_card_html,
 	get_session_status,
 	get_today_queue,
 	register_patient,
@@ -236,6 +237,28 @@ class IntegrationTestCadForm(IntegrationTestCase):
 
 		self.assertFalse(frappe.db.exists("Patient Encounter", {"patient": patient.name}))
 
+	def test_get_patient_card_html_renders_for_cad_without_patient_permission(self):
+		patient = self._make_patient("Test Card Patient")
+		clinic_id = frappe.db.get_value("Patient", patient.name, "custom_bandhu_id")
+
+		frappe.set_user(self.cad_user)
+		try:
+			self.assertFalse(frappe.has_permission("Patient", "print"))
+			card_html = get_patient_card_html(patient.name)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertIn("bandhu-card", card_html)
+		self.assertIn(clinic_id, card_html.replace(" ", ""))
+		self.assertFalse(frappe.flags.ignore_print_permissions)
+
+	def test_get_patient_card_html_rejects_unknown_patient(self):
+		frappe.set_user(self.cad_user)
+		try:
+			self.assertRaises(frappe.DoesNotExistError, get_patient_card_html, "No Such Patient")
+		finally:
+			frappe.set_user("Administrator")
+
 	def test_unprivileged_user_is_blocked(self):
 		patient = self._make_patient("Test Blocked Patient")
 
@@ -252,5 +275,6 @@ class IntegrationTestCadForm(IntegrationTestCase):
 			)
 			self.assertRaises(frappe.PermissionError, create_encounter, patient.name, self.session)
 			self.assertRaises(frappe.PermissionError, get_today_queue, self.session)
+			self.assertRaises(frappe.PermissionError, get_patient_card_html, patient.name)
 		finally:
 			frappe.set_user("Administrator")
