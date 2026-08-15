@@ -31,10 +31,13 @@ class BandhuClinicSession(Document):
 		distance_travelled_km: DF.Data | None
 		end_time: DF.Datetime | None
 		notes: DF.SmallText | None
+		planned_end_time: DF.Time | None
+		planned_start_time: DF.Time | None
 		project: DF.Link
+		session_schedule: DF.Link | None
 		site: DF.Link
 		start_time: DF.Datetime | None
-		status: DF.Literal["Planned", "In Progress", "Completed"]
+		status: DF.Literal["Planned", "In Progress", "Completed", "Cancelled"]
 		unit: DF.Link | None
 		vehicle: DF.Link | None
 	# end: auto-generated types

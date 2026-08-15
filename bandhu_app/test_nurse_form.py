@@ -3,11 +3,13 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import nowtime, today
+from frappe.utils import add_days, nowtime, today
 
 from bandhu_app.bandhu_app.page.nurse_form.nurse_form import (
 	dispense_medicine,
+	end_session,
 	get_patient_registration_details,
+	start_session,
 	submit_test_results,
 )
 
@@ -265,3 +267,80 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 
 		self.assertEqual(details.custom_height_m, 1.6)
 		self.assertEqual(details.custom_weight_kg, 55)
+
+	def _make_session_with(self, status, date):
+		doc = frappe.get_doc(
+			{
+				"doctype": "Bandhu Clinic Session",
+				"date": date,
+				"clinic": self.clinic,
+				"site": self.site,
+				"project": self.project,
+				"assigned_nurse": self.nurse_practitioner,
+				"status": status,
+			}
+		).insert(ignore_permissions=True)
+		return doc.name
+
+	def test_closed_camp_cannot_be_reopened(self):
+		session = self._make_session_with("Completed", today())
+
+		frappe.set_user(self.nurse_user)
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				start_session(session)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Completed")
+
+	def test_camp_cannot_be_opened_on_another_day(self):
+		session = self._make_session_with("Planned", add_days(today(), 7))
+
+		frappe.set_user(self.nurse_user)
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				start_session(session)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Planned")
+
+	def test_cancelled_camp_cannot_be_opened_or_closed(self):
+		session = self._make_session_with("Cancelled", today())
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(frappe.ValidationError, start_session, session)
+			self.assertRaises(frappe.ValidationError, end_session, session)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Cancelled")
+
+	def test_camp_that_is_not_open_cannot_be_closed(self):
+		session = self._make_session_with("Planned", today())
+
+		frappe.set_user(self.nurse_user)
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				end_session(session)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Planned")
+
+	def test_todays_planned_camp_opens_and_closes(self):
+		session = self._make_session_with("Planned", today())
+
+		frappe.set_user(self.nurse_user)
+		try:
+			start_session(session)
+			self.assertEqual(
+				frappe.db.get_value("Bandhu Clinic Session", session, "status"), "In Progress"
+			)
+			end_session(session)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Completed")

@@ -44,5 +44,33 @@ frappe.ui.form.on("Bandhu Clinic Session", {
 				frappe.show_alert({ message: __("Session Completed"), indicator: "blue" });
 			});
 		}
+
+		// A cancelled session stays on record on purpose: the recurring schedule skips any
+		// date that already has a session, so the cancellation is what stops tonight's job
+		// from putting this one back.
+		if (frm.doc.status === "Planned") {
+			frm.add_custom_button(__("Cancel Session"), async () => {
+				const confirmed = await new Promise((resolve) => {
+					frappe.confirm(
+						__("Cancel this session? It will not be recreated by the schedule."),
+						() => resolve(true),
+						() => resolve(false)
+					);
+				});
+				if (!confirmed) return;
+
+				frm.set_value("status", "Cancelled");
+				await frm.save();
+				frappe.show_alert({ message: __("Session Cancelled"), indicator: "red" });
+			});
+		}
+
+		if (frm.doc.status === "Cancelled") {
+			frm.add_custom_button(__("Reopen Session"), async () => {
+				frm.set_value("status", "Planned");
+				await frm.save();
+				frappe.show_alert({ message: __("Session Reopened"), indicator: "green" });
+			});
+		}
 	},
 });

@@ -1,0 +1,29 @@
+{
+ "content": null,
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "module": "Bandhu App",
+ "name": "my-schedule",
+ "owner": "Administrator",
+ "page_name": "my-schedule",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Doctor"
+  },
+  {
+   "role": "Nurse"
+  },
+  {
+   "role": "Clinic Assistant cum Driver"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "My Schedule"
+}

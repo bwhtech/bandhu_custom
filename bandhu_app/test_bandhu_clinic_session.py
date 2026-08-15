@@ -100,3 +100,20 @@ class IntegrationTestBandhuClinicSession(IntegrationTestCase):
 		driver = self._make_practitioner("Idle Test Driver", "Clinic Assistant cum Driver")
 		result = find_active_session("assigned_driver", driver)
 		self.assertIsNone(result)
+
+	def test_find_active_session_returns_the_readable_site_name(self):
+		driver = self._make_practitioner("Site Label Test Driver", "Clinic Assistant cum Driver")
+		# Site is autonamed SITE-.####, so a fresh record is guaranteed to have an id that
+		# differs from its name — which is the whole thing being asserted.
+		site = frappe.get_doc({"doctype": "Site", "site_name": "Site Label Test Camp"}).insert(
+			ignore_permissions=True
+		)
+		self.assertNotEqual(site.name, site.site_name)
+
+		frappe.get_doc(
+			self._session_fields(assigned_driver=driver, status="In Progress", site=site.name)
+		).insert(ignore_permissions=True)
+
+		result = find_active_session("assigned_driver", driver)
+
+		self.assertEqual(result.site, "Site Label Test Camp")

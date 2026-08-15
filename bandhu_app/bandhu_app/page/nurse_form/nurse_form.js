@@ -1,7 +1,14 @@
 const NURSE_CSS =
 	".nurse-dash{--max-w:var(--page-max-width,1000px);max-width:var(--max-w);margin:0 auto;padding:0 var(--padding-md);}" +
+	".nurse-dash .upcoming-card{margin-top:var(--margin-lg);border:1px solid var(--border-color);border-radius:var(--border-radius-md);background:var(--bg-color);padding:var(--padding-md);}" +
+	".nurse-dash .upcoming-title{font-size:var(--text-sm);font-weight:var(--weight-semibold);color:var(--heading-color);margin-bottom:var(--margin-sm);}" +
+	".nurse-dash .upcoming-row{display:flex;gap:var(--padding-md);justify-content:space-between;padding:6px 0;font-size:var(--text-sm);border-bottom:1px solid var(--border-color);}" +
+	".nurse-dash .upcoming-row:last-child{border-bottom:none;}" +
+	".nurse-dash .upcoming-date{font-weight:var(--weight-semibold);white-space:nowrap;}" +
+	".nurse-dash .upcoming-site{flex:1;color:var(--text-muted);}" +
+	".nurse-dash .upcoming-time{color:var(--text-muted);white-space:nowrap;}" +
 	".nurse-dash .empty-state{display:flex;flex-direction:column;align-items:center;padding:var(--padding-2xl) var(--padding-md);border:1px solid var(--border-color);border-radius:var(--border-radius-md);color:var(--text-muted);background:var(--bg-color);}" +
-	".nurse-dash .table-wrap{overflow:auto;border:1px solid var(--table-border-color);border-radius:var(--border-radius-md);margin-top:var(--margin-sm);max-height:360px;}" +
+	".nurse-dash .table-wrap{overflow:auto;border:1px solid var(--table-border-color);border-radius:var(--border-radius-md);margin-top:var(--margin-sm);}" +
 	".nurse-dash .table{margin-bottom:0;min-width:480px;}" +
 	".nurse-dash .table thead{position:sticky;top:0;z-index:1;}" +
 	".nurse-dash .table th{background:var(--subtle-fg);padding:8px 12px;font-size:var(--text-sm);font-weight:var(--weight-semibold);color:var(--heading-color);white-space:nowrap;border-bottom:1px solid var(--table-border-color);}" +
@@ -50,7 +57,9 @@ async function loadDashboard(page) {
 				'<i class="fa fa-calendar-o" style="font-size:32px;margin-bottom:10px;opacity:0.4;"></i>' +
 				'<span style="font-size:var(--text-sm);">' +
 				frappe.utils.escape_html(data.message) +
-				"</span></div></div>"
+				"</span></div>" +
+				renderUpcomingSessions(await getUpcomingSessions()) +
+				"</div>"
 		);
 		return;
 	}
@@ -211,6 +220,60 @@ function renderWelcome() {
 		__("Welcome, {0}", [frappe.user_info().fullname]) +
 		"</h3></div>"
 	);
+}
+
+async function getUpcomingSessions() {
+	try {
+		const response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_upcoming_sessions",
+		});
+		return (response && response.message) || [];
+	} catch (e) {
+		// The upcoming list is informational; failing to load it must not blank the page.
+		return [];
+	}
+}
+
+function renderUpcomingSessions(sessions) {
+	if (!sessions || !sessions.length) return "";
+
+	const rows = sessions
+		.map(
+			(session) =>
+				'<div class="upcoming-row">' +
+				'<span class="upcoming-date">' +
+				frappe.utils.escape_html(frappe.datetime.str_to_user(session.date)) +
+				"</span>" +
+				'<span class="upcoming-site">' +
+				frappe.utils.escape_html(session.site || "") +
+				"</span>" +
+				'<span class="upcoming-time">' +
+				frappe.utils.escape_html(formatPlannedWindow(session)) +
+				"</span></div>"
+		)
+		.join("");
+
+	return (
+		'<div class="upcoming-card"><div class="upcoming-title">' +
+		__("Your Upcoming Sessions") +
+		"</div>" +
+		rows +
+		"</div>"
+	);
+}
+
+function formatPlannedWindow(session) {
+	if (!session.planned_start_time) return "";
+	const start = formatClockTime(session.planned_start_time);
+	return session.planned_end_time
+		? start + " - " + formatClockTime(session.planned_end_time)
+		: start;
+}
+
+// A Time field arrives as "9:30:00", not "09:30:00", so it cannot simply be truncated.
+function formatClockTime(value) {
+	const [hours, minutes] = String(value).split(":");
+	return hours.padStart(2, "0") + ":" + (minutes || "00").padStart(2, "0");
 }
 
 function renderSessionInfo(session) {
@@ -533,6 +596,7 @@ frappe.pages["nurse-form"].on_page_load = function (wrapper) {
 	});
 
 	page.set_secondary_action(__("Refresh"), () => loadDashboard(page));
+	page.set_primary_action(__("My Schedule"), () => frappe.set_route("my-schedule"), "calendar");
 
 	loadDashboard(page);
 };

@@ -60,8 +60,8 @@ class IntegrationTestStaffOnboarding(IntegrationTestCase):
 	def test_get_form_options_returns_real_masters(self):
 		options = self._as_system_manager(get_form_options)
 		self.assertEqual(set(options["roles"]), set(PROVISIONABLE_ROLES))
-		self.assertIn("Male", options["genders"])
-		self.assertIn("Female", options["genders"])
+		# The Gender master holds seven; the form offers the three the paper forms use.
+		self.assertEqual(options["genders"], ["Male", "Female", "Other"])
 
 	def test_provision_creates_linked_user_and_practitioner(self):
 		email = "test.onboard.newdoctor@bandhuapp.test"

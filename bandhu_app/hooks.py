@@ -148,23 +148,11 @@ after_migrate = ["bandhu_app.bandhu_app.utils.desk_visibility.restrict_other_app
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"bandhu_app.tasks.all"
-# 	],
-# 	"daily": [
-# 		"bandhu_app.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"bandhu_app.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"bandhu_app.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"bandhu_app.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"daily": [
+		"bandhu_app.bandhu_app.utils.session_schedule.generate_scheduled_sessions",
+	],
+}
 
 # Testing
 # -------

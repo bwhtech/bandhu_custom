@@ -6,6 +6,10 @@ from frappe.utils import validate_email_address, validate_phone_number
 
 PROVISIONABLE_ROLES = ["Doctor", "Nurse", "Clinic Assistant cum Driver"]
 
+# The Gender master ships seven records from Frappe. Field staff records are collected on
+# paper forms that offer three, and the CAD patient form already offers the same three.
+OFFERED_GENDERS = ["Male", "Female", "Other"]
+
 
 def require_system_manager() -> None:
 	if "System Manager" not in frappe.get_roles():
@@ -18,7 +22,10 @@ def require_system_manager() -> None:
 @frappe.whitelist()
 def get_form_options() -> dict:
 	require_system_manager()
-	genders = frappe.get_all("Gender", pluck="name", order_by="name asc")
+	# Offer only what the master actually holds, so the form can never post a value that
+	# fails Link validation on save.
+	existing = set(frappe.get_all("Gender", pluck="name"))
+	genders = [gender for gender in OFFERED_GENDERS if gender in existing]
 	return {"roles": PROVISIONABLE_ROLES, "genders": genders}
 
 

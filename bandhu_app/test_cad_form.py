@@ -259,6 +259,44 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		finally:
 			frappe.set_user("Administrator")
 
+	def test_register_patient_rejects_a_cancelled_session(self):
+		cancelled_session = self._make_session(
+			self.cad_practitioner, self.doctor_practitioner, status="Cancelled"
+		)
+
+		frappe.set_user(self.cad_user)
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				register_patient(
+					full_name="Cancelled Camp Patient",
+					dob="1990-01-01",
+					sex=self.gender,
+					session=cancelled_session,
+				)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertFalse(frappe.db.exists("Patient", {"patient_name": "Cancelled Camp Patient"}))
+
+	def test_register_patient_rejects_a_session_that_has_not_started(self):
+		planned_session = self._make_session(
+			self.cad_practitioner, self.doctor_practitioner, status="Planned"
+		)
+
+		frappe.set_user(self.cad_user)
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				register_patient(
+					full_name="Planned Camp Patient",
+					dob="1990-01-01",
+					sex=self.gender,
+					session=planned_session,
+				)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertFalse(frappe.db.exists("Patient", {"patient_name": "Planned Camp Patient"}))
+
 	def test_unprivileged_user_is_blocked(self):
 		patient = self._make_patient("Test Blocked Patient")
 

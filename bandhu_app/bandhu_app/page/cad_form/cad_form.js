@@ -23,7 +23,7 @@ const CAD_CSS =
 	".cad-dash .sex-btn{flex:1;}" +
 	".cad-dash .register-actions{margin-top:var(--margin-lg);display:flex;justify-content:flex-end;}" +
 	".cad-dash .cad-queue-section{margin-top:var(--margin-xl);}" +
-	".cad-dash .table-wrap{overflow:auto;border:1px solid var(--table-border-color);border-radius:var(--border-radius-md);margin-top:var(--margin-sm);max-height:360px;}" +
+	".cad-dash .table-wrap{overflow:auto;border:1px solid var(--table-border-color);border-radius:var(--border-radius-md);margin-top:var(--margin-sm);}" +
 	".cad-dash .table{margin-bottom:0;min-width:400px;}" +
 	".cad-dash .table thead{position:sticky;top:0;z-index:1;}" +
 	".cad-dash .table th{background:var(--subtle-fg);padding:8px 12px;font-size:var(--text-sm);font-weight:var(--weight-semibold);color:var(--heading-color);white-space:nowrap;border-bottom:1px solid var(--table-border-color);}" +
@@ -645,6 +645,7 @@ frappe.pages["cad-form"].on_page_load = function (wrapper) {
 	});
 
 	page.set_secondary_action(__("Refresh"), () => loadDashboard(page));
+	page.set_primary_action(__("My Schedule"), () => frappe.set_route("my-schedule"), "calendar");
 
 	loadDashboard(page);
 };

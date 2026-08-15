@@ -1,8 +1,9 @@
 import frappe
 from frappe import _
 
+from bandhu_app.bandhu_app.utils.patient import attach_compact_age
 from bandhu_app.bandhu_app.utils.patient_details import get_encounter_clinical_details, get_patient_details
-from bandhu_app.bandhu_app.utils.session import find_active_session
+from bandhu_app.bandhu_app.utils.session import find_active_session, find_upcoming_sessions
 
 
 def require_session_access(session_name: str) -> None:
@@ -74,8 +75,53 @@ def get_session_status() -> dict:
 
 
 @frappe.whitelist()
-def start_session(session_name: str) -> dict:
+def get_upcoming_sessions() -> list:
+	roles = frappe.get_roles()
+	if "Nurse" not in roles and "System Manager" not in roles:
+		frappe.throw(
+			_("You do not have permission to access this page."),
+			frappe.PermissionError,
+		)
+
+	practitioner = get_nurse_practitioner()
+	if not practitioner:
+		return []
+	return find_upcoming_sessions("assigned_nurse", practitioner)
+
+
+def load_session_for_status_change(session_name: str) -> dict:
 	require_session_access(session_name)
+	session_doc = frappe.db.get_value(
+		"Bandhu Clinic Session",
+		session_name,
+		["status", "date"],
+		as_dict=True,
+	)
+	if not session_doc:
+		frappe.throw(_("Clinic session not found."), frappe.ValidationError)
+	if session_doc.status == "Cancelled":
+		frappe.throw(_("This camp was cancelled. Do not travel to it."), frappe.ValidationError)
+
+	return session_doc
+
+
+@frappe.whitelist()
+def start_session(session_name: str) -> dict:
+	session_doc = load_session_for_status_change(session_name)
+
+	if session_doc.status == "In Progress":
+		frappe.throw(_("This camp is already open."), frappe.ValidationError)
+	# Reopening a closed camp would let patients be registered against it hours or days
+	# later, with nothing in the record showing the camp had already been signed off.
+	if session_doc.status == "Completed":
+		frappe.throw(
+			_("This camp is already closed and cannot be reopened."),
+			frappe.ValidationError,
+		)
+	# A camp opened on the wrong date counts as running today on every board and dashboard.
+	if str(session_doc.date) != frappe.utils.today():
+		frappe.throw(_("You can only open a camp on the day it is scheduled."), frappe.ValidationError)
+
 	frappe.db.set_value(
 		"Bandhu Clinic Session",
 		session_name,
@@ -86,7 +132,11 @@ def start_session(session_name: str) -> dict:
 
 @frappe.whitelist()
 def end_session(session_name: str) -> dict:
-	require_session_access(session_name)
+	session_doc = load_session_for_status_change(session_name)
+
+	if session_doc.status != "In Progress":
+		frappe.throw(_("This camp is not open, so it cannot be closed."), frappe.ValidationError)
+
 	frappe.db.set_value(
 		"Bandhu Clinic Session",
 		session_name,
@@ -112,7 +162,7 @@ def get_encounters_with_details(session_name, workflow_state):
 	)
 	for encounter in encounters:
 		encounter.update(get_encounter_clinical_details(encounter.name))
-	return encounters
+	return attach_compact_age(encounters)
 
 
 @frappe.whitelist()

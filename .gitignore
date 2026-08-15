@@ -54,6 +54,6 @@ jspm_packages/
 # Aider AI Chat
 .aider*
 
-.claude/checkpoint.md
+.claude/
 
 TEST_CREDENTIALS.txt

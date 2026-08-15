@@ -77,6 +77,19 @@ def sync_to_queue(doc, method):
 
 	if existing:
 		frappe.db.set_value("Patient Queue", existing, values)
-	else:
-		values["created_on"] = frappe.utils.now()
+		return
+
+	values["created_on"] = frappe.utils.now()
+
+	# Patient Queue.patient carries a unique index, so two front desks registering the same
+	# patient at once both miss the lookup above and the loser's insert fails. Without the
+	# savepoint the whole registration rolls back and that patient is never created.
+	frappe.db.savepoint("patient_queue_insert")
+	try:
 		frappe.get_doc({"doctype": "Patient Queue", **values}).insert(ignore_permissions=True)
+	except frappe.DuplicateEntryError:
+		frappe.db.rollback(save_point="patient_queue_insert")
+		existing = frappe.db.get_value("Patient Queue", {"patient": doc.patient}, "name")
+		if not existing:
+			raise
+		frappe.db.set_value("Patient Queue", existing, values)

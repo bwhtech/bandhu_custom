@@ -1,8 +1,9 @@
 import frappe
 from frappe import _
 
+from bandhu_app.bandhu_app.utils.patient import attach_compact_age
 from bandhu_app.bandhu_app.utils.patient_details import get_encounter_clinical_details, get_patient_details
-from bandhu_app.bandhu_app.utils.session import find_active_session
+from bandhu_app.bandhu_app.utils.session import find_active_session, find_upcoming_sessions
 
 VALID_TEST_NAMES = {"Malaria", "Dengue", "Leptospirosis", "Hb", "GRBS"}
 
@@ -73,6 +74,15 @@ def get_session_status() -> dict:
 	}
 
 
+@frappe.whitelist()
+def get_upcoming_sessions() -> list:
+	require_doctor_access()
+	practitioner = frappe.db.get_value("Healthcare Practitioner", {"user_id": frappe.session.user}, "name")
+	if not practitioner:
+		return []
+	return find_upcoming_sessions("assigned_doctor", practitioner)
+
+
 def load_owned_encounter(encounter: str):
 	doc = frappe.get_doc("Patient Encounter", encounter)
 	if "System Manager" not in frappe.get_roles():
@@ -105,7 +115,7 @@ def get_encounters_for_state(session, workflow_state):
 	)
 	for encounter in encounters:
 		encounter.update(get_encounter_clinical_details(encounter.name))
-	return encounters
+	return attach_compact_age(encounters)
 
 
 @frappe.whitelist()

@@ -11,8 +11,11 @@
   "site",
   "project",
   "unit",
+  "session_schedule",
   "column_break_qtbr",
   "date",
+  "planned_start_time",
+  "planned_end_time",
   "start_time",
   "end_time",
   "section_break_uyjf",
@@ -58,8 +61,27 @@
    "options": "Unit"
   },
   {
+   "description": "Set automatically when this session was created from a recurring schedule.",
+   "fieldname": "session_schedule",
+   "fieldtype": "Link",
+   "label": "Session Schedule",
+   "no_copy": 1,
+   "options": "Bandhu Session Schedule",
+   "read_only": 1
+  },
+  {
    "fieldname": "column_break_qtbr",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "planned_start_time",
+   "fieldtype": "Time",
+   "label": "Planned Start Time"
+  },
+  {
+   "fieldname": "planned_end_time",
+   "fieldtype": "Time",
+   "label": "Planned End Time"
   },
   {
    "fieldname": "start_time",
@@ -81,7 +103,7 @@
    "fieldtype": "Select",
    "label": "Status",
    "no_copy": 1,
-   "options": "Planned\nIn Progress\nCompleted",
+   "options": "Planned\nIn Progress\nCompleted\nCancelled",
    "read_only": 1
   },
   {

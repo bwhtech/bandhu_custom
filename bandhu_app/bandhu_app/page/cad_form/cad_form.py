@@ -135,6 +135,31 @@ def get_patient_card_html(patient: str) -> str:
 		frappe.flags.ignore_print_permissions = False
 
 
+def require_running_session(session_name: str) -> dict:
+	# Registration is gated on the camp's status, not just the caller's role: the session
+	# resolves the LSG and unit codes baked into the patient's permanent Clinic ID, and a
+	# cancelled or not-yet-started camp would stamp a location the patient was never seen at.
+	session_doc = frappe.db.get_value(
+		"Bandhu Clinic Session",
+		session_name,
+		["status", "assigned_doctor"],
+		as_dict=True,
+	)
+	if not session_doc:
+		frappe.throw(_("Clinic session not found."), frappe.ValidationError)
+	if session_doc.status == "Cancelled":
+		frappe.throw(_("This clinic session was cancelled."), frappe.ValidationError)
+	if session_doc.status == "Completed":
+		frappe.throw(_("This clinic session is already completed."), frappe.ValidationError)
+	if session_doc.status != "In Progress":
+		frappe.throw(
+			_("This clinic session hasn't started yet. Ask the nurse to start the session first."),
+			frappe.ValidationError,
+		)
+
+	return session_doc
+
+
 def resolve_registration_origin(session: str) -> tuple[str | None, str | None]:
 	"""The LSG and unit whose numeric codes get baked into the patient's Clinic ID."""
 	session_site, unit = frappe.db.get_value("Bandhu Clinic Session", session, ["site", "unit"])
@@ -163,6 +188,7 @@ def register_patient(
 	session = (session or "").strip() or None
 	if session:
 		require_session_access(session)
+		require_running_session(session)
 	else:
 		require_cad_access()
 
@@ -231,21 +257,7 @@ def create_encounter(patient: str, session: str) -> str:
 	if not frappe.db.exists("Patient", patient):
 		frappe.throw(_("Patient not found."), frappe.ValidationError)
 
-	session_doc = frappe.db.get_value(
-		"Bandhu Clinic Session",
-		session,
-		["status", "assigned_doctor"],
-		as_dict=True,
-	)
-	if not session_doc:
-		frappe.throw(_("Clinic session not found."), frappe.ValidationError)
-	if session_doc.status == "Completed":
-		frappe.throw(_("This clinic session is already completed."), frappe.ValidationError)
-	if session_doc.status != "In Progress":
-		frappe.throw(
-			_("This clinic session hasn't started yet. Ask the nurse to start the session first."),
-			frappe.ValidationError,
-		)
+	session_doc = require_running_session(session)
 	if not session_doc.assigned_doctor:
 		frappe.throw(
 			_("No doctor is assigned to this clinic session yet. Cannot register patient."),
