@@ -14,23 +14,25 @@ both deleted workspace JSON from disk. Confirm 9 files survive with
 
 ## Build
 
-### 1. The eight reports — 1 of 8 done (2026-08-20)
-**Session** is built: `report/bandhu_session_report/`, Script Report, one row
-per camp with patients / new vs repeat / tests / medicines, a summary band, a
-chart, and a Dashboard shortcut. Copy its shape for the rest: Clinic, Tests,
-Medicine Utilisation, Patient History, Treatment, Referral, PHI.
+### 1. The eight reports — 3 of 8 done (2026-08-20)
+Built: **Session** (row per camp), **Tests** (row per test, with the patient's
+sex / age group / native state), **Clinic** (aggregate by clinic, project, unit,
+LSG or site). All three are Script Reports with a summary band, a chart and a
+Dashboard shortcut; shared per-camp counts live in `utils/clinic_stats.py`.
 
-Two of the seven are blocked on data that does not exist yet — Referral (no
-code creates a `Referral` doc; see item 2) and Medicine Utilisation beyond
-per-camp counts (no stock ledger; see the CLAUDE.md status log).
+Left: Medicine Utilisation, Patient History, Treatment, Referral, PHI. Two of
+those are blocked on data that does not exist yet — Referral (no code creates a
+`Referral` doc; see item 2) and Medicine Utilisation beyond per-camp counts (no
+stock ledger; see the CLAUDE.md status log). Patient History and Treatment are
+buildable now and should follow the Tests Report's row-per-record shape.
 
 Watch: a Script Report runs raw SQL and **bypasses permissions entirely**. The
 `roles` table on the Report record is the only gate — Session Report is System
 Manager only. Decide who may run each one before writing the SQL, not after.
 
-Still missing from Session Report, and asked for by the scope: breakdown by
-age group, sex and native state. Those live on Patient, so they need a second
-grouping mode rather than more columns on the per-camp row.
+`age_group()` in `utils/patient.py` uses bands we picked (0-14, 15-29, 30-44,
+45-59, 60+) because the scope doc never defines them. Get CMID to confirm before
+more reports bake them in.
 
 ### 2. Helpline UI and the follow-up-due list
 `doctype/referral/` and `doctype/referral_followup/` already hold the right

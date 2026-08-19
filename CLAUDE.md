@@ -804,3 +804,28 @@ Overwrite in place, don't append noise.
     with no `{"success": True}` returns, no explicit `frappe.db.rollback()` in a
     request, `frappe.log_error()` with generic `except Exception as error`, full
     variable names, page CSS in its own file. The current tree already complies.
+- 2026-08-20 (same session, continued): reports 2 and 3 — **Bandhu Tests Report**
+  and **Bandhu Clinic Report**. Both System Manager only, both shortcut-linked
+  from the Dashboard workspace. 123 tests pass (11 new).
+  - **Tests Report** is row-per-test: test, result, value, then the patient's
+    Clinic ID, name, sex, age group and native state, then site / LSG / district /
+    project / unit / doctor / camp / encounter. Filters include a `Pending` result,
+    which is the absence of a result and so is filtered in Python rather than SQL.
+    This is the report that reads clean only because the `result_type` default was
+    fixed earlier today — before that every ordered test would have shown Positive.
+  - **Clinic Report** is the aggregate view: one row per Clinic, Project, Unit, LSG
+    or Site (a `group_by` filter, validated against a whitelist since it selects a
+    field), with camps scheduled / held / cancelled, patients, new vs repeat, per
+    camp, tests done, medicines dispensed. Totals reconcile with Session Report.
+  - `utils/clinic_stats.py` now holds the four per-camp count queries that Session
+    and Clinic Report share. `disable_total` on the "Per Camp" column — Frappe's
+    total row sums every numeric column, and a summed average is nonsense.
+  - **`age_group()` in `utils/patient.py` uses bands we chose** (0-14, 15-29,
+    30-44, 45-59, 60+) because the scope doc names age-group breakdowns without
+    defining them. Confirm with CMID; changing the bands later changes every
+    historical report.
+  - **Frappe's IntegrationTestCase does not isolate rows between tests in a class.**
+    Five of six Tests Report tests failed first time because each test saw the
+    previous test's camps. Fixed by giving every test its own Site in `setUp` and
+    filtering on it. Nothing leaked to the site — the rollback happens, but only
+    after the class.

@@ -51,3 +51,24 @@ def validate_bmi(doc, method):
 		doc.custom_bmi = round(w / (h * h), 2)
 	else:
 		doc.custom_bmi = None
+
+
+AGE_GROUPS = ((15, "0-14"), (30, "15-29"), (45, "30-44"), (60, "45-59"))
+
+
+def age_group(dob, reference=None) -> str:
+	"""Bucket used by the scope's reports. Bands are our own until CMID confirms theirs."""
+	if not dob:
+		return "Unknown"
+
+	dob = getdate(dob)
+	reference = getdate(reference or today())
+	if dob > reference:
+		return "Unknown"
+
+	years = reference.year - dob.year - ((reference.month, reference.day) < (dob.month, dob.day))
+	for upper_bound, label in AGE_GROUPS:
+		if years < upper_bound:
+			return label
+
+	return "60+"
