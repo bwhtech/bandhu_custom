@@ -59,5 +59,4 @@ class BandhuClinicSession(Document):
 						practitioner,
 						actual_role or _("(none)"),
 					),
-					frappe.ValidationError,
 				)

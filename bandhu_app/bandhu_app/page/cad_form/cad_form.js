@@ -1,53 +1,36 @@
-const CAD_CSS =
-	".cad-dash{--max-w:var(--page-max-width,900px);max-width:var(--max-w);margin:0 auto;padding:0 var(--padding-md);}" +
-	".cad-dash .empty-state{display:flex;flex-direction:column;align-items:center;padding:var(--padding-2xl) var(--padding-md);border:1px solid var(--border-color);border-radius:var(--border-radius-md);color:var(--text-muted);background:var(--bg-color);}" +
-	".cad-dash .session-bar{display:flex;align-items:center;gap:var(--padding-sm);flex-wrap:wrap;padding:0 0 var(--padding-lg) 0;font-size:var(--text-sm);color:var(--text-muted);}" +
-	".cad-dash .queue-head{font-size:var(--text-lg);font-weight:var(--weight-semibold);color:var(--heading-color);margin:0;}" +
-	".cad-dash .queue-meta{font-weight:var(--weight-regular);font-size:var(--text-base);color:var(--text-muted);}" +
-	".cad-dash .cad-search-section{margin-bottom:var(--margin-xl);}" +
-	".cad-dash .search-row{display:flex;gap:var(--padding-sm);}" +
-	".cad-dash .search-row input{flex:1;}" +
-	".cad-dash .cad-search-results{margin-top:var(--margin-sm);}" +
-	".cad-dash .patient-result-row{display:flex;align-items:center;gap:var(--padding-sm);padding:10px 12px;border:1px solid var(--border-color);border-radius:var(--border-radius-md);margin-bottom:6px;cursor:pointer;background:var(--bg-color);}" +
-	".cad-dash .patient-result-row .pr-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}" +
-	".cad-dash .queue-clinic-id{font-family:monospace;letter-spacing:0.5px;white-space:nowrap;}" +
-	".cad-dash .patient-result-row:hover{border-color:var(--primary-color);}" +
-	".cad-dash .patient-result-row .pr-name{font-weight:var(--weight-semibold);color:var(--heading-color);}" +
-	".cad-dash .patient-result-row .pr-meta{font-size:var(--text-xs);color:var(--text-muted);}" +
-	".cad-dash .cad-register-section{margin-bottom:var(--margin-xl);}" +
-	".cad-dash .cad-register-form{margin-top:var(--margin-sm);padding:var(--padding-lg);border:1px solid var(--border-color);border-radius:var(--border-radius-md);background:var(--bg-color);}" +
-	".cad-dash .register-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--padding-md);}" +
-	".cad-dash .register-grid .form-group{margin-bottom:0;}" +
-	".cad-dash .register-grid label{font-size:var(--text-sm);color:var(--text-muted);margin-bottom:4px;}" +
-	".cad-dash .sex-btn-group{display:flex;gap:8px;}" +
-	".cad-dash .sex-btn{flex:1;}" +
-	".cad-dash .register-actions{margin-top:var(--margin-lg);display:flex;justify-content:flex-end;}" +
-	".cad-dash .cad-queue-section{margin-top:var(--margin-xl);}" +
-	".cad-dash .table-wrap{overflow:auto;border:1px solid var(--table-border-color);border-radius:var(--border-radius-md);margin-top:var(--margin-sm);}" +
-	".cad-dash .table{margin-bottom:0;min-width:400px;}" +
-	".cad-dash .table thead{position:sticky;top:0;z-index:1;}" +
-	".cad-dash .table th{background:var(--subtle-fg);padding:8px 12px;font-size:var(--text-sm);font-weight:var(--weight-semibold);color:var(--heading-color);white-space:nowrap;border-bottom:1px solid var(--table-border-color);}" +
-	".cad-dash .table td{padding:10px 12px;vertical-align:middle;border-bottom:1px solid var(--table-border-color);}" +
-	".cad-dash .table tbody tr:last-child td{border-bottom:none;}" +
-	"@media(max-width:768px){" +
-	".cad-dash{padding:0 var(--padding-sm);}" +
-	".cad-dash .register-grid{grid-template-columns:1fr;}" +
-	".cad-dash .table{min-width:350px;}" +
-	".cad-dash .table td,.cad-dash .table th{padding:8px 10px;}}";
-
 let cadSession = null;
 let formOptions = { states: [], sectors: [] };
 
 const REGISTER_FIELDS = [
 	{ name: "full_name", label: __("Full Name"), type: "text" },
 	{ name: "dob", label: __("Date of Birth"), type: "date" },
-	{ name: "height_cm", label: __("Height (cm)"), type: "number", attrs: 'min="0" step="0.1" inputmode="decimal"' },
-	{ name: "weight_kg", label: __("Weight (kg)"), type: "number", attrs: 'min="0" step="0.1" inputmode="decimal"' },
+	{
+		name: "height_cm",
+		label: __("Height (cm)"),
+		type: "number",
+		attrs: 'min="0" step="0.1" inputmode="decimal"',
+	},
+	{
+		name: "weight_kg",
+		label: __("Weight (kg)"),
+		type: "number",
+		attrs: 'min="0" step="0.1" inputmode="decimal"',
+	},
 	{ name: "native_state", label: __("Native State"), type: "select", optionsKey: "states" },
 	{ name: "native_district", label: __("Native District"), type: "text" },
-	{ name: "occupation", label: __("Occupation / Sector"), type: "select", optionsKey: "sectors" },
+	{
+		name: "occupation",
+		label: __("Occupation / Sector"),
+		type: "select",
+		optionsKey: "sectors",
+	},
 	{ name: "company_name", label: __("Company Name"), type: "text" },
-	{ name: "mobile", label: __("Mobile"), type: "tel", attrs: 'inputmode="numeric" maxlength="10"' },
+	{
+		name: "mobile",
+		label: __("Mobile"),
+		type: "tel",
+		attrs: 'inputmode="numeric" maxlength="10"',
+	},
 	{ name: "abha_id", label: __("ABHA ID"), type: "text" },
 ];
 
@@ -58,8 +41,6 @@ async function loadDashboard(page) {
 		statusResult = await frappe.call({
 			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_session_status",
 		});
-	} catch (e) {
-		return;
 	} finally {
 		frappe.dom.unfreeze();
 	}
@@ -83,27 +64,21 @@ async function loadDashboard(page) {
 		return;
 	}
 
-	try {
-		const optionsResult = await frappe.call({
-			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_form_options",
-		});
-		formOptions = optionsResult.message || { states: [], sectors: [] };
-	} catch (e) {
-	}
+	const optionsResult = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_form_options",
+	});
+	formOptions = optionsResult.message || { states: [], sectors: [] };
 
 	renderFrontDesk(page, data);
 }
 
 function renderNoSession(page, data) {
 	page.main.html(
-		"<style>" +
-			CAD_CSS +
-			"</style>" +
-			'<div class="cad-dash">' +
+		'<div class="cad-dash">' +
 			renderWelcome() +
 			'<div class="empty-state">' +
-			'<i class="fa fa-calendar-o" style="font-size:32px;margin-bottom:10px;opacity:0.4;"></i>' +
-			'<span style="font-size:var(--text-sm);">' +
+			'<i class="fa fa-calendar-o empty-state-icon"></i>' +
+			'<span class="empty-state-text">' +
 			frappe.utils.escape_html(data.message || __("No session available.")) +
 			"</span></div></div>"
 	);
@@ -111,31 +86,27 @@ function renderNoSession(page, data) {
 
 function renderWaitingForNurse(page, data) {
 	page.main.html(
-		"<style>" +
-			CAD_CSS +
-			"</style>" +
-			'<div class="cad-dash">' +
+		'<div class="cad-dash">' +
 			renderWelcome() +
 			renderSessionInfo(data) +
 			'<div class="empty-state">' +
-			'<i class="fa fa-hourglass-half" style="font-size:32px;margin-bottom:10px;opacity:0.4;"></i>' +
-			'<span style="font-size:var(--text-sm);">' +
-			__("Waiting for the nurse to start this clinic session. Patients can't be registered yet.") +
+			'<i class="fa fa-hourglass-half empty-state-icon"></i>' +
+			'<span class="empty-state-text">' +
+			__(
+				"Waiting for the nurse to start this clinic session. Patients can't be registered yet."
+			) +
 			"</span></div></div>"
 	);
 }
 
 function renderCompleted(page, data) {
 	page.main.html(
-		"<style>" +
-			CAD_CSS +
-			"</style>" +
-			'<div class="cad-dash">' +
+		'<div class="cad-dash">' +
 			renderWelcome() +
 			renderSessionInfo(data) +
 			'<div class="empty-state">' +
-			'<i class="fa fa-check-circle" style="font-size:32px;color:var(--green-500);margin-bottom:10px;"></i>' +
-			'<span style="font-size:var(--text-sm);">' +
+			'<i class="fa fa-check-circle empty-state-icon done"></i>' +
+			'<span class="empty-state-text">' +
 			__("Session completed. No further patients can be registered.") +
 			"</span></div></div>"
 	);
@@ -143,16 +114,13 @@ function renderCompleted(page, data) {
 
 function renderFrontDesk(page, data) {
 	const html =
-		"<style>" +
-		CAD_CSS +
-		"</style>" +
 		'<div class="cad-dash">' +
 		renderWelcome() +
 		renderSessionInfo(data) +
 		renderSearchSection() +
 		renderRegisterSection() +
 		'<div class="cad-queue-section">' +
-		"<h4 class='queue-head'>" +
+		'<h4 class="queue-head">' +
 		__("Today's Queue") +
 		'<span class="queue-meta cad-queue-count"></span>' +
 		"</h4>" +
@@ -203,8 +171,6 @@ async function print_patient_card(patient) {
 			args: { patient },
 		});
 		card_html = response.message;
-	} catch (e) {
-		return;
 	} finally {
 		frappe.dom.unfreeze();
 	}
@@ -225,26 +191,25 @@ async function print_patient_card(patient) {
 
 function renderWelcome() {
 	return (
-		'<div style="padding:var(--padding-lg) 0 var(--padding-xl) 0;">' +
-		"<h3 style='font-size:var(--text-2xl);font-weight:var(--weight-semibold);color:var(--heading-color);margin:0;'>" +
+		'<div class="welcome"><h3>' +
 		__("Welcome, {0}", [frappe.user_info().fullname]) +
 		"</h3></div>"
 	);
 }
 
 function renderSessionInfo(session) {
-	const statusColor = session.status === "In Progress" ? "var(--green-500)" : "var(--text-muted)";
+	const runningClass = session.status === "In Progress" ? " running" : "";
 	return (
 		'<div class="session-bar">' +
 		'<i class="fa fa-hospital-o"></i> ' +
 		frappe.utils.escape_html(session.clinic || "") +
-		'<span style="color:var(--border-color);">|</span>' +
+		'<span class="session-sep">|</span>' +
 		'<i class="fa fa-map-marker"></i> ' +
 		frappe.utils.escape_html(session.site || "") +
-		'<span style="color:var(--border-color);">|</span>' +
-		'<i class="fa fa-circle" style="color:' +
-		statusColor +
-		';font-size:8px;"></i> ' +
+		'<span class="session-sep">|</span>' +
+		'<i class="fa fa-circle session-dot' +
+		runningClass +
+		'"></i> ' +
 		frappe.utils.escape_html(session.status) +
 		"</div>"
 	);
@@ -253,12 +218,14 @@ function renderSessionInfo(session) {
 function renderSearchSection() {
 	return (
 		'<div class="cad-search-section">' +
-		"<h4 class='queue-head' style='margin-bottom:var(--margin-sm);'>" +
+		'<h4 class="queue-head">' +
 		__("Find Existing Patient") +
 		"</h4>" +
 		'<div class="search-row">' +
 		'<input type="text" class="form-control cad-search-input" placeholder="' +
-		frappe.utils.escape_html(__("Scan the patient's card, or search by Clinic ID, ABHA ID, Mobile, Name or DOB")) +
+		frappe.utils.escape_html(
+			__("Scan the patient's card, or search by Clinic ID, ABHA ID, Mobile, Name or DOB")
+		) +
 		'">' +
 		'<button class="btn btn-primary cad-search-btn">' +
 		__("Search") +
@@ -276,7 +243,7 @@ function renderRegisterSection() {
 		'<i class="fa fa-user-plus"></i> ' +
 		__("Register New Patient") +
 		"</button>" +
-		'<div class="cad-register-form" style="display:none;">' +
+		'<div class="cad-register-form">' +
 		renderRegisterForm() +
 		"</div>" +
 		"</div>"
@@ -287,8 +254,12 @@ function renderSelectField(field) {
 	const options = formOptions[field.optionsKey] || [];
 	const optionHtml = options
 		.map(
-			(opt) =>
-				'<option value="' + frappe.utils.escape_html(opt) + '">' + frappe.utils.escape_html(opt) + "</option>"
+			(option) =>
+				'<option value="' +
+				frappe.utils.escape_html(option) +
+				'">' +
+				frappe.utils.escape_html(option) +
+				"</option>"
 		)
 		.join("");
 	return (
@@ -333,8 +304,12 @@ function renderRegisterForm() {
 		'<div class="sex-btn-group" data-field="sex">' +
 		["Male", "Female", "Other"]
 			.map(
-				(s) =>
-					'<button type="button" class="btn btn-default sex-btn" data-value="' + s + '">' + __(s) + "</button>"
+				(sex) =>
+					'<button type="button" class="btn btn-default sex-btn" data-value="' +
+					sex +
+					'">' +
+					__(sex) +
+					"</button>"
 			)
 			.join("") +
 		"</div></div>";
@@ -353,10 +328,12 @@ function renderRegisterForm() {
 }
 
 function bindSearchEvents(page) {
-	page.main.off("click", ".cad-search-btn").on("click", ".cad-search-btn", () => searchPatients(page));
+	page.main
+		.off("click", ".cad-search-btn")
+		.on("click", ".cad-search-btn", () => searchPatients(page));
 
-	page.main.off("keypress", ".cad-search-input").on("keypress", ".cad-search-input", (e) => {
-		if (e.which === 13) searchPatients(page);
+	page.main.off("keypress", ".cad-search-input").on("keypress", ".cad-search-input", (event) => {
+		if (event.which === 13) searchPatients(page);
 	});
 
 	// bound before the row handler so printing a card does not also queue the patient
@@ -388,13 +365,11 @@ async function searchPatients(page) {
 	let results;
 	frappe.dom.freeze();
 	try {
-		const r = await frappe.call({
+		const response = await frappe.call({
 			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.search_patient",
 			args: { query },
 		});
-		results = r.message || [];
-	} catch (e) {
-		return;
+		results = response.message || [];
 	} finally {
 		frappe.dom.unfreeze();
 	}
@@ -415,7 +390,9 @@ const CLINIC_ID_PATTERN = /^(?:\d{10}|BMC-\d+)$/i;
 function match_scanned_card(query, results) {
 	if (!CLINIC_ID_PATTERN.test(query)) return null;
 
-	const exact = results.filter((patient) => (patient.custom_bandhu_id || "").toUpperCase() === query.toUpperCase());
+	const exact = results.filter(
+		(patient) => (patient.custom_bandhu_id || "").toUpperCase() === query.toUpperCase()
+	);
 
 	// Anything other than a single exact hit goes to the normal list, so the CAD sees the
 	// ambiguity rather than having the screen pick a patient for them.
@@ -424,7 +401,10 @@ function match_scanned_card(query, results) {
 
 function queue_scanned_patient(page, patient) {
 	frappe.confirm(
-		__("Add {0} ({1}) to today's queue?", [patient.patient_name || "", patient.custom_bandhu_id || ""]),
+		__("Add {0} ({1}) to today's queue?", [
+			patient.patient_name || "",
+			patient.custom_bandhu_id || "",
+		]),
 		async () => {
 			await addPatientToQueue(page, patient.name, () => {
 				page.main.find(".cad-search-results").empty();
@@ -442,28 +422,33 @@ function renderSearchResults(page, results) {
 	const container = page.main.find(".cad-search-results");
 	if (!results.length) {
 		container.html(
-			'<div class="empty-state"><span style="font-size:var(--text-sm);">' + __("No matching patients.") + "</span></div>"
+			'<div class="empty-state"><span class="empty-state-text">' +
+				__("No matching patients.") +
+				"</span></div>"
 		);
 		return;
 	}
 
 	const rows = results
-		.map((p) => {
-			const meta = [p.custom_bandhu_id, p.sex, p.dob].filter(Boolean).map(frappe.utils.escape_html).join(" &bull; ");
+		.map((patient) => {
+			const meta = [patient.custom_bandhu_id, patient.sex, patient.dob]
+				.filter(Boolean)
+				.map(frappe.utils.escape_html)
+				.join(" &bull; ");
 			return (
 				'<div class="patient-result-row" data-patient="' +
-				frappe.utils.escape_html(p.name) +
+				frappe.utils.escape_html(patient.name) +
 				'">' +
 				'<div class="pr-info">' +
 				'<span class="pr-name">' +
-				frappe.utils.escape_html(p.patient_name || "") +
+				frappe.utils.escape_html(patient.patient_name || "") +
 				"</span>" +
 				'<span class="pr-meta">' +
 				meta +
 				"</span>" +
 				"</div>" +
 				'<button class="btn btn-xs btn-default pr-print-btn" data-patient="' +
-				frappe.utils.escape_html(p.name) +
+				frappe.utils.escape_html(patient.name) +
 				'">' +
 				__("Print Card") +
 				"</button>" +
@@ -476,16 +461,20 @@ function renderSearchResults(page, results) {
 }
 
 function bindRegisterEvents(page) {
-	page.main.off("click", ".cad-register-toggle-btn").on("click", ".cad-register-toggle-btn", () => {
-		page.main.find(".cad-register-form").toggle();
-	});
+	page.main
+		.off("click", ".cad-register-toggle-btn")
+		.on("click", ".cad-register-toggle-btn", () => {
+			page.main.find(".cad-register-form").toggle();
+		});
 
 	page.main.off("click", ".sex-btn").on("click", ".sex-btn", function () {
 		$(this).siblings(".sex-btn").removeClass("btn-primary active").addClass("btn-default");
 		$(this).addClass("btn-primary active").removeClass("btn-default");
 	});
 
-	page.main.off("click", ".cad-register-submit").on("click", ".cad-register-submit", () => submitRegistration(page));
+	page.main
+		.off("click", ".cad-register-submit")
+		.on("click", ".cad-register-submit", () => submitRegistration(page));
 }
 
 async function submitRegistration(page) {
@@ -538,13 +527,11 @@ async function submitRegistration(page) {
 	frappe.dom.freeze();
 	let patient;
 	try {
-		const r = await frappe.call({
+		const response = await frappe.call({
 			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.register_patient",
 			args,
 		});
-		patient = r.message;
-	} catch (e) {
-		return;
+		patient = response.message;
 	} finally {
 		frappe.dom.unfreeze();
 	}
@@ -564,30 +551,27 @@ async function submitRegistration(page) {
 	frappe.show_alert({ message: __("Patient registered."), indicator: "green" });
 }
 
-async function addPatientToQueue(page, patient, onSuccess) {
+async function addPatientToQueue(page, patient, onQueued) {
 	frappe.dom.freeze();
 	try {
 		await frappe.call({
 			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.create_encounter",
 			args: { patient, session: cadSession.session_name },
 		});
-		onSuccess();
-		await loadQueue(page);
-	} catch (e) {
 	} finally {
 		frappe.dom.unfreeze();
 	}
+
+	onQueued();
+	await loadQueue(page);
 }
 
 async function loadQueue(page) {
-	try {
-		const r = await frappe.call({
-			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_today_queue",
-			args: { session: cadSession.session_name },
-		});
-		renderQueueTable(page, r.message || []);
-	} catch (e) {
-	}
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_today_queue",
+		args: { session: cadSession.session_name },
+	});
+	renderQueueTable(page, response.message || []);
 }
 
 function renderQueueTable(page, rows) {
@@ -596,7 +580,9 @@ function renderQueueTable(page, rows) {
 
 	if (!rows.length) {
 		body.html(
-			'<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">' + __("No patients in queue yet.") + "</td></tr>"
+			'<tr><td colspan="5" class="queue-empty">' +
+				__("No patients in queue yet.") +
+				"</td></tr>"
 		);
 		return;
 	}
@@ -634,7 +620,15 @@ function group_clinic_id(clinic_id) {
 	if (!clinic_id) return "";
 	if (!/^\d{10}$/.test(clinic_id)) return clinic_id;
 
-	return clinic_id.slice(0, 2) + " " + clinic_id[2] + " " + clinic_id.slice(3, 5) + " " + clinic_id.slice(5);
+	return (
+		clinic_id.slice(0, 2) +
+		" " +
+		clinic_id[2] +
+		" " +
+		clinic_id.slice(3, 5) +
+		" " +
+		clinic_id.slice(5)
+	);
 }
 
 frappe.pages["cad-form"].on_page_load = function (wrapper) {

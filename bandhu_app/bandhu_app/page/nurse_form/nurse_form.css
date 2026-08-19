@@ -1,0 +1,228 @@
+.nurse-dash {
+	--max-w: var(--page-max-width, 1000px);
+	max-width: var(--max-w);
+	margin: 0 auto;
+	padding: 0 var(--padding-md);
+}
+
+.nurse-dash .upcoming-card {
+	margin-top: var(--margin-lg);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	background: var(--bg-color);
+	padding: var(--padding-md);
+}
+
+.nurse-dash .upcoming-title {
+	font-size: var(--text-sm);
+	font-weight: var(--weight-semibold);
+	color: var(--heading-color);
+	margin-bottom: var(--margin-sm);
+}
+
+.nurse-dash .upcoming-row {
+	display: flex;
+	gap: var(--padding-md);
+	justify-content: space-between;
+	padding: 6px 0;
+	font-size: var(--text-sm);
+	border-bottom: 1px solid var(--border-color);
+}
+
+.nurse-dash .upcoming-row:last-child {
+	border-bottom: none;
+}
+
+.nurse-dash .upcoming-date {
+	font-weight: var(--weight-semibold);
+	white-space: nowrap;
+}
+
+.nurse-dash .upcoming-site {
+	flex: 1;
+	color: var(--text-muted);
+}
+
+.nurse-dash .upcoming-time {
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+.nurse-dash .empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: var(--padding-2xl) var(--padding-md);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	color: var(--text-muted);
+	background: var(--bg-color);
+}
+
+.nurse-dash .empty-state .empty-state-icon {
+	font-size: 32px;
+	margin-bottom: 10px;
+	opacity: 0.4;
+}
+
+.nurse-dash .empty-state .empty-state-icon.small {
+	font-size: 24px;
+	margin-bottom: 8px;
+}
+
+.nurse-dash .empty-state .empty-state-icon.done {
+	color: var(--green-500);
+	opacity: 1;
+}
+
+.nurse-dash .empty-state .empty-state-text {
+	font-size: var(--text-sm);
+}
+
+.nurse-dash .table-wrap {
+	overflow: auto;
+	border: 1px solid var(--table-border-color);
+	border-radius: var(--border-radius-md);
+	margin-top: var(--margin-sm);
+}
+
+.nurse-dash .table {
+	margin-bottom: 0;
+	min-width: 480px;
+}
+
+.nurse-dash .table thead {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+}
+
+.nurse-dash .table th {
+	background: var(--subtle-fg);
+	padding: 8px 12px;
+	font-size: var(--text-sm);
+	font-weight: var(--weight-semibold);
+	color: var(--heading-color);
+	white-space: nowrap;
+	border-bottom: 1px solid var(--table-border-color);
+}
+
+.nurse-dash .table td {
+	padding: 10px 12px;
+	vertical-align: middle;
+	border-bottom: 1px solid var(--table-border-color);
+}
+
+.nurse-dash .table tbody tr:last-child td {
+	border-bottom: none;
+}
+
+.nurse-queue-row {
+	cursor: pointer;
+}
+
+.nurse-dash .queue-head {
+	font-size: var(--text-lg);
+	font-weight: var(--weight-semibold);
+	color: var(--heading-color);
+	margin: 0;
+}
+
+.nurse-dash .queue-meta {
+	font-weight: var(--weight-regular);
+	font-size: var(--text-base);
+	color: var(--text-muted);
+}
+
+.nurse-dash .queue-section {
+	margin-bottom: var(--margin-2xl);
+}
+
+.nurse-dash .queue-section:last-child {
+	margin-bottom: 0;
+}
+
+.nurse-dash .session-bar {
+	display: flex;
+	align-items: center;
+	gap: var(--padding-sm);
+	flex-wrap: wrap;
+	padding: 0 0 var(--padding-lg) 0;
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+}
+
+.nurse-dash .session-bar .session-sep {
+	color: var(--border-color);
+}
+
+.nurse-dash .session-bar .session-dot {
+	font-size: 8px;
+}
+
+.nurse-dash .session-bar .session-dot.running {
+	color: var(--green-500);
+}
+
+.nurse-dash .welcome {
+	padding: var(--padding-lg) 0 var(--padding-xl) 0;
+}
+
+.nurse-dash .welcome h3 {
+	font-size: var(--text-2xl);
+	font-weight: var(--weight-semibold);
+	color: var(--heading-color);
+	margin: 0;
+}
+
+.nurse-dash .start-session-bar {
+	padding: var(--padding-xl) 0;
+	display: flex;
+	justify-content: center;
+}
+
+.nurse-dash .end-session-bar {
+	padding: 0 0 var(--padding-lg) 0;
+}
+
+.nurse-action-btns {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.nurse-action-btn {
+	white-space: nowrap;
+}
+
+.detail-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 4px 0;
+	border-bottom: 1px solid var(--border-color);
+	font-size: var(--text-sm);
+}
+
+.detail-row span:first-child {
+	color: var(--text-muted);
+}
+
+.detail-heading {
+	margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+	.nurse-dash {
+		padding: 0 var(--padding-sm);
+	}
+
+	.nurse-dash .table {
+		min-width: 350px;
+	}
+
+	.nurse-dash .table td,
+	.nurse-dash .table th {
+		padding: 8px 10px;
+	}
+}

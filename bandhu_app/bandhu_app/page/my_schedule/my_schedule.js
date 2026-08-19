@@ -1,36 +1,3 @@
-const SCHEDULE_CSS =
-	".my-schedule{--max-w:var(--page-max-width,760px);max-width:var(--max-w);margin:0 auto;padding:0 var(--padding-md) var(--padding-xl);}" +
-	".my-schedule .month-head{font-size:var(--text-sm);font-weight:var(--weight-semibold);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin:var(--margin-lg) 0 var(--margin-sm);}" +
-	".my-schedule .month-head:first-child{margin-top:0;}" +
-	".my-schedule .sched-card{border:1px solid var(--border-color);border-radius:var(--border-radius-md);background:var(--bg-color);margin-bottom:var(--margin-sm);overflow:hidden;}" +
-	".my-schedule .sched-card.is-today{border-color:var(--green-500);}" +
-	".my-schedule .sched-card.is-cancelled{opacity:0.7;}" +
-	".my-schedule .sched-row{display:flex;align-items:flex-start;gap:var(--padding-md);padding:var(--padding-md);cursor:pointer;}" +
-	".my-schedule .sched-when{min-width:110px;}" +
-	".my-schedule .sched-day{font-size:var(--text-base);font-weight:var(--weight-semibold);color:var(--heading-color);white-space:nowrap;}" +
-	".my-schedule .sched-rel{font-size:var(--text-xs);color:var(--text-muted);}" +
-	".my-schedule .sched-where{flex:1;min-width:0;}" +
-	".my-schedule .sched-site{font-size:var(--text-base);color:var(--text-color);}" +
-	".my-schedule .sched-sub{font-size:var(--text-sm);color:var(--text-muted);}" +
-	".my-schedule .sched-meta{font-size:var(--text-sm);color:var(--text-muted);text-align:right;white-space:nowrap;}" +
-	".my-schedule .sched-caret{color:var(--text-muted);font-size:12px;margin-top:4px;transition:transform 0.15s;}" +
-	".my-schedule .sched-caret.expanded{transform:rotate(180deg);}" +
-	".my-schedule .sched-detail{border-top:1px solid var(--border-color);padding:var(--padding-md);background:var(--subtle-fg);}" +
-	".my-schedule .detail-line{display:flex;justify-content:space-between;gap:var(--padding-md);padding:5px 0;font-size:var(--text-sm);}" +
-	".my-schedule .detail-line span:first-child{color:var(--text-muted);}" +
-	".my-schedule .detail-line span:last-child{text-align:right;color:var(--text-color);}" +
-	".my-schedule .detail-head{font-size:var(--text-xs);font-weight:var(--weight-semibold);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin:var(--margin-md) 0 2px;}" +
-	".my-schedule .sched-badge{display:inline-block;padding:2px 8px;border-radius:var(--border-radius-full);font-size:var(--text-xs);font-weight:var(--weight-medium);white-space:nowrap;}" +
-	".my-schedule .sched-badge.today{background:var(--bg-green);color:var(--text-on-green);}" +
-	".my-schedule .sched-badge.cancelled{background:var(--bg-red);color:var(--text-on-red);}" +
-	".my-schedule .empty-state{display:flex;flex-direction:column;align-items:center;padding:var(--padding-2xl) var(--padding-md);border:1px solid var(--border-color);border-radius:var(--border-radius-md);color:var(--text-muted);background:var(--bg-color);text-align:center;}" +
-	"@media(max-width:600px){" +
-	".my-schedule{padding:0 var(--padding-sm) var(--padding-lg);}" +
-	".my-schedule .sched-row{flex-wrap:wrap;gap:var(--padding-sm);}" +
-	".my-schedule .sched-when{min-width:100%;}" +
-	".my-schedule .sched-meta{text-align:left;white-space:normal;}" +
-	"}";
-
 function formatClockTime(value) {
 	if (!value) return "";
 	// A Time field arrives as "9:30:00", not "09:30:00", so it cannot simply be truncated.
@@ -44,7 +11,9 @@ function formatClockTime(value) {
 function formatTimeWindow(session) {
 	if (!session.planned_start_time) return __("Time not set");
 	const start = formatClockTime(session.planned_start_time);
-	return session.planned_end_time ? start + " – " + formatClockTime(session.planned_end_time) : start;
+	return session.planned_end_time
+		? start + " – " + formatClockTime(session.planned_end_time)
+		: start;
 }
 
 function daysFromToday(date) {
@@ -90,11 +59,11 @@ function renderDetail(session) {
 		.map((member) => {
 			const contact = member.mobile
 				? '<a href="tel:' +
-					encodeURIComponent(member.mobile) +
-					'">' +
-					frappe.utils.escape_html(member.mobile) +
-					"</a>"
-				: '<span style="color:var(--text-muted);">' + __("No number on record") + "</span>";
+				  encodeURIComponent(member.mobile) +
+				  '">' +
+				  frappe.utils.escape_html(member.mobile) +
+				  "</a>"
+				: '<span class="no-contact">' + __("No number on record") + "</span>";
 			return (
 				'<div class="detail-line"><span>' +
 				frappe.utils.escape_html(__(member.role)) +
@@ -108,7 +77,7 @@ function renderDetail(session) {
 		.join("");
 
 	return (
-		'<div class="sched-detail" style="display:none;">' +
+		'<div class="sched-detail">' +
 		lines +
 		(team ? '<div class="detail-head">' + __("Team that day") + "</div>" + team : "") +
 		"</div>"
@@ -121,8 +90,8 @@ function renderCard(session) {
 	const badge = isCancelled
 		? '<span class="sched-badge cancelled">' + __("Cancelled — do not travel") + "</span>"
 		: days === 0
-			? '<span class="sched-badge today">' + __("Today") + "</span>"
-			: "";
+		? '<span class="sched-badge today">' + __("Today") + "</span>"
+		: "";
 
 	return (
 		'<div class="sched-card' +
@@ -174,8 +143,8 @@ function renderSchedule(sessions) {
 function renderEmpty(message) {
 	return (
 		'<div class="empty-state">' +
-		'<i class="fa fa-calendar-o" style="font-size:32px;margin-bottom:10px;opacity:0.4;"></i>' +
-		'<span style="font-size:var(--text-sm);">' +
+		'<i class="fa fa-calendar-o empty-state-icon"></i>' +
+		'<span class="empty-state-text">' +
 		frappe.utils.escape_html(message || __("You have no clinic sessions scheduled.")) +
 		"</span></div>"
 	);
@@ -189,18 +158,13 @@ async function loadSchedule(page) {
 			method: "bandhu_app.bandhu_app.page.my_schedule.my_schedule.get_my_schedule",
 		});
 		result = (response && response.message) || {};
-	} catch (e) {
-		return;
 	} finally {
 		frappe.dom.unfreeze();
 	}
 
 	const sessions = result.sessions || [];
 	page.main.html(
-		"<style>" +
-			SCHEDULE_CSS +
-			"</style>" +
-			'<div class="my-schedule">' +
+		'<div class="my-schedule">' +
 			(sessions.length ? renderSchedule(sessions) : renderEmpty(result.message)) +
 			"</div>"
 	);
@@ -211,8 +175,8 @@ async function loadSchedule(page) {
 		$(this).siblings(".sched-detail").toggle();
 		$(this).find(".sched-caret").toggleClass("expanded");
 	});
-	page.main.on("click", ".sched-detail a", function (e) {
-		e.stopPropagation();
+	page.main.on("click", ".sched-detail a", function (event) {
+		event.stopPropagation();
 	});
 }
 

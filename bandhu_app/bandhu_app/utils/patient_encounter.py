@@ -34,7 +34,6 @@ def validate_workflow_state(doc, method):
 	if state not in VALID_WORKFLOW_STATES:
 		frappe.throw(
 			_("Invalid workflow state: {0}").format(state),
-			frappe.ValidationError,
 		)
 
 	if doc.is_new():
@@ -48,13 +47,11 @@ def validate_workflow_state(doc, method):
 	if old_state == "Completed":
 		frappe.throw(
 			_("This encounter is already completed and cannot be reopened."),
-			frappe.ValidationError,
 		)
 
 	if state not in ALLOWED_TRANSITIONS.get(old_state, set()):
 		frappe.throw(
 			_("Cannot move patient from {0} to {1} directly.").format(old_state, state),
-			frappe.ValidationError,
 		)
 
 

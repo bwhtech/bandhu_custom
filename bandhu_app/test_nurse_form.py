@@ -33,9 +33,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 		cls.nurse_practitioner = cls._make_practitioner("Test Nurse Alpha", "Nurse")
 		cls.other_practitioner = cls._make_practitioner("Test Nurse Beta", "Nurse")
 
-		cls.nurse_user = cls._make_user(
-			"test.nurse.alpha@bandhuapp.test", cls.nurse_practitioner, ["Nurse"]
-		)
+		cls.nurse_user = cls._make_user("test.nurse.alpha@bandhuapp.test", cls.nurse_practitioner, ["Nurse"])
 		cls.other_nurse_user = cls._make_user(
 			"test.nurse.beta@bandhuapp.test", cls.other_practitioner, ["Nurse"]
 		)
@@ -105,8 +103,12 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 		).insert(ignore_permissions=True)
 		return doc.name
 
-	def _make_encounter(self, session, workflow_state, practitioner=None, tests=None, prescriptions=None, patient_fields=None):
-		patient = self._make_patient(f"Test Patient {frappe.generate_hash(length=8)}", **(patient_fields or {}))
+	def _make_encounter(
+		self, session, workflow_state, practitioner=None, tests=None, prescriptions=None, patient_fields=None
+	):
+		patient = self._make_patient(
+			f"Test Patient {frappe.generate_hash(length=8)}", **(patient_fields or {})
+		)
 		doc = frappe.get_doc(
 			{
 				"doctype": "Patient Encounter",
@@ -131,13 +133,12 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 
 		frappe.set_user(self.nurse_user)
 		try:
-			result = submit_test_results(
+			submit_test_results(
 				encounter.name, [{"name": row_name, "result_type": "Negative", "result_value": ""}]
 			)
 		finally:
 			frappe.set_user("Administrator")
 
-		self.assertTrue(result["success"])
 		encounter.reload()
 		self.assertEqual(encounter.custom_workflow_state, "Awaiting Doctor Review")
 		self.assertEqual(encounter.custom_test_instructions[0].result_type, "Negative")
@@ -147,9 +148,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 		)
 
 	def test_submit_test_results_rejects_wrong_state(self):
-		encounter = self._make_encounter(
-			self.session, "Waiting for Doctor", tests=[{"test_name": "Malaria"}]
-		)
+		encounter = self._make_encounter(self.session, "Waiting for Doctor", tests=[{"test_name": "Malaria"}])
 		row_name = encounter.custom_test_instructions[0].name
 
 		frappe.set_user(self.nurse_user)
@@ -178,11 +177,10 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 
 		frappe.set_user(self.nurse_user)
 		try:
-			result = dispense_medicine(encounter.name, [row_name])
+			dispense_medicine(encounter.name, [row_name])
 		finally:
 			frappe.set_user("Administrator")
 
-		self.assertTrue(result["success"])
 		encounter.reload()
 		self.assertEqual(encounter.custom_workflow_state, "Completed")
 		self.assertTrue(encounter.custom_bandhu_prescription[0].dispensed)
@@ -240,7 +238,10 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 
 	def test_nurse_not_assigned_to_session_is_blocked(self):
 		encounter = self._make_encounter(
-			self.other_session, "Awaiting Test", practitioner=self.other_practitioner, tests=[{"test_name": "Hb"}]
+			self.other_session,
+			"Awaiting Test",
+			practitioner=self.other_practitioner,
+			tests=[{"test_name": "Hb"}],
 		)
 
 		frappe.set_user(self.nurse_user)
@@ -336,9 +337,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 		frappe.set_user(self.nurse_user)
 		try:
 			start_session(session)
-			self.assertEqual(
-				frappe.db.get_value("Bandhu Clinic Session", session, "status"), "In Progress"
-			)
+			self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "In Progress")
 			end_session(session)
 		finally:
 			frappe.set_user("Administrator")

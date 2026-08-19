@@ -146,15 +146,14 @@ def require_running_session(session_name: str) -> dict:
 		as_dict=True,
 	)
 	if not session_doc:
-		frappe.throw(_("Clinic session not found."), frappe.ValidationError)
+		frappe.throw(_("Clinic session not found."))
 	if session_doc.status == "Cancelled":
-		frappe.throw(_("This clinic session was cancelled."), frappe.ValidationError)
+		frappe.throw(_("This clinic session was cancelled."))
 	if session_doc.status == "Completed":
-		frappe.throw(_("This clinic session is already completed."), frappe.ValidationError)
+		frappe.throw(_("This clinic session is already completed."))
 	if session_doc.status != "In Progress":
 		frappe.throw(
 			_("This clinic session hasn't started yet. Ask the nurse to start the session first."),
-			frappe.ValidationError,
 		)
 
 	return session_doc
@@ -197,22 +196,22 @@ def register_patient(
 	sex = (sex or "").strip()
 
 	if not full_name:
-		frappe.throw(_("Full name is required."), frappe.ValidationError)
+		frappe.throw(_("Full name is required."))
 	if not dob:
-		frappe.throw(_("Date of birth is required."), frappe.ValidationError)
+		frappe.throw(_("Date of birth is required."))
 	if not sex:
-		frappe.throw(_("Sex is required."), frappe.ValidationError)
+		frappe.throw(_("Sex is required."))
 
 	if height_cm is not None and flt(height_cm) < 0:
-		frappe.throw(_("Height cannot be negative."), frappe.ValidationError)
+		frappe.throw(_("Height cannot be negative."))
 	if weight_kg is not None and flt(weight_kg) < 0:
-		frappe.throw(_("Weight cannot be negative."), frappe.ValidationError)
+		frappe.throw(_("Weight cannot be negative."))
 
 	mobile = (mobile or "").strip() or None
 	if mobile:
 		validate_phone_number(mobile, throw=True)
 		if not re.fullmatch(r"\d{10}", mobile):
-			frappe.throw(_("Mobile number must be exactly 10 digits."), frappe.ValidationError)
+			frappe.throw(_("Mobile number must be exactly 10 digits."))
 
 	name_parts = full_name.split(None, 1)
 	first_name = name_parts[0]
@@ -240,12 +239,8 @@ def register_patient(
 	if weight_kg:
 		patient_fields["custom_weight_kg"] = flt(weight_kg)
 
-	try:
-		patient = frappe.get_doc(patient_fields)
-		patient.insert(ignore_permissions=True)
-	except frappe.ValidationError:
-		frappe.db.rollback()
-		raise
+	patient = frappe.get_doc(patient_fields)
+	patient.insert(ignore_permissions=True)
 
 	return patient.name
 
@@ -255,13 +250,12 @@ def create_encounter(patient: str, session: str) -> str:
 	require_session_access(session)
 
 	if not frappe.db.exists("Patient", patient):
-		frappe.throw(_("Patient not found."), frappe.ValidationError)
+		frappe.throw(_("Patient not found."))
 
 	session_doc = require_running_session(session)
 	if not session_doc.assigned_doctor:
 		frappe.throw(
 			_("No doctor is assigned to this clinic session yet. Cannot register patient."),
-			frappe.ValidationError,
 		)
 
 	existing = frappe.db.get_value(
@@ -278,24 +272,20 @@ def create_encounter(patient: str, session: str) -> str:
 
 	patient_doc = frappe.get_doc("Patient", patient)
 
-	try:
-		encounter = frappe.get_doc(
-			{
-				"doctype": "Patient Encounter",
-				"patient": patient,
-				"patient_name": patient_doc.patient_name,
-				"patient_sex": patient_doc.sex,
-				"patient_age": patient_doc.get_age(),
-				"practitioner": session_doc.assigned_doctor,
-				"custom_clinic_session": session,
-				"custom_workflow_state": "Waiting for Doctor",
-				"encounter_date": frappe.utils.today(),
-			}
-		)
-		encounter.insert(ignore_permissions=True)
-	except frappe.ValidationError:
-		frappe.db.rollback()
-		raise
+	encounter = frappe.get_doc(
+		{
+			"doctype": "Patient Encounter",
+			"patient": patient,
+			"patient_name": patient_doc.patient_name,
+			"patient_sex": patient_doc.sex,
+			"patient_age": patient_doc.get_age(),
+			"practitioner": session_doc.assigned_doctor,
+			"custom_clinic_session": session,
+			"custom_workflow_state": "Waiting for Doctor",
+			"encounter_date": frappe.utils.today(),
+		}
+	)
+	encounter.insert(ignore_permissions=True)
 
 	return encounter.name
 

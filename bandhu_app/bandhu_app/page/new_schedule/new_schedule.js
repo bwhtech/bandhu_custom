@@ -1,40 +1,14 @@
-const WIZARD_CSS =
-	".sched-wizard{--max-w:var(--page-max-width,900px);max-width:var(--max-w);margin:0 auto;padding:0 var(--padding-md) var(--padding-2xl);}" +
-	".sched-wizard .steps{display:flex;gap:var(--padding-sm);margin-bottom:var(--margin-lg);}" +
-	".sched-wizard .step{flex:1;font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);border-top:3px solid var(--border-color);padding-top:6px;}" +
-	".sched-wizard .step.active{color:var(--heading-color);border-top-color:var(--primary);font-weight:var(--weight-semibold);}" +
-	".sched-wizard .step.done{border-top-color:var(--primary);}" +
-	".sched-wizard .panels{display:grid;grid-template-columns:1fr 280px;gap:var(--padding-lg);align-items:start;}" +
-	".sched-wizard .card{border:1px solid var(--border-color);border-radius:var(--border-radius-md);background:var(--bg-color);padding:var(--padding-lg);}" +
-	".sched-wizard .field-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--padding-md);}" +
-	".sched-wizard .field-grid .form-group{margin-bottom:0;}" +
-	".sched-wizard label{font-size:var(--text-sm);color:var(--text-muted);margin-bottom:4px;}" +
-	".sched-wizard .field-wide{grid-column:1/-1;}" +
-	".sched-wizard .choice-row{display:flex;gap:var(--padding-sm);flex-wrap:wrap;}" +
-	".sched-wizard .choice{padding:8px 14px;border:1px solid var(--border-color);border-radius:var(--border-radius-full);background:var(--bg-color);font-size:var(--text-sm);cursor:pointer;}" +
-	".sched-wizard .choice.selected{background:var(--primary);color:white;border-color:var(--primary);}" +
-	".sched-wizard .day-chips{display:flex;gap:6px;flex-wrap:wrap;}" +
-	".sched-wizard .day-chip{width:42px;height:42px;border-radius:50%;border:1px solid var(--border-color);background:var(--bg-color);font-size:var(--text-sm);cursor:pointer;}" +
-	".sched-wizard .day-chip.selected{background:var(--primary);color:white;border-color:var(--primary);}" +
-	".sched-wizard .section-label{font-size:var(--text-xs);font-weight:var(--weight-semibold);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin:var(--margin-lg) 0 var(--margin-sm);}" +
-	".sched-wizard .section-label:first-child{margin-top:0;}" +
-	".sched-wizard .preview{position:sticky;top:var(--padding-md);border:1px solid var(--border-color);border-radius:var(--border-radius-md);background:var(--subtle-fg);padding:var(--padding-md);font-size:var(--text-sm);}" +
-	".sched-wizard .preview-title{font-size:var(--text-xs);font-weight:var(--weight-semibold);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:var(--margin-sm);}" +
-	".sched-wizard .preview-date{padding:3px 0;color:var(--text-color);}" +
-	".sched-wizard .preview-empty{color:var(--text-muted);}" +
-	".sched-wizard .clash{margin-top:var(--margin-md);padding:var(--padding-sm);border-radius:var(--border-radius);background:var(--bg-orange);color:var(--text-on-orange);font-size:var(--text-xs);}" +
-	".sched-wizard .summary{font-size:var(--text-base);line-height:1.7;color:var(--text-color);}" +
-	".sched-wizard .summary b{color:var(--heading-color);}" +
-	".sched-wizard .actions{display:flex;justify-content:space-between;margin-top:var(--margin-lg);}" +
-	"@media(max-width:768px){" +
-	".sched-wizard{padding:0 var(--padding-sm) var(--padding-xl);}" +
-	".sched-wizard .panels{grid-template-columns:1fr;}" +
-	".sched-wizard .field-grid{grid-template-columns:1fr;}" +
-	".sched-wizard .preview{position:static;}}";
-
 const STEPS = [__("Where"), __("When"), __("Who"), __("Check")];
 
-const DAY_INITIALS = { Monday: "M", Tuesday: "T", Wednesday: "W", Thursday: "T", Friday: "F", Saturday: "S", Sunday: "S" };
+const DAY_INITIALS = {
+	Monday: "M",
+	Tuesday: "T",
+	Wednesday: "W",
+	Thursday: "T",
+	Friday: "F",
+	Saturday: "S",
+	Sunday: "S",
+};
 
 let options = {};
 let schedule = {};
@@ -149,16 +123,17 @@ function renderWhen() {
 		)
 		.join("");
 
-	const usesDayOfMonth = schedule.frequency === "Monthly" && schedule.monthly_mode === "Day of Month";
+	const usesDayOfMonth =
+		schedule.frequency === "Monthly" && schedule.monthly_mode === "Day of Month";
 
 	const monthlyExtra =
 		schedule.frequency !== "Monthly"
 			? ""
 			: '<div class="section-label">' +
-				__("Which day of the month") +
-				"</div>" +
-				'<div class="choice-row">' +
-				['Day of Week', 'Day of Month']
+			  __("Which day of the month") +
+			  "</div>" +
+			  '<div class="choice-row">' +
+			  ["Day of Week", "Day of Month"]
 					.map(
 						(mode) =>
 							'<div class="choice wizard-monthly-mode' +
@@ -166,16 +141,29 @@ function renderWhen() {
 							'" data-value="' +
 							mode +
 							'">' +
-							(mode === "Day of Week" ? __("A weekday, e.g. first Monday") : __("A date, e.g. the 15th")) +
+							(mode === "Day of Week"
+								? __("A weekday, e.g. first Monday")
+								: __("A date, e.g. the 15th")) +
 							"</div>"
 					)
 					.join("") +
-				"</div>" +
-				'<div class="field-grid" style="margin-top:var(--margin-md);">' +
-				(usesDayOfMonth
-					? inputField("day_of_month", __("Date in the month"), "number", 'min="1" max="31"')
-					: selectField("week_of_month", __("Which week"), ["First", "Second", "Third", "Fourth", "Last"])) +
-				"</div>";
+			  "</div>" +
+			  '<div class="field-grid field-grid-spaced">' +
+			  (usesDayOfMonth
+					? inputField(
+							"day_of_month",
+							__("Date in the month"),
+							"number",
+							'min="1" max="31"'
+					  )
+					: selectField("week_of_month", __("Which week"), [
+							"First",
+							"Second",
+							"Third",
+							"Fourth",
+							"Last",
+					  ])) +
+			  "</div>";
 
 	return (
 		'<div class="card">' +
@@ -188,7 +176,11 @@ function renderWhen() {
 		monthlyExtra +
 		(usesDayOfMonth
 			? ""
-			: '<div class="section-label">' + __("Which days") + '</div><div class="day-chips">' + chips + "</div>") +
+			: '<div class="section-label">' +
+			  __("Which days") +
+			  '</div><div class="day-chips">' +
+			  chips +
+			  "</div>") +
 		'<div class="section-label">' +
 		__("Timing") +
 		"</div>" +
@@ -239,15 +231,15 @@ function summarySentence() {
 				? __("on day {0} of every month", [schedule.day_of_month || "?"])
 				: __("on the {0} {1} of every month", [__(schedule.week_of_month), days || "?"])
 			: schedule.frequency === "Fortnightly"
-				? __("every two weeks on {0}", [days || "?"])
-				: __("every week on {0}", [days || "?"]);
+			? __("every two weeks on {0}", [days || "?"])
+			: __("every week on {0}", [days || "?"]);
 
 	const time =
 		schedule.planned_start_time && schedule.planned_end_time
 			? __("from {0} to {1}", [
 					clock_label(schedule.planned_start_time),
 					clock_label(schedule.planned_end_time),
-				])
+			  ])
 			: "";
 
 	const team = [
@@ -263,7 +255,9 @@ function summarySentence() {
 		frappe.utils.escape_html(when) +
 		" " +
 		frappe.utils.escape_html(time) +
-		(schedule.unit ? ", " + frappe.utils.escape_html(labelFor(options.units, schedule.unit)) : "") +
+		(schedule.unit
+			? ", " + frappe.utils.escape_html(labelFor(options.units, schedule.unit))
+			: "") +
 		(team.length ? ". " + __("Team") + ": " + frappe.utils.escape_html(team.join(", ")) : "") +
 		". " +
 		__("{0} camps will be created now.", [preview.total || 0])
@@ -326,9 +320,9 @@ function renderPreview() {
 		"</div>" +
 		rows +
 		(preview.total > preview.dates.length
-			? '<div class="preview-empty" style="margin-top:6px;">' +
-				__("{0} in total", [preview.total]) +
-				"</div>"
+			? '<div class="preview-empty preview-empty-spaced">' +
+			  __("{0} in total", [preview.total]) +
+			  "</div>"
 			: "") +
 		renderClashes() +
 		"</div>"
@@ -339,10 +333,7 @@ function render(page) {
 	const body = [renderWhere, renderWhen, renderWho, renderCheck][step]();
 
 	page.main.html(
-		"<style>" +
-			WIZARD_CSS +
-			"</style>" +
-			'<div class="sched-wizard">' +
+		'<div class="sched-wizard">' +
 			'<div class="steps">' +
 			STEPS.map(
 				(label, index) =>
@@ -362,7 +353,9 @@ function render(page) {
 			__("Back") +
 			"</button>" +
 			(step === STEPS.length - 1
-				? '<button class="btn btn-primary wizard-create">' + __("Create Schedule") + "</button>"
+				? '<button class="btn btn-primary wizard-create">' +
+				  __("Create Schedule") +
+				  "</button>"
 				: '<button class="btn btn-primary wizard-next">' + __("Next") + "</button>") +
 			"</div></div>" +
 			renderPreview() +
@@ -435,11 +428,13 @@ function missingForStep() {
 		return null;
 	}
 	if (step === 1) {
-		const usesDayOfMonth = schedule.frequency === "Monthly" && schedule.monthly_mode === "Day of Month";
+		const usesDayOfMonth =
+			schedule.frequency === "Monthly" && schedule.monthly_mode === "Day of Month";
 		if (usesDayOfMonth && !schedule.day_of_month) return __("Set the date in the month.");
 		if (!usesDayOfMonth && !schedule.weekdays.length) return __("Pick at least one day.");
 		if (!schedule.valid_from) return __("Set the date this schedule starts from.");
-		if (!preview.total) return __("This pattern produces no dates. Check the days and the start date.");
+		if (!preview.total)
+			return __("This pattern produces no dates. Check the days and the start date.");
 	}
 	return null;
 }
@@ -469,7 +464,7 @@ async function loadPreview(page) {
 			args: { values: JSON.stringify(schedule) },
 		});
 		preview = (response && response.message) || { dates: [], total: 0, clashes: [] };
-	} catch (e) {
+	} catch (error) {
 		// The preview is guidance; losing it must not block the wizard.
 		return;
 	}
@@ -485,8 +480,6 @@ async function createSchedule(page) {
 			args: { values: JSON.stringify(schedule) },
 		});
 		result = response && response.message;
-	} catch (e) {
-		return;
 	} finally {
 		frappe.dom.unfreeze();
 	}
@@ -506,8 +499,6 @@ async function loadOptions(page) {
 			method: "bandhu_app.bandhu_app.page.new_schedule.new_schedule.get_form_options",
 		});
 		options = (response && response.message) || {};
-	} catch (e) {
-		return;
 	} finally {
 		frappe.dom.unfreeze();
 	}

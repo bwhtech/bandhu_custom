@@ -98,51 +98,48 @@ def load_session_for_status_change(session_name: str) -> dict:
 		as_dict=True,
 	)
 	if not session_doc:
-		frappe.throw(_("Clinic session not found."), frappe.ValidationError)
+		frappe.throw(_("Clinic session not found."))
 	if session_doc.status == "Cancelled":
-		frappe.throw(_("This camp was cancelled. Do not travel to it."), frappe.ValidationError)
+		frappe.throw(_("This camp was cancelled. Do not travel to it."))
 
 	return session_doc
 
 
 @frappe.whitelist()
-def start_session(session_name: str) -> dict:
+def start_session(session_name: str) -> None:
 	session_doc = load_session_for_status_change(session_name)
 
 	if session_doc.status == "In Progress":
-		frappe.throw(_("This camp is already open."), frappe.ValidationError)
+		frappe.throw(_("This camp is already open."))
 	# Reopening a closed camp would let patients be registered against it hours or days
 	# later, with nothing in the record showing the camp had already been signed off.
 	if session_doc.status == "Completed":
 		frappe.throw(
 			_("This camp is already closed and cannot be reopened."),
-			frappe.ValidationError,
 		)
 	# A camp opened on the wrong date counts as running today on every board and dashboard.
 	if str(session_doc.date) != frappe.utils.today():
-		frappe.throw(_("You can only open a camp on the day it is scheduled."), frappe.ValidationError)
+		frappe.throw(_("You can only open a camp on the day it is scheduled."))
 
 	frappe.db.set_value(
 		"Bandhu Clinic Session",
 		session_name,
 		{"status": "In Progress", "start_time": frappe.utils.now_datetime()},
 	)
-	return {"success": True}
 
 
 @frappe.whitelist()
-def end_session(session_name: str) -> dict:
+def end_session(session_name: str) -> None:
 	session_doc = load_session_for_status_change(session_name)
 
 	if session_doc.status != "In Progress":
-		frappe.throw(_("This camp is not open, so it cannot be closed."), frappe.ValidationError)
+		frappe.throw(_("This camp is not open, so it cannot be closed."))
 
 	frappe.db.set_value(
 		"Bandhu Clinic Session",
 		session_name,
 		{"status": "Completed", "end_time": frappe.utils.now_datetime()},
 	)
-	return {"success": True}
 
 
 def get_encounters_with_details(session_name, workflow_state):
@@ -190,35 +187,29 @@ def get_patient_registration_details(encounter: str) -> dict:
 
 
 @frappe.whitelist()
-def submit_test_results(encounter: str, results: list | str) -> dict:
+def submit_test_results(encounter: str, results: list | str) -> None:
 	doc = load_session_encounter(encounter)
 	if doc.custom_workflow_state != "Awaiting Test":
-		frappe.throw(_("This patient is not awaiting a test."), frappe.ValidationError)
+		frappe.throw(_("This patient is not awaiting a test."))
 
 	results = frappe.parse_json(results)
 	rows_by_name = {row.name: row for row in doc.custom_test_instructions}
 	for result in results:
 		row = rows_by_name.get(result.get("name"))
 		if not row:
-			frappe.throw(_("Unknown test row."), frappe.ValidationError)
+			frappe.throw(_("Unknown test row."))
 		row.result_type = result.get("result_type")
 		row.result_value = result.get("result_value")
 
 	doc.custom_workflow_state = "Awaiting Doctor Review"
-	try:
-		doc.save(ignore_permissions=True)
-	except frappe.ValidationError:
-		frappe.db.rollback()
-		raise
-
-	return {"success": True}
+	doc.save(ignore_permissions=True)
 
 
 @frappe.whitelist()
-def dispense_medicine(encounter: str, dispensed_rows: list | str | None = None) -> dict:
+def dispense_medicine(encounter: str, dispensed_rows: list | str | None = None) -> None:
 	doc = load_session_encounter(encounter)
 	if doc.custom_workflow_state != "Awaiting Medicine":
-		frappe.throw(_("This patient is not awaiting medicine."), frappe.ValidationError)
+		frappe.throw(_("This patient is not awaiting medicine."))
 
 	practitioner = get_nurse_practitioner()
 	dispensed_set = set(frappe.parse_json(dispensed_rows) or [])
@@ -226,15 +217,9 @@ def dispense_medicine(encounter: str, dispensed_rows: list | str | None = None) 
 	for row_name in dispensed_set:
 		row = rows_by_name.get(row_name)
 		if not row:
-			frappe.throw(_("Unknown prescription row."), frappe.ValidationError)
+			frappe.throw(_("Unknown prescription row."))
 		row.dispensed = 1
 		row.dispensed_by = practitioner
 
 	doc.custom_workflow_state = "Completed"
-	try:
-		doc.save(ignore_permissions=True)
-	except frappe.ValidationError:
-		frappe.db.rollback()
-		raise
-
-	return {"success": True}
+	doc.save(ignore_permissions=True)

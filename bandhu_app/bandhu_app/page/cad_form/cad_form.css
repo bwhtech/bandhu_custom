@@ -1,0 +1,249 @@
+.cad-dash {
+	--max-w: var(--page-max-width, 900px);
+	max-width: var(--max-w);
+	margin: 0 auto;
+	padding: 0 var(--padding-md);
+}
+
+.cad-dash .empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: var(--padding-2xl) var(--padding-md);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	color: var(--text-muted);
+	background: var(--bg-color);
+}
+
+.cad-dash .empty-state .empty-state-icon {
+	font-size: 32px;
+	margin-bottom: 10px;
+	opacity: 0.4;
+}
+
+.cad-dash .empty-state .empty-state-icon.done {
+	color: var(--green-500);
+	opacity: 1;
+}
+
+.cad-dash .empty-state .empty-state-text {
+	font-size: var(--text-sm);
+}
+
+.cad-dash .session-bar {
+	display: flex;
+	align-items: center;
+	gap: var(--padding-sm);
+	flex-wrap: wrap;
+	padding: 0 0 var(--padding-lg) 0;
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+}
+
+.cad-dash .session-bar .session-sep {
+	color: var(--border-color);
+}
+
+.cad-dash .session-bar .session-dot {
+	font-size: 8px;
+}
+
+.cad-dash .session-bar .session-dot.running {
+	color: var(--green-500);
+}
+
+.cad-dash .welcome {
+	padding: var(--padding-lg) 0 var(--padding-xl) 0;
+}
+
+.cad-dash .welcome h3 {
+	font-size: var(--text-2xl);
+	font-weight: var(--weight-semibold);
+	color: var(--heading-color);
+	margin: 0;
+}
+
+.cad-dash .queue-head {
+	font-size: var(--text-lg);
+	font-weight: var(--weight-semibold);
+	color: var(--heading-color);
+	margin: 0;
+}
+
+.cad-dash .queue-meta {
+	font-weight: var(--weight-regular);
+	font-size: var(--text-base);
+	color: var(--text-muted);
+}
+
+.cad-dash .cad-search-section {
+	margin-bottom: var(--margin-xl);
+}
+
+.cad-dash .cad-search-section .queue-head {
+	margin-bottom: var(--margin-sm);
+}
+
+.cad-dash .search-row {
+	display: flex;
+	gap: var(--padding-sm);
+}
+
+.cad-dash .search-row input {
+	flex: 1;
+}
+
+.cad-dash .cad-search-results {
+	margin-top: var(--margin-sm);
+}
+
+.cad-dash .patient-result-row {
+	display: flex;
+	align-items: center;
+	gap: var(--padding-sm);
+	padding: 10px 12px;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	margin-bottom: 6px;
+	cursor: pointer;
+	background: var(--bg-color);
+}
+
+.cad-dash .patient-result-row .pr-info {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	flex: 1;
+	min-width: 0;
+}
+
+.cad-dash .queue-clinic-id {
+	font-family: monospace;
+	letter-spacing: 0.5px;
+	white-space: nowrap;
+}
+
+.cad-dash .patient-result-row:hover {
+	border-color: var(--primary-color);
+}
+
+.cad-dash .patient-result-row .pr-name {
+	font-weight: var(--weight-semibold);
+	color: var(--heading-color);
+}
+
+.cad-dash .patient-result-row .pr-meta {
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+}
+
+.cad-dash .cad-register-section {
+	margin-bottom: var(--margin-xl);
+}
+
+.cad-dash .cad-register-form {
+	display: none;
+	margin-top: var(--margin-sm);
+	padding: var(--padding-lg);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	background: var(--bg-color);
+}
+
+.cad-dash .register-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: var(--padding-md);
+}
+
+.cad-dash .register-grid .form-group {
+	margin-bottom: 0;
+}
+
+.cad-dash .register-grid label {
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+	margin-bottom: 4px;
+}
+
+.cad-dash .sex-btn-group {
+	display: flex;
+	gap: 8px;
+}
+
+.cad-dash .sex-btn {
+	flex: 1;
+}
+
+.cad-dash .register-actions {
+	margin-top: var(--margin-lg);
+	display: flex;
+	justify-content: flex-end;
+}
+
+.cad-dash .cad-queue-section {
+	margin-top: var(--margin-xl);
+}
+
+.cad-dash .table-wrap {
+	overflow: auto;
+	border: 1px solid var(--table-border-color);
+	border-radius: var(--border-radius-md);
+	margin-top: var(--margin-sm);
+}
+
+.cad-dash .table {
+	margin-bottom: 0;
+	min-width: 400px;
+}
+
+.cad-dash .table thead {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+}
+
+.cad-dash .table th {
+	background: var(--subtle-fg);
+	padding: 8px 12px;
+	font-size: var(--text-sm);
+	font-weight: var(--weight-semibold);
+	color: var(--heading-color);
+	white-space: nowrap;
+	border-bottom: 1px solid var(--table-border-color);
+}
+
+.cad-dash .table td {
+	padding: 10px 12px;
+	vertical-align: middle;
+	border-bottom: 1px solid var(--table-border-color);
+}
+
+.cad-dash .table tbody tr:last-child td {
+	border-bottom: none;
+}
+
+.cad-dash .table td.queue-empty {
+	text-align: center;
+	color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+	.cad-dash {
+		padding: 0 var(--padding-sm);
+	}
+
+	.cad-dash .register-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.cad-dash .table {
+		min-width: 350px;
+	}
+
+	.cad-dash .table td,
+	.cad-dash .table th {
+		padding: 8px 10px;
+	}
+}

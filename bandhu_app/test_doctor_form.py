@@ -106,8 +106,7 @@ class TestDoctorForm(IntegrationTestCase):
 
 	def test_order_test_writes_rows_and_advances_state(self):
 		frappe.set_user(self.doctor_user_1)
-		result = order_test(self.encounter.name, ["Malaria", "Hb"], notes="Fasting sample")
-		self.assertEqual(result, {"success": True})
+		order_test(self.encounter.name, ["Malaria", "Hb"], notes="Fasting sample")
 
 		self.encounter.reload()
 		self.assertEqual(self.encounter.custom_workflow_state, "Awaiting Test")
@@ -130,11 +129,10 @@ class TestDoctorForm(IntegrationTestCase):
 
 	def test_prescribe_medicine_writes_rows_and_advances_state(self):
 		frappe.set_user(self.doctor_user_1)
-		result = prescribe_medicine(
+		prescribe_medicine(
 			self.encounter.name,
 			[{"medicines": TEST_ITEM, "dosage_frequency": "BD", "duration_days": 5, "quantity": 10}],
 		)
-		self.assertEqual(result, {"success": True})
 
 		self.encounter.reload()
 		self.assertEqual(self.encounter.custom_workflow_state, "Awaiting Medicine")
@@ -151,8 +149,7 @@ class TestDoctorForm(IntegrationTestCase):
 
 	def test_complete_encounter_records_diagnosis(self):
 		frappe.set_user(self.doctor_user_1)
-		result = complete_encounter(self.encounter.name, diagnosis="Viral fever", clinical_notes="Rest advised")
-		self.assertEqual(result, {"success": True})
+		complete_encounter(self.encounter.name, diagnosis="Viral fever", clinical_notes="Rest advised")
 
 		self.encounter.reload()
 		self.assertEqual(self.encounter.custom_workflow_state, "Completed")
@@ -162,8 +159,7 @@ class TestDoctorForm(IntegrationTestCase):
 
 	def test_complete_encounter_without_diagnosis_is_allowed(self):
 		frappe.set_user(self.doctor_user_1)
-		result = complete_encounter(self.encounter.name)
-		self.assertEqual(result, {"success": True})
+		complete_encounter(self.encounter.name)
 		self.encounter.reload()
 		self.assertEqual(self.encounter.custom_workflow_state, "Completed")
 
@@ -214,7 +210,9 @@ class TestDoctorForm(IntegrationTestCase):
 		finally:
 			frappe.set_user("Administrator")
 		self.assertFalse(status["has_session"])
-		self.assertEqual(status["message"], "No session scheduled for today. Please contact Programme Manager.")
+		self.assertEqual(
+			status["message"], "No session scheduled for today. Please contact Programme Manager."
+		)
 
 	def test_get_session_status_blocks_non_doctor_role(self):
 		frappe.set_user(self.plain_user)

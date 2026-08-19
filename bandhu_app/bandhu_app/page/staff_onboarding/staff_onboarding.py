@@ -48,18 +48,18 @@ def provision_staff_member(
 	gender = (gender or "").strip() or None
 
 	if not first_name:
-		frappe.throw(_("First name is required."), frappe.ValidationError)
+		frappe.throw(_("First name is required."))
 	if not email:
-		frappe.throw(_("Email is required."), frappe.ValidationError)
+		frappe.throw(_("Email is required."))
 	validate_email_address(email, throw=True)
 	if role not in PROVISIONABLE_ROLES:
-		frappe.throw(_("{0} is not a role this tool can provision.").format(role), frappe.ValidationError)
+		frappe.throw(_("{0} is not a role this tool can provision.").format(role))
 	if frappe.db.exists("User", email):
-		frappe.throw(_("A user with email {0} already exists.").format(email), frappe.ValidationError)
+		frappe.throw(_("A user with email {0} already exists.").format(email))
 	if mobile_phone:
 		validate_phone_number(mobile_phone, throw=True)
 		if not re.fullmatch(r"\d{10}", mobile_phone):
-			frappe.throw(_("Mobile number must be exactly 10 digits."), frappe.ValidationError)
+			frappe.throw(_("Mobile number must be exactly 10 digits."))
 
 	user = frappe.get_doc(
 		{

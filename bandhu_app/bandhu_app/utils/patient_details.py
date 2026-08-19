@@ -23,7 +23,7 @@ PATIENT_DETAIL_FIELDS = [
 
 def get_patient_details(patient: str) -> dict:
 	if not frappe.db.exists("Patient", patient):
-		frappe.throw(_("Patient not found."), frappe.ValidationError)
+		frappe.throw(_("Patient not found."))
 	return frappe.db.get_value("Patient", patient, PATIENT_DETAIL_FIELDS, as_dict=True)
 
 

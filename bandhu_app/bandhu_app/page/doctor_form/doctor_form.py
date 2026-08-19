@@ -166,52 +166,45 @@ def get_patient_registration_details(encounter: str):
 
 
 @frappe.whitelist()
-def order_test(encounter: str, tests: list | str, notes: str | None = None) -> dict:
+def order_test(encounter: str, tests: list | str, notes: str | None = None) -> None:
 	require_doctor_access()
 	tests = frappe.parse_json(tests)
 
 	if not tests:
-		frappe.throw(_("Select at least one test."), frappe.ValidationError)
+		frappe.throw(_("Select at least one test."))
 	invalid = set(tests) - VALID_TEST_NAMES
 	if invalid:
-		frappe.throw(_("Unknown test(s): {0}").format(", ".join(invalid)), frappe.ValidationError)
+		frappe.throw(_("Unknown test(s): {0}").format(", ".join(invalid)))
 
 	doc = load_owned_encounter(encounter)
 	if doc.custom_workflow_state != "Waiting for Doctor":
-		frappe.throw(_("Tests can only be ordered for a patient waiting for the doctor."), frappe.ValidationError)
+		frappe.throw(_("Tests can only be ordered for a patient waiting for the doctor."))
 
 	for test_name in tests:
 		doc.append("custom_test_instructions", {"test_name": test_name, "notes": notes})
 
 	doc.custom_workflow_state = "Awaiting Test"
-	try:
-		doc.save(ignore_permissions=True)
-	except frappe.ValidationError:
-		frappe.db.rollback()
-		raise
-
-	return {"success": True}
+	doc.save(ignore_permissions=True)
 
 
 @frappe.whitelist()
-def prescribe_medicine(encounter: str, prescriptions: list | str) -> dict:
+def prescribe_medicine(encounter: str, prescriptions: list | str) -> None:
 	require_doctor_access()
 	prescriptions = frappe.parse_json(prescriptions)
 
 	if not prescriptions:
-		frappe.throw(_("Add at least one medicine."), frappe.ValidationError)
+		frappe.throw(_("Add at least one medicine."))
 
 	doc = load_owned_encounter(encounter)
 	if doc.custom_workflow_state not in ("Waiting for Doctor", "Awaiting Doctor Review"):
 		frappe.throw(
 			_("Medicine can only be prescribed for a patient waiting for or under doctor review."),
-			frappe.ValidationError,
 		)
 
 	for row in prescriptions:
 		medicine = (row.get("medicines") or "").strip()
 		if not medicine:
-			frappe.throw(_("Every prescription row needs a medicine."), frappe.ValidationError)
+			frappe.throw(_("Every prescription row needs a medicine."))
 		doc.append(
 			"custom_bandhu_prescription",
 			{
@@ -224,24 +217,19 @@ def prescribe_medicine(encounter: str, prescriptions: list | str) -> dict:
 		)
 
 	doc.custom_workflow_state = "Awaiting Medicine"
-	try:
-		doc.save(ignore_permissions=True)
-	except frappe.ValidationError:
-		frappe.db.rollback()
-		raise
-
-	return {"success": True}
+	doc.save(ignore_permissions=True)
 
 
 @frappe.whitelist()
-def complete_encounter(encounter: str, diagnosis: str | None = None, clinical_notes: str | None = None) -> dict:
+def complete_encounter(
+	encounter: str, diagnosis: str | None = None, clinical_notes: str | None = None
+) -> None:
 	require_doctor_access()
 
 	doc = load_owned_encounter(encounter)
 	if doc.custom_workflow_state not in ("Waiting for Doctor", "Awaiting Doctor Review"):
 		frappe.throw(
 			_("This patient cannot be marked complete from their current state."),
-			frappe.ValidationError,
 		)
 
 	if diagnosis:
@@ -250,10 +238,4 @@ def complete_encounter(encounter: str, diagnosis: str | None = None, clinical_no
 		doc.custom_bandhu_clinical_notes = clinical_notes
 
 	doc.custom_workflow_state = "Completed"
-	try:
-		doc.save(ignore_permissions=True)
-	except frappe.ValidationError:
-		frappe.db.rollback()
-		raise
-
-	return {"success": True}
+	doc.save(ignore_permissions=True)
