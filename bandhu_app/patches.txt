@@ -6,3 +6,4 @@
 # Patches added in this section will be executed after doctypes are migrated
 bandhu_app.patches.assign_lsg_and_unit_numeric_codes
 bandhu_app.patches.regenerate_patient_qr_codes
+bandhu_app.patches.clear_untested_result_types

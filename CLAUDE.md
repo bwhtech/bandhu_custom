@@ -767,3 +767,40 @@ Overwrite in place, don't append noise.
   - 106 tests pass (6 new: 5 age cases, 1 asserting `find_active_session`
     returns the readable site name). The CSS change is the one part not verified
     in a browser.
+- 2026-08-20: First of the eight scope reports — **Bandhu Session Report**
+  (`report/bandhu_session_report/`, Script Report). One row per camp for a period:
+  date, camp, status, site, LSG, district, project, unit, doctor, nurse, opened /
+  closed / hours, patients, new vs repeat, completed, tests ordered vs done,
+  medicines prescribed vs dispensed. Filters: period (required), project, LSG,
+  site, unit, clinic, status. Summary band + a per-camp bar chart. Shortcut added
+  to the Dashboard workspace. The other seven reports should follow this shape.
+  - **Roles: System Manager only.** A Script Report runs raw SQL and bypasses
+    permissions entirely, so the `roles` table on the Report record is the only
+    gate. No Director or Programme Manager role exists yet to add.
+  - **This bench is Frappe v16.18.2, not v15** as `AUDIT_FINDINGS.md` states.
+  - **The counts had to come from the encounter's child tables, not the doctypes
+    that look right.** Nothing in the live clinic loop writes `Test Result`,
+    `Bandhu Medication Dispense` or `Referral` — tests live in
+    `custom_test_instructions` and medicines in `custom_bandhu_prescription`.
+    The rows sitting in those three doctypes are pre-handoff seed data whose
+    `encounter` column points at a session id. Joining them looked correct and
+    silently returned zero everywhere. Referrals are therefore not a column at
+    all until the helpline module exists.
+  - **Clinical data bug found by a failing test, fixed at the schema.**
+    `Test Instructions.result_type` had no blank first option, so Frappe filled
+    every newly ordered test with the first Select value — a malaria test nobody
+    had run yet read as **Positive** on every board and in any report. Options now
+    start with a blank; `patches/clear_untested_result_types.py` clears the rows
+    the old schema mislabelled, and only for encounters still `Awaiting Test` so a
+    nurse's real result is never rewritten. 4 live rows corrected.
+  - **`reload_doc` on the Dashboard workspace deleted its folder from disk again**,
+    exactly as the 2026-08-14 entry warns. Copy the JSON aside before the reload
+    and restore it after; `ls workspace | wc -l` back to 9.
+  - Verified: 112 tests (6 new), plus live Playwright as Administrator — 17 rows,
+    the summary band, the chart, and the Dashboard shortcut landing on the report.
+    The first chart draw had unreadable axis labels (full date + site name); labels
+    are now `d MMM`.
+  - Reviewer standards for this repo are recorded from PR #10 (Rl0007): happy path
+    with no `{"success": True}` returns, no explicit `frappe.db.rollback()` in a
+    request, `frappe.log_error()` with generic `except Exception as error`, full
+    variable names, page CSS in its own file. The current tree already complies.
