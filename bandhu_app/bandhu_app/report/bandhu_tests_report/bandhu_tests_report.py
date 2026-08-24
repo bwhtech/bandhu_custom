@@ -6,6 +6,7 @@ from bandhu_app.bandhu_app.utils.patient import age_group
 from bandhu_app.bandhu_app.utils.session import fetch_map
 
 PENDING = "Pending"
+RESULT_SERIES = ("Positive", "Negative", "Value", PENDING)
 
 
 def execute(filters=None):
@@ -139,25 +140,24 @@ def apply_result_filter(rows: list, filters) -> list:
 
 
 def build_chart(rows: list) -> dict:
+	"""Stacked by result rather than Done vs Positive: a period with no positives
+	drew a legend series that was zero everywhere and read as a broken chart."""
 	test_names = sorted({row["test_name"] for row in rows if row["test_name"]})
-	done = [
-		len([row for row in rows if row["test_name"] == name and row["result"] != PENDING])
-		for name in test_names
-	]
-	positive = [
-		len([row for row in rows if row["test_name"] == name and row["result"] == "Positive"])
-		for name in test_names
-	]
+	counts = {}
+	for row in rows:
+		key = (row["test_name"], row["result"])
+		counts[key] = counts.get(key, 0) + 1
+
+	datasets = []
+	for result in RESULT_SERIES:
+		values = [counts.get((name, result), 0) for name in test_names]
+		if any(values):
+			datasets.append({"name": _(result), "values": values})
 
 	return {
-		"data": {
-			"labels": test_names,
-			"datasets": [
-				{"name": _("Done"), "values": done},
-				{"name": _("Positive"), "values": positive},
-			],
-		},
+		"data": {"labels": test_names, "datasets": datasets},
 		"type": "bar",
+		"barOptions": {"stacked": True},
 	}
 
 

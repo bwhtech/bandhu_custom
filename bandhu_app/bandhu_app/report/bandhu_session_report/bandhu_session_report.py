@@ -150,12 +150,22 @@ def hours_between(start, end) -> float:
 
 
 def build_chart(rows: list) -> dict:
+	"""One bar per day, not per camp — several camps share a date, and repeated
+	x-labels get truncated to an unreadable stub once the bars are narrow."""
+	by_date = {}
+	for row in rows:
+		day = by_date.setdefault(row["date"], {"patients": 0, "new_patients": 0})
+		day["patients"] += row["patients"]
+		day["new_patients"] += row["new_patients"]
+
+	days = sorted(by_date)
+
 	return {
 		"data": {
-			"labels": [formatdate(row["date"], "d MMM") for row in rows],
+			"labels": [formatdate(day, "d MMM") for day in days],
 			"datasets": [
-				{"name": _("Patients Seen"), "values": [row["patients"] for row in rows]},
-				{"name": _("New Patients"), "values": [row["new_patients"] for row in rows]},
+				{"name": _("Patients Seen"), "values": [by_date[day]["patients"] for day in days]},
+				{"name": _("New Patients"), "values": [by_date[day]["new_patients"] for day in days]},
 			],
 		},
 		"type": "bar",
