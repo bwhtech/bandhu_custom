@@ -222,6 +222,14 @@
   {
    "read": 1,
    "role": "Clinic Assistant cum Driver"
+  },
+  {
+   "read": 1,
+   "role": "Director"
+  },
+  {
+   "read": 1,
+   "role": "Programme Manager"
   }
  ],
  "quick_entry": 1,

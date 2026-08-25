@@ -75,6 +75,12 @@
  "roles": [
   {
    "role": "System Manager"
+  },
+  {
+   "role": "Director"
+  },
+  {
+   "role": "Programme Manager"
   }
  ],
  "sequence_id": 30.0,

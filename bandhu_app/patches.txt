@@ -7,3 +7,5 @@
 bandhu_app.patches.assign_lsg_and_unit_numeric_codes
 bandhu_app.patches.regenerate_patient_qr_codes
 bandhu_app.patches.clear_untested_result_types
+bandhu_app.patches.create_director_and_programme_manager_roles
+bandhu_app.patches.remove_dead_encounter_status_field
