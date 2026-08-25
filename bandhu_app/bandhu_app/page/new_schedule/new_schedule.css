@@ -40,7 +40,7 @@
 
 .sched-wizard .card {
 	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius-md);
+	border-radius: var(--radius-md);
 	background: var(--bg-color);
 	padding: var(--padding-lg);
 }
@@ -74,7 +74,7 @@
 .sched-wizard .choice {
 	padding: 8px 14px;
 	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius-full);
+	border-radius: var(--radius-full);
 	background: var(--bg-color);
 	font-size: var(--text-sm);
 	cursor: pointer;
@@ -125,7 +125,7 @@
 	position: sticky;
 	top: var(--padding-md);
 	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius-md);
+	border-radius: var(--radius-md);
 	background: var(--subtle-fg);
 	padding: var(--padding-md);
 	font-size: var(--text-sm);
@@ -152,7 +152,7 @@
 .sched-wizard .clash {
 	margin-top: var(--margin-md);
 	padding: var(--padding-sm);
-	border-radius: var(--border-radius);
+	border-radius: var(--radius);
 	background: var(--bg-orange);
 	color: var(--text-on-orange);
 	font-size: var(--text-xs);
