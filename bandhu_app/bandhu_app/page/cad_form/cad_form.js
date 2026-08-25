@@ -17,7 +17,12 @@ const REGISTER_FIELDS = [
 		attrs: 'min="0" step="0.1" inputmode="decimal"',
 	},
 	{ name: "native_state", label: __("Native State"), type: "select", optionsKey: "states" },
-	{ name: "native_district", label: __("Native District"), type: "text" },
+	{
+		name: "native_district",
+		label: __("Native District"),
+		type: "text",
+		attrs: 'list="cad-district-list" autocomplete="off"',
+	},
 	{
 		name: "occupation",
 		label: __("Occupation / Sector"),
@@ -230,6 +235,11 @@ function renderSearchSection() {
 		'<button class="btn btn-primary cad-search-btn">' +
 		__("Search") +
 		"</button>" +
+		'<button class="btn btn-default cad-scan-btn" title="' +
+		frappe.utils.escape_html(__("Scan the patient's card with the camera")) +
+		'"><i class="fa fa-camera"></i> ' +
+		__("Scan") +
+		"</button>" +
 		"</div>" +
 		'<div class="cad-search-results"></div>' +
 		"</div>"
@@ -319,6 +329,7 @@ function renderRegisterForm() {
 		fields +
 		sexGroup +
 		"</div>" +
+		'<datalist id="cad-district-list"></datalist>' +
 		'<div class="register-actions">' +
 		'<button class="btn btn-primary btn-lg cad-register-submit">' +
 		__("Register & Add to Queue") +
@@ -335,6 +346,8 @@ function bindSearchEvents(page) {
 	page.main.off("keypress", ".cad-search-input").on("keypress", ".cad-search-input", (event) => {
 		if (event.which === 13) searchPatients(page);
 	});
+
+	page.main.off("click", ".cad-scan-btn").on("click", ".cad-scan-btn", () => openCardScanner(page));
 
 	// bound before the row handler so printing a card does not also queue the patient
 	page.main.off("click", ".pr-print-btn").on("click", ".pr-print-btn", function (event) {
@@ -355,6 +368,29 @@ function bindSearchEvents(page) {
 				focus_scan_input(page);
 			});
 		});
+	});
+}
+
+// A USB scanner is a keyboard and needs no code here (see focus_scan_input above); this is
+// for staff without one — decode the card's QR through the device camera instead.
+function openCardScanner(page) {
+	// frappe.ui.Scanner fails silently to the console on a denied or unsupported camera;
+	// catching it here up front is what tells the CAD why nothing opened.
+	if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+		frappe.msgprint(__("Camera scanning needs a supported browser over HTTPS. Type the Clinic ID instead."));
+		return;
+	}
+
+	new frappe.ui.Scanner({
+		dialog: true,
+		multiple: false,
+		on_scan(data) {
+			const clinicId = data && data.result && data.result.text;
+			if (!clinicId) return;
+
+			page.main.find(".cad-search-input").val(clinicId);
+			searchPatients(page);
+		},
 	});
 }
 
@@ -475,6 +511,31 @@ function bindRegisterEvents(page) {
 	page.main
 		.off("click", ".cad-register-submit")
 		.on("click", ".cad-register-submit", () => submitRegistration(page));
+
+	page.main
+		.off("change", ".cad-field[data-field='native_state']")
+		.on("change", ".cad-field[data-field='native_state']", function () {
+			loadDistrictSuggestions(page, $(this).val());
+		});
+}
+
+// Native District stays free text (Autocomplete, not Link, server-side) so a state without
+// a mapped district list never blocks registration — this only offers suggestions.
+async function loadDistrictSuggestions(page, state) {
+	const datalist = page.main.find("#cad-district-list");
+	datalist.empty();
+	if (!state) return;
+
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.utils.state_districts.get_districts",
+		args: { state },
+	});
+	const districts = (response && response.message) || [];
+	datalist.html(
+		districts
+			.map((district) => '<option value="' + frappe.utils.escape_html(district) + '">')
+			.join("")
+	);
 }
 
 async function submitRegistration(page) {
