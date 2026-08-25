@@ -11,7 +11,7 @@
 	align-items: center;
 	padding: var(--padding-2xl) var(--padding-md);
 	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius-md);
+	border-radius: var(--radius-md);
 	color: var(--text-muted);
 	background: var(--bg-color);
 }
@@ -104,7 +104,7 @@
 	gap: var(--padding-sm);
 	padding: 10px 12px;
 	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius-md);
+	border-radius: var(--radius-md);
 	margin-bottom: 6px;
 	cursor: pointer;
 	background: var(--bg-color);
@@ -147,7 +147,7 @@
 	margin-top: var(--margin-sm);
 	padding: var(--padding-lg);
 	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius-md);
+	border-radius: var(--radius-md);
 	background: var(--bg-color);
 }
 
@@ -189,7 +189,7 @@
 .cad-dash .table-wrap {
 	overflow: auto;
 	border: 1px solid var(--table-border-color);
-	border-radius: var(--border-radius-md);
+	border-radius: var(--radius-md);
 	margin-top: var(--margin-sm);
 }
 

@@ -11,7 +11,7 @@
 	align-items: center;
 	padding: var(--padding-2xl) var(--padding-md);
 	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius-md);
+	border-radius: var(--radius-md);
 	color: var(--text-muted);
 	background: var(--bg-color);
 }
@@ -34,7 +34,7 @@
 .doctor-dash .upcoming-card {
 	margin-top: var(--margin-lg);
 	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius-md);
+	border-radius: var(--radius-md);
 	background: var(--bg-color);
 	padding: var(--padding-md);
 }
@@ -77,7 +77,7 @@
 .doctor-dash .table-wrap {
 	overflow: auto;
 	border: 1px solid var(--table-border-color);
-	border-radius: var(--border-radius-md);
+	border-radius: var(--radius-md);
 	margin-top: var(--margin-sm);
 }
 
@@ -175,7 +175,7 @@
 	align-items: center;
 	gap: 4px;
 	padding: 2px 8px;
-	border-radius: var(--border-radius-full);
+	border-radius: var(--radius-full);
 	font-size: var(--text-xs);
 	font-weight: var(--weight-medium);
 	white-space: nowrap;
@@ -222,7 +222,7 @@
 	margin: 3px 0;
 	background: var(--bg-color);
 	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius);
+	border-radius: var(--radius);
 }
 
 .history-list li:first-child {
