@@ -1,6 +1,8 @@
+from collections import defaultdict
+
 import frappe
 from frappe import _
-from frappe.utils import add_days, today
+from frappe.utils import add_days, getdate, today
 
 from bandhu_app.bandhu_app.utils.session_schedule import (
 	PREVIEW_LIMIT,
@@ -104,6 +106,33 @@ def get_form_options() -> dict:
 		"frequencies": FREQUENCY_CHOICES,
 		"weekdays": WEEKDAYS,
 		"defaults": last_used_defaults(),
+		"associations": association_maps(),
+	}
+
+
+def association_maps() -> dict:
+	"""Project/Site/Clinic/Unit pairings actually run before, so the wizard's dropdowns can
+	narrow to what makes sense instead of every master in the system. Only Clinic.project is
+	a real schema link — Site and Unit have no FK to Project or Clinic — so this is derived
+	from history, not the doctypes, and an empty map for a key means "no history yet",
+	which callers must treat as "don't filter" rather than "nothing is valid"."""
+	combos = frappe.get_all("Bandhu Clinic Session", fields=["project", "site", "clinic", "unit"])
+
+	project_sites = defaultdict(set)
+	site_clinics = defaultdict(set)
+	clinic_units = defaultdict(set)
+	for combo in combos:
+		if combo.project and combo.site:
+			project_sites[combo.project].add(combo.site)
+		if combo.site and combo.clinic:
+			site_clinics[combo.site].add(combo.clinic)
+		if combo.clinic and combo.unit:
+			clinic_units[combo.clinic].add(combo.unit)
+
+	return {
+		"project_sites": {key: sorted(value) for key, value in project_sites.items()},
+		"site_clinics": {key: sorted(value) for key, value in site_clinics.items()},
+		"clinic_units": {key: sorted(value) for key, value in clinic_units.items()},
 	}
 
 
@@ -144,10 +173,13 @@ def preview_schedule(values: str) -> dict:
 		draft.valid_from = today()
 
 	dates = occurrence_dates(draft, today(), add_days(today(), horizon_days()))
+	four_weeks_out = getdate(add_days(today(), 28))
+
 	return {
 		"dates": [str(day) for day in dates[:PREVIEW_LIMIT]],
 		"total": len(dates),
 		"clashes": find_assignment_clashes(draft, dates[:PREVIEW_LIMIT]),
+		"next_4_weeks": [str(day) for day in dates if day <= four_weeks_out],
 	}
 
 

@@ -28,6 +28,7 @@ class IntegrationTestSessionSchedule(IntegrationTestCase):
 		super().setUpClass()
 		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
 		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
+		cls.unit = frappe.get_all("Unit", limit=1, pluck="name")[0]
 
 	def build_schedule(self, weekdays=None, save=False, **overrides):
 		values = {
@@ -35,6 +36,7 @@ class IntegrationTestSessionSchedule(IntegrationTestCase):
 			"enabled": 1,
 			"site": self.site,
 			"clinic": self.clinic,
+			"unit": self.unit,
 			"frequency": "Weekly",
 			"valid_from": "2026-01-01",
 		}

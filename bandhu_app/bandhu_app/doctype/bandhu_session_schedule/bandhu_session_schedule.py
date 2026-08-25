@@ -57,6 +57,7 @@ class BandhuSessionSchedule(Document):
 	# end: auto-generated types
 
 	def validate(self):
+		self.derive_project_from_clinic()
 		self.validate_validity_window()
 		self.validate_pattern()
 		self.validate_planned_times()
@@ -66,6 +67,13 @@ class BandhuSessionSchedule(Document):
 
 	def on_update(self):
 		self.generate_sessions_on_save()
+
+	def derive_project_from_clinic(self):
+		# Project is read-only on the form and a fact of the Clinic, not something a caller
+		# should type. Deriving it here, not in the wizard's JS alone, is what makes it
+		# reliably set for the Desk form, data import and any other caller of this doctype.
+		if self.clinic and not self.project:
+			self.project = frappe.db.get_value("Clinic", self.clinic, "project")
 
 	def validate_validity_window(self):
 		if self.valid_upto and getdate(self.valid_upto) < getdate(self.valid_from):

@@ -43,6 +43,7 @@ class IntegrationTestNewSchedule(IntegrationTestCase):
 		super().setUpClass()
 		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
 		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
+		cls.unit = frappe.get_all("Unit", limit=1, pluck="name")[0]
 		cls.doctor = frappe.get_all(
 			"Healthcare Practitioner", filters={"custom_role": "Doctor"}, limit=1, pluck="name"
 		)[0]
@@ -51,6 +52,7 @@ class IntegrationTestNewSchedule(IntegrationTestCase):
 		values = {
 			"site": self.site,
 			"clinic": self.clinic,
+			"unit": self.unit,
 			"frequency": "Weekly",
 			"weekdays": ["Monday", "Thursday"],
 			"planned_start_time": "09:30:00",
