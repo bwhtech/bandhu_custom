@@ -90,11 +90,16 @@ def get_upcoming_sessions() -> list:
 
 def load_session_for_status_change(session_name: str) -> dict:
 	require_session_access(session_name)
+	# for_update locks the row for the rest of this transaction, so a second request opening or
+	# closing the same camp waits here and then reads the committed status — without it both
+	# requests read Planned, both pass the guards below, and the second write silently replaces
+	# the first camp's start_time, which is what Session Report and "Camps Late To Open" read.
 	session_doc = frappe.db.get_value(
 		"Bandhu Clinic Session",
 		session_name,
 		["status", "date"],
 		as_dict=True,
+		for_update=True,
 	)
 	if not session_doc:
 		frappe.throw(_("Clinic session not found."))
