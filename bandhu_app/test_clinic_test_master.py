@@ -11,6 +11,15 @@ from bandhu_app.patches.seed_bandhu_tests import execute as run_seed_patch
 
 
 class TestClinicTestMaster(IntegrationTestCase):
+	def setUp(self):
+		# IntegrationTestCase rolls back only once the class finishes, so a test that retires
+		# a test or adds one is still visible to the next test in this class.
+		seed_default_tests()
+		seeded = [test["test_name"] for test in DEFAULT_TESTS]
+		for name in frappe.get_all("Bandhu Test", filters={"name": ["not in", seeded]}, pluck="name"):
+			frappe.delete_doc("Bandhu Test", name, force=True)
+		frappe.db.set_value("Bandhu Test", {"name": ["in", seeded]}, "enabled", 1)
+
 	def test_seed_patch_is_idempotent(self):
 		run_seed_patch()
 		first = frappe.get_all("Bandhu Test", pluck="name")

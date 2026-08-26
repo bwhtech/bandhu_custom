@@ -140,6 +140,8 @@ class TestDoctorForm(IntegrationTestCase):
 	def test_order_test_rejects_a_test_that_is_not_an_enabled_master_record(self):
 		seed_default_tests()
 		frappe.db.set_value("Bandhu Test", "Leptospirosis", "enabled", 0)
+		# Rollback only happens once the class finishes, so restore it for the next test.
+		self.addCleanup(frappe.db.set_value, "Bandhu Test", "Leptospirosis", "enabled", 1)
 
 		frappe.set_user(self.doctor_user_1)
 		with self.assertRaises(frappe.ValidationError):
@@ -151,6 +153,8 @@ class TestDoctorForm(IntegrationTestCase):
 		order_test(self.encounter.name, ["Leptospirosis"])
 
 		frappe.db.set_value("Bandhu Test", "Leptospirosis", "enabled", 0)
+		# Rollback only happens once the class finishes, so restore it for the next test.
+		self.addCleanup(frappe.db.set_value, "Bandhu Test", "Leptospirosis", "enabled", 1)
 
 		self.assertNotIn("Leptospirosis", [test["name"] for test in get_test_options()])
 
