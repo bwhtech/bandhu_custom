@@ -135,7 +135,9 @@ def preview_schedule(values: str) -> dict:
 	four_weeks_out = getdate(add_days(today(), 28))
 
 	return {
-		"dates": [str(day) for day in dates[:PREVIEW_LIMIT]],
+		# Every date the pattern produces — the panel scrolls, so there is nothing to gain by
+		# hiding them. Clash lookup stays capped: it is a query per date, the dates are not.
+		"dates": [str(day) for day in dates],
 		"total": len(dates),
 		"clashes": find_assignment_clashes(draft, dates[:PREVIEW_LIMIT]),
 		"next_4_weeks": [str(day) for day in dates if day <= four_weeks_out],
@@ -148,6 +150,9 @@ def create_schedule(values: str) -> dict:
 
 	draft = as_draft(values)
 	draft.enabled = 1
+	# The Who step has already shown these clashes and the user pressed Create anyway; the form's
+	# own warning would only repeat them in a modal.
+	draft.flags.clashes_already_shown = True
 	draft.insert()
 
 	# The camps themselves are built by a background job, so counting rows here would report

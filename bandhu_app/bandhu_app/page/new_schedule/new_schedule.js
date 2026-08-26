@@ -307,7 +307,7 @@ function summarySentence() {
 
 function renderCheck() {
 	return (
-		'<div class="card"><div class="summary">' +
+		'<div class="card card-plain"><div class="summary">' +
 		summarySentence() +
 		"</div>" +
 		renderNextFourWeeks() +
@@ -317,10 +317,9 @@ function renderCheck() {
 
 function renderNextFourWeeks() {
 	const dates = preview.next_4_weeks || [];
-	const heading = '<div class="section-label">' + __("Next 4 Weeks") + "</div>";
 
 	if (!dates.length) {
-		return heading + '<div class="preview-empty">' + __("No camps fall in the next 4 weeks.") + "</div>";
+		return '<div class="preview-empty">' + __("No camps fall in the next 4 weeks.") + "</div>";
 	}
 
 	const site = labelFor(options.sites, schedule.site);
@@ -349,8 +348,7 @@ function renderNextFourWeeks() {
 		.join("");
 
 	return (
-		heading +
-		'<div class="table-wrap"><table class="table"><thead><tr><th>' +
+		'<div class="table-wrap table-wrap-tall"><table class="table"><thead><tr><th>' +
 		__("Date") +
 		"</th><th>" +
 		__("Site") +
@@ -452,7 +450,9 @@ function render(page) {
 					"</div></div>"
 			).join("") +
 			"</div>" +
-			'<div class="panels"><div>' +
+			'<div class="panels' +
+			(step === STEPS.length - 1 ? " panels-single" : "") +
+			'"><div>' +
 			body +
 			'<div class="actions">' +
 			'<button class="btn btn-default wizard-back"' +
@@ -466,7 +466,7 @@ function render(page) {
 				  "</button>"
 				: '<button class="btn btn-primary wizard-next">' + __("Next") + "</button>") +
 			"</div></div>" +
-			renderPreview() +
+			(step === STEPS.length - 1 ? "" : renderPreview()) +
 			"</div>" +
 			// Full width, below the two-column layout — the 280px sidebar column is too
 			// narrow for a Role/Who/Where/Date table once more than one person clashes.
