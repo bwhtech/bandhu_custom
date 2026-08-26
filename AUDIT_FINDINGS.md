@@ -1,6 +1,8 @@
 # bandhu_app — Read-Only Security & Correctness Audit
 
-Scope: `bandhu_app` (Frappe v15, site `bandhuapp.local`), mobile-clinic MIS.
+Scope: `bandhu_app`, mobile-clinic MIS. (Header as originally written said
+"Frappe v15, site `bandhuapp.local`" — both were wrong: this bench runs
+frappe **17.x-develop**, and the live site is **`bandhu-int.localhost`**.)
 Method: static review of the app module only. No `bench migrate`/`reload_doc`,
 no DB access, no live HTTP execution (the audit is read-only by rule). Every
 finding cites `file:line`; nothing below is inferred beyond what the code says.
@@ -15,6 +17,8 @@ reported because the brief asked, not because it is a defect.
 ## Findings (sorted HIGH → LOW)
 
 ### F1. HIGH — Stored XSS in the patient card print template
+
+**STATUS 2026-08-26: FIXED.** `| e` on `patient_name`, `mobile`, `grouped_clinic_id` and PR #18's new `custom_abha_id`; the `src`/`alt` attribute interpolations in the QR `<img>` escaped later the same day (`f5266e9`) after a live render showed them still raw. Verified by rendering the real template with `<img src=x onerror=alert(1)>` as the name.
 
 `print_format/bandhu_patient_card/bandhu_patient_card.json` renders
 `{{ doc.patient_name or "" }}` and `{{ doc.mobile }}` with **no Jinja escape
@@ -47,6 +51,8 @@ dynamic value in the template).
 
 ### F2. MEDIUM — Encounter workflow transition is TOCTOU; no lock, last-write-wins
 
+**STATUS 2026-08-26: NOT A DEFECT — closed.** Guarded twice, now proven by execution rather than by reading: `Document.check_if_latest` (`frappe/model/document.py:1404`) raises `TimestampMismatchError` on every `doc.save()`, and underneath it `validate_workflow_state` re-reads the DB via `get_doc_before_save()` and refuses the illegal jump. Neutralising the framework check makes the covering test go red on the app's own guard. Regression test: `test_encounter_concurrency.py`.
+
 `validate_workflow_state` (utils/patient_encounter.py:29-58) is the only guard
 on `custom_workflow_state`. It does: read `old_state` via `get_doc_before_save`,
 compare against `ALLOWED_TRANSITIONS`, throw if illegal. There is no `FOR
@@ -74,6 +80,8 @@ conditional UPDATE), or lock the row (`FOR UPDATE`) before the read.
 
 ### F3. MEDIUM — `sync_to_queue` keys the queue on `patient` only → cross-session overwrite and a duplicate-insert race
 
+**STATUS 2026-08-26: FIXED, after a first fix that never worked.** The 2026-08-15 fix caught `frappe.DuplicateEntryError`, which is raised only for a **primary-key** collision (`base_document.py:837`); `Patient Queue.patient` is a unique **field**, whose violation raises `frappe.UniqueValidationError` (`base_document.py:917`) — an unrelated branch of the tree. The savepoint/re-read never ran. Found by reproducing the race with two concurrent bench processes. Now catches both, plus `frappe.clear_last_message()` so a recovered race stops reporting a failure that did not happen (`0442d66`).
+
 `sync_to_queue` (utils/patient_encounter.py:61-82) looks up / creates one
 `Patient Queue` row per `patient` (`get_value(..., {"patient": doc.patient})`),
 and `Patient Queue.patient` has a **DB-level unique constraint**
@@ -98,6 +106,8 @@ rows (see F11).
 
 ### F4. MEDIUM — `register_patient` accepts a session in any status
 
+**STATUS 2026-08-26: FIXED and verified live.** `require_running_session` shared with `create_encounter`. All four non-running statuses rejected over real HTTP as a single-role CAD user, plus a covering test at the HTTP boundary.
+
 cad_form.py:146-167: the only gate is `require_session_access` (CAD role +
 assigned_driver) — there is **no `status == "In Progress"` check**, unlike
 `create_encounter` which enforces it (cad_form.py:242-248). A CAD can
@@ -109,6 +119,8 @@ Cancelled camp hardcodes an LSG/unit code for a location the camp never ran,
 into a ten-digit ID that is never rewritten once printed on a card.
 
 ### F5. MEDIUM — Nurse `start_session` / `end_session` have no status or date machine
+
+**STATUS 2026-08-26: FIXED and verified live.** `load_session_for_status_change`; six negative cases plus a full browser start→end→reopen cycle as a real nurse. See F13 for a residual race inside it.
 
 nurse_form.py:92-110: `require_session_access` checks only that the caller is
 the session's `assigned_nurse`; then writes `status`/`start_time`/
@@ -122,6 +134,8 @@ roles but has no status-transition logic at all). A nurse can therefore:
   register/see patients after the camp officially closed, with no audit trail.
 
 ### F6. MEDIUM — CAD can search and print ANY patient in the system
+
+**STATUS 2026-08-26: CLOSED by making the access auditable, not narrower** (`ad56469`). Scoping the search would break the feature — a CAD legitimately meets patients registered at other sites. `search_patient` and `get_patient_card_html` now write to frappe's own Access Log via `make_access_log` (deferred insert, so the request is not blocked). Confirmed first that `cad_form.js` fires the search on Enter/button only, not per keystroke, so this is one row per deliberate lookup. **Open policy question: Access Log is not in frappe's `default_log_clearing_doctypes`, so this trail grows unbounded until someone picks a retention.**
 
 `search_patient` (cad_form.py:81-101) returns name / `custom_bandhu_id` /
 sex / dob / mobile (the `mobile` and `dob` fields are in the `or_filters`)
@@ -139,6 +153,8 @@ session-lookup searches, or an access log.
 
 ### F7. LOW — Dead third enum `custom_encounter_status` on the encounter
 
+**STATUS 2026-08-26: FIXED upstream in PR #18**, which dropped the dead field with a patch (`patches/remove_dead_encounter_status_field.py`). Note the audit's claim that no code writes it was true of app code only — the field's own default filled it, so every encounter read `Registered` regardless of its real state.
+
 `Patient Encounter.custom_encounter_status` (custom/patient_encounter.json:1278)
 is a Select (`Registered / In Consultation / Completed / Referred`) written by
 **no code in the app** (grep: only its field definition and field_order). The
@@ -153,6 +169,8 @@ machine or remove the field. Same class: `custom_has_tests`,
 
 ### F8. LOW — `get_districts` whitelisted with no role gate
 
+**STATUS 2026-08-26: FIXED.** Gated with `require_cad_access()` (`7f046a2`). Its only caller is the native-state change handler in `cad_form.js`, which PR #18 had just wired up; covered by a test that calls it as a real CAD user.
+
 utils/state_districts.py:258-274 is `@frappe.whitelist()` with no
 `require_*` guard (it reads the `State` master and returns a hardcoded
 district list). No PII, no write, static public data — harmless in practice.
@@ -160,6 +178,8 @@ Either gate it (CAD) or remove the whitelist if unused (it is not called from
 any page JS in this repo).
 
 ### F9. LOW — `find_active_session` silently picks one of several same-day sessions
+
+**STATUS: FIXED.** `find_active_session` now resolves ties through an explicit status priority (`utils/session.py`), so the pick is deterministic.
 
 utils/session.py:129-148: when a practitioner has two sessions in one day
 (morning + evening camp), the tiebreak is `creation desc`, i.e. **arbitrary**.
@@ -172,6 +192,8 @@ gap that will surface the day a doctor is scheduled twice.
 
 ### F10. LOW — `regenerate_future_sessions` deletes beyond-horizon sessions it never recreates
 
+**STATUS: FIXED.** `remove_unused_future_sessions` resets `last_generated_upto` to `None`, so dates removed from beyond the horizon are regenerated instead of vanishing.
+
 bandhu_session_schedule.py:171-198 deletes **all** future `Planned` sessions
 without encounters (any date), then regenerates only up to
 `today + horizon_days` (utils/session_schedule.py:176-177, default 56).
@@ -183,6 +205,8 @@ referenced by a stray queue row (`Data` fields have no FK — see F3/F11).
 
 ### F11. LOW — Queue-row lifecycle: Data FKs + no cleanup
 
+**STATUS 2026-08-26: FIXED for the lifecycle half** (`70560e5`). `Patient Queue.clear_old_logs(days=90)` registered through `default_log_clearing_doctypes` — reusing Frappe's Log Settings retention rather than adding a scheduled job. Only `Done` rows are cleared; the queue is a projection that `sync_to_queue` rebuilds from the encounter, and a test asserts the encounter outlives its cleared board row. **Deliberately not done:** the `Data`-typed FK columns were left as-is — converting them to `Link` is a schema change over a unique index, not a cleanup. Ceiling recorded as a `# ponytail:`: rows for a camp a nurse never closed stay `Active` forever.
+
 `Patient Queue.clinic_session` and `patient` are `Data` (not Link), so there
 is no referential integrity: deleting an encounter or session leaves a
 dangling queue row, and `sync_to_queue` only ever flips `status` to "Done",
@@ -192,6 +216,8 @@ misleading on the Desk form. Informational.
 
 ### F12. INFO — Test coverage gap: role checks yes, HTTP/coercion/concurrency no
 
+**STATUS 2026-08-26: CLOSED.** 20 tests added (`61cd260`, `8c4b75a`), suite 132 → **152**. `test_api_boundary.py` reaches the endpoints the way the browser does — a real `frappe.local.request` through `frappe.handler.execute_cmd`, so `is_whitelisted`, HTTP-method validation and pydantic coercion all run — which is exactly what calling the Python function directly with correct types never exercised. `test_encounter_concurrency.py` covers the stale-save, double-fire and double-submit races. Every test was proven red by mutating the source and restoring it, so none are tautologies.
+
 93 test methods across 9 `test_*.py` files call whitelisted functions
 directly under `frappe.set_user`. Ownership/role blocks are genuinely covered
 (`test_doctor_form.py:170` another doctor's patient; `test_nurse_form.py:239`
@@ -200,6 +226,35 @@ the Page `roles` gates (page/*.json) themselves, `@frappe.whitelist` arg
 coercion over real HTTP (e.g. `""` for a `float | None`, a JSON string for
 `list | str` — the exact failure class that bit `cad_form.js` before), and
 double-submit/concurrency (F2, F3). No browser-level tests exist.
+
+---
+
+### F13. MEDIUM — `start_session` is TOCTOU; a concurrent open clobbers `start_time`
+
+**STATUS 2026-08-26: OPEN, found while closing F12.**
+
+`page/nurse_form/nurse_form.py:105-127` — `load_session_for_status_change`
+reads `status`/`date` with `frappe.db.get_value`, runs every guard against that
+snapshot, then writes with a plain `frappe.db.set_value`: no compare-and-swap,
+no row lock. Two requests that both read `Planned` both pass and both write.
+Demonstrated with two concurrent opens, the second overwriting the first:
+
+```
+first_start  = 2026-08-26 12:24:22.422941
+second_start = 2026-08-26 12:24:22.425124
+```
+
+Bounded but real: `start_time` feeds the opened/closed/hours columns of Bandhu
+Session Report and the "Camps Late To Open" number card, so a double-open
+silently shifts a camp's recorded opening. The dangerous direction — a stale
+request resurrecting a *closed* camp — does NOT happen and is covered by a
+committed test. Fix is a conditional update or `for_update=True` on the status
+read.
+
+Lower-severity note from the same pass: an empty string for an optional numeric
+surfaces as an unhandled `FrappeTypeError` (500-shaped), not a validation
+message. Only reachable if `cad_form.js`'s omit-blank-optionals discipline
+lapses; the contract is now pinned by a test either way.
 
 ---
 
@@ -285,6 +340,20 @@ double-submit/concurrency (F2, F3). No browser-level tests exist.
 - **Print rendering:** the stored-XSS payload (F1) was not actually fired —
   mechanism verified from `frappe.utils.jinja.py:56` (autoescape off) and
   `cad_form.js:214-220` (same-origin `document.write`), not by executing it.
+
+---
+
+## Where this stands (2026-08-26)
+
+11 of the 12 original findings are closed: F1, F3, F4, F5, F6, F7, F8, F9, F10,
+F11 fixed, F2 dismissed as not-a-defect with a regression test behind the
+dismissal. F12 is closed by the 20 tests it asked for. **F13 (above) is open.**
+
+Two of these were recorded as fixed on 2026-08-15 and were not: F1 was
+re-opened by PR #18 rewriting the card template, and F3's `except` clause named
+an exception the code never raises. Both were caught by executing the failure,
+neither by re-reading the diff. Treat a status line here as a claim to re-test,
+not as evidence.
 
 ---
 
