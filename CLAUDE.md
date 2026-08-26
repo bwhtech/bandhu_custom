@@ -905,3 +905,37 @@ Overwrite in place, don't append noise.
     gate is the role **`Clinic Assistant cum Driver`**; there is no `CAD` role
     and the `*.tester@bandhu.local` / `*.bandhuclinic.test` users named in older
     entries do not exist.
+- 2026-08-26: The clinic's test list is data, not code — new **`Bandhu Test`**
+  master, seeded with the five CMID has always run. Adding a sixth is now a
+  record, not a deploy.
+  - Fields: `test_name` (autoname), `result_shape` (`Positive / Negative` vs
+    `Value`), `unit` (mandatory for a value test), `enabled`, `display_order`.
+    The **result shape lives on the master** so the forms stop each holding
+    their own idea of it — that split is what let every ordered test read
+    "Positive" until the 2026-08-20 `result_type` fix.
+  - Seeded by `after_install` (fresh sites) **and** an idempotent patch
+    (`seed_bandhu_tests`) for the two live ones. The seed skips an existing
+    record entirely, so a test retired with `enabled = 0` is never resurrected.
+  - `Test Instructions.test_name` Select → Link. Both sites' live rows hold
+    exactly the five seeded strings, so they map by identity and nothing was
+    rewritten. `report_unmapped_test_names` logs anything that does not map
+    rather than blanking it; both sites logged nothing.
+  - **`Test Result` is dead and was left alone.** No app code writes it;
+    `bandhu.localhost` has 0 rows and `bandhu-int.localhost`'s 16 are a
+    2026-08-23 seeding script's, with `patient` holding a patient *name*
+    ("Ramesh Yadav") instead of a Link id and `test_name` "Other" standing in
+    for Hb/GRBS because its stale `DF.Literal` allows only Malaria/Dengue/
+    Other. Removing it is a deletion decision for CMID, not a refactor.
+  - **`MultiCheck` re-sorts its options alphabetically unless
+    `sort_options: false`** (`frappe/public/js/frappe/form/controls/multicheck.js:79`),
+    so `display_order` never reached the doctor's grid. Caught in the browser;
+    the tests assert the server's order and passed throughout.
+  - Units confirmed from recorded results, not invented: `g/dL` (Hb) and
+    `mg/dL` (GRBS) both appear in live `result_value` free text.
+  - Not done, now unblocked: the nurse's result dialog still offers a fixed
+    `Positive/Negative/Value` Select for every test. It can read `result_shape`
+    off the master and render one input — left out because another agent held
+    `nurse_form.js`.
+  - Verified: 171 tests (9 new), full `bench migrate` on both sites with all 9
+    workspace JSON files intact, and a live order through the real dialog as
+    `priya.doctor@bandhu.test`.
