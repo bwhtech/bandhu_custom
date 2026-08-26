@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "CS-.YY.-.MM.-.DD.-.site.-.###",
+ "autoname": "CS-.date.-.site.-.###",
  "creation": "2026-04-13 08:14:19.128869",
  "doctype": "DocType",
  "engine": "InnoDB",
