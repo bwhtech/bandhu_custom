@@ -230,6 +230,29 @@ class IntegrationTestSessionSchedule(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			self.build_schedule(save=True)
 
+	def test_a_single_digit_start_hour_still_saves(self):
+		"""A Time from the DB is a timedelta, but from a client save it is a string, and
+		"13:30:00" <= "8:00:00" compares True lexicographically — which made every schedule
+		starting before 10am unsavable from the Desk form."""
+		schedule = self.build_schedule(
+			weekdays=["Monday"],
+			valid_from=today(),
+			planned_start_time="8:00:00",
+			planned_end_time="13:30:00",
+			save=True,
+		)
+		self.assertTrue(schedule.name)
+
+	def test_an_end_time_before_the_start_is_still_rejected(self):
+		with self.assertRaises(frappe.ValidationError):
+			self.build_schedule(
+				weekdays=["Monday"],
+				valid_from=today(),
+				planned_start_time="13:30:00",
+				planned_end_time="8:00:00",
+				save=True,
+			)
+
 	def test_valid_upto_before_valid_from_is_rejected(self):
 		with self.assertRaises(frappe.ValidationError):
 			self.build_schedule(
