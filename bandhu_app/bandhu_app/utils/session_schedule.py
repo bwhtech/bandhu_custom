@@ -7,6 +7,8 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, create_batch, getdate, today
 
+from bandhu_app.bandhu_app.utils.session import label_sites
+
 WEEKDAY_INDEX = {
 	"Monday": 0,
 	"Tuesday": 1,
@@ -261,6 +263,10 @@ def find_assignment_clashes(schedule, dates: list) -> list:
 			as_list=True,
 		)
 	)
+
+	# Staff read these rows to decide whether to reassign, so they carry the readable site
+	# name for the same reason the boards and My Schedule do.
+	label_sites(sessions)
 
 	clashes = []
 	for session in sessions:
