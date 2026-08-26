@@ -42,83 +42,41 @@ def restrict_other_app_desktop_icons():
 
 
 def sync_bandhu_desktop_icons():
-	"""Give every Bandhu workspace a desk icon carrying that workspace's own roles.
+	"""Put one Bandhu App tile on /desk, visible to the roles our workspaces are for.
 
-	`/desk` renders the Desktop Icon grid, not the workspace list, and Frappe seeds icons
-	from workspaces only in its `after_app_install` hook — which for this app ran before the
+	/desk renders the Desktop Icon grid, not the workspace list, and Frappe seeds icons from
+	workspaces only in its `after_app_install` hook — which for this app ran before the
 	workspaces declared `app = "bandhu_app"`, so nothing was ever seeded and field staff
 	landed on a grid with no route to their own board.
+
+	One icon, not one per workspace: `is_icon_permitted` resolves a link icon through
+	`bootinfo.workspace_sidebar_item`, which is keyed by app ("bandhu app"), never by
+	workspace name, so per-workspace icons are created and then filtered straight back out.
+	The app tile is the route; the sidebar behind it is already role-filtered per workspace.
 	"""
-	app_icon = ensure_app_icon()
-
-	workspaces = frappe.get_all(
-		"Workspace",
-		filters={"app": "bandhu_app", "public": 1},
-		fields=["name", "icon"],
-	)
-	roles_by_workspace = workspace_roles({workspace.name for workspace in workspaces})
-
-	# A Desktop Icon's link_to is a Dynamic Link resolving against Workspace Sidebar, not
-	# Workspace, and the two are synced separately — a workspace whose sidebar row has not
-	# been written yet would fail link validation and, from after_migrate, take the whole
-	# migrate down with it.
-	sidebars = set(frappe.get_all("Workspace Sidebar", pluck="name"))
-
-	for workspace in workspaces:
-		if workspace.name not in sidebars:
-			frappe.log_error(
-				title="No desk icon for workspace",
-				message=f"{workspace.name} has no Workspace Sidebar record yet; skipped.",
-			)
-			continue
-
-		icon_name = frappe.db.get_value(
-			"Desktop Icon", {"link_to": workspace.name, "icon_type": "Link"}, "name"
-		)
-		icon = (
-			frappe.get_doc("Desktop Icon", icon_name)
-			if icon_name
-			else frappe.new_doc("Desktop Icon").update(
-				{
-					"icon_type": "Link",
-					"link_type": "Workspace Sidebar",
-					"link_to": workspace.name,
-				}
-			)
-		)
-		icon.update(
-			{
-				"label": workspace.name,
-				"icon": workspace.icon,
-				"app": "bandhu_app",
-				"parent_icon": app_icon,
-			}
-		)
-		# A workspace with no roles is open to every Desk user; mirroring that empty table
-		# keeps the icon and the workspace telling the same story.
-		icon.set("roles", [{"role": role} for role in roles_by_workspace.get(workspace.name, [])])
-		icon.save()
-
-
-def ensure_app_icon() -> str:
 	app_title = frappe.get_hooks("app_title", app_name="bandhu_app")[0]
-	existing = frappe.db.get_value("Desktop Icon", {"label": app_title, "icon_type": "App"}, "name")
-	if existing:
-		return existing
-
-	icon = frappe.new_doc("Desktop Icon")
-	icon.update({"label": app_title, "icon_type": "App", "app": "bandhu_app"})
-	icon.insert()
-	return icon.name
-
-
-def workspace_roles(workspace_names: set) -> dict:
-	rows = frappe.get_all(
-		"Has Role",
-		filters={"parenttype": "Workspace", "parent": ["in", list(workspace_names)]},
-		fields=["parent", "role"],
+	icon_name = frappe.db.get_value("Desktop Icon", {"label": app_title, "icon_type": "App"}, "name")
+	icon = (
+		frappe.get_doc("Desktop Icon", icon_name)
+		if icon_name
+		else frappe.new_doc("Desktop Icon").update({"label": app_title, "icon_type": "App"})
 	)
-	roles = {}
-	for row in rows:
-		roles.setdefault(row.parent, []).append(row.role)
-	return roles
+	icon.app = "bandhu_app"
+
+	# Without a roles table the tile shows to every Desk user on the site, who would click
+	# into an empty sidebar. The union of what our workspaces are for is exactly who has
+	# something behind it.
+	roles = workspace_roles()
+	icon.set("roles", [{"role": role} for role in sorted(roles)])
+	icon.save()
+
+
+def workspace_roles() -> set:
+	workspaces = frappe.get_all("Workspace", filters={"app": "bandhu_app", "public": 1}, pluck="name")
+	return set(
+		frappe.get_all(
+			"Has Role",
+			filters={"parenttype": "Workspace", "parent": ["in", workspaces]},
+			pluck="role",
+		)
+	)
