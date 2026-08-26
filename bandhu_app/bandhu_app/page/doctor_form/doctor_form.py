@@ -233,6 +233,12 @@ def prescribe_medicine(encounter: str, prescriptions: list | str) -> None:
 				"duration_days": row.get("duration_days"),
 				"quantity": row.get("quantity"),
 				"instructions": row.get("instructions"),
+				# Left unset, Frappe fills this from the prescriber's own User Permission on
+				# Healthcare Practitioner, stamping the doctor as the dispenser before anyone has
+				# dispensed anything — and the field's own link_filters say it must be a nurse.
+				# It has to be "" rather than None: update_if_missing only skips a key whose value
+				# is not None (frappe/model/base_document.py:349), so None still takes the default.
+				"dispensed_by": "",
 			},
 		)
 

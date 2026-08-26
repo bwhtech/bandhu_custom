@@ -155,6 +155,19 @@ class TestDoctorForm(IntegrationTestCase):
 		self.assertEqual(row.dosage_frequency, "BD")
 		self.assertFalse(row.dispensed)
 
+	def test_prescribe_medicine_does_not_stamp_the_prescriber_as_the_dispenser(self):
+		"""dispensed_by is a nurse-only field (link_filters on Prescription), but left unset it
+		takes the prescribing doctor's own User Permission as a default — recording a dispenser
+		for medicine nobody has handed over yet."""
+		frappe.set_user(self.doctor_user_1)
+		prescribe_medicine(
+			self.encounter.name,
+			[{"medicines": self.item, "dosage_frequency": "BD", "duration_days": 5, "quantity": 10}],
+		)
+
+		self.encounter.reload()
+		self.assertFalse(self.encounter.custom_bandhu_prescription[0].dispensed_by)
+
 	def test_prescribe_medicine_rejects_row_without_medicine(self):
 		frappe.set_user(self.doctor_user_1)
 		with self.assertRaises(frappe.ValidationError):
