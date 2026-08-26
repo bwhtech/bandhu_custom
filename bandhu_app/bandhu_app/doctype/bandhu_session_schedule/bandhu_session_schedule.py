@@ -21,6 +21,45 @@ PATTERN_FIELDS = (
 )
 
 
+CLASH_SUMMARY_LIMIT = 8
+
+
+def summarise_clashes(clashes: list[dict]) -> str:
+	"""One line per person, not per booking.
+
+	A weekly pattern hits the same doctor on every one of the checked dates, so the raw list is
+	the same three names repeated until nobody reads any of it. Collapsing the dates into a count
+	is what makes the warning legible at a glance.
+	"""
+	dates_by_person = {}
+	for clash in clashes:
+		dates_by_person.setdefault((clash["who"], clash["role"]), set()).add(clash["date"])
+
+	people = sorted(dates_by_person.items(), key=lambda item: (-len(item[1]), item[0][0]))
+	lines = "".join(
+		"<li>{0}</li>".format(
+			_("{0} ({1}) is already booked on {2} of these dates").format(
+				frappe.utils.escape_html(who),
+				frappe.utils.escape_html(role),
+				len(booked_dates),
+			)
+			if len(booked_dates) > 1
+			else _("{0} ({1}) is already booked on {2}").format(
+				frappe.utils.escape_html(who),
+				frappe.utils.escape_html(role),
+				frappe.utils.format_date(sorted(booked_dates)[0]),
+			)
+		)
+		for (who, role), booked_dates in people[:CLASH_SUMMARY_LIMIT]
+	)
+
+	remaining = len(people) - CLASH_SUMMARY_LIMIT
+	if remaining > 0:
+		lines += "<li>{0}</li>".format(_("and {0} more").format(remaining))
+
+	return f"<ul>{lines}</ul>"
+
+
 class BandhuSessionSchedule(Document):
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
@@ -134,6 +173,12 @@ class BandhuSessionSchedule(Document):
 			self.flags.pattern_changed = True
 
 	def warn_about_assignment_clashes(self):
+		# The wizard puts the same clashes on screen before the user presses Create, so
+		# repeating them in a modal they have to dismiss is noise — and noise is how the
+		# people who edit this form directly learn to click through real warnings.
+		if self.flags.clashes_already_shown:
+			return
+
 		from bandhu_app.bandhu_app.utils.session_schedule import (
 			CLASH_CHECK_DATES,
 			find_assignment_clashes,
@@ -146,17 +191,8 @@ class BandhuSessionSchedule(Document):
 		if not clashes:
 			return
 
-		lines = "".join(
-			"<li>{0}: {1} is already at {2} on {3}</li>".format(
-				frappe.utils.escape_html(clash["role"]),
-				frappe.utils.escape_html(clash["who"]),
-				frappe.utils.escape_html(clash["site"] or ""),
-				frappe.utils.format_date(clash["date"]),
-			)
-			for clash in clashes
-		)
 		frappe.msgprint(
-			_("This schedule double-books:") + f"<ul>{lines}</ul>",
+			_("This schedule double-books:") + summarise_clashes(clashes),
 			title=_("Already Assigned Elsewhere"),
 			indicator="orange",
 		)
