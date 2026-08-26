@@ -29,7 +29,7 @@ def get_form_options() -> dict:
 	return {"roles": PROVISIONABLE_ROLES, "genders": genders}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def provision_staff_member(
 	first_name: str,
 	last_name: str | None,

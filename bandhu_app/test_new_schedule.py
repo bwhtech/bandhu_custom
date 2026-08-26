@@ -92,19 +92,21 @@ class IntegrationTestNewSchedule(IntegrationTestCase):
 		self.assertEqual(result["dates"], [])
 		self.assertEqual(result["total"], 0)
 
-	def test_create_makes_the_schedule_and_its_sessions_in_one_step(self):
+	def test_create_builds_every_camp_the_wizard_promised(self):
 		result = create_schedule(self.wizard_values())
 
 		self.assertTrue(frappe.db.exists("Bandhu Session Schedule", result["name"]))
-		self.assertTrue(result["created"])
+		self.assertTrue(result["scheduled"])
+		# `scheduled` is read off the pattern because the camps are built by a background job.
+		# It still has to match what that job goes on to create.
 		self.assertEqual(
-			result["created"],
+			result["scheduled"],
 			frappe.db.count("Bandhu Clinic Session", {"session_schedule": result["name"]}),
 		)
 
 	def test_preview_reports_a_doctor_already_booked_elsewhere(self):
 		booked = create_schedule(self.wizard_values(assigned_doctor=self.doctor))
-		self.assertTrue(booked["created"])
+		self.assertTrue(booked["scheduled"])
 
 		result = preview_schedule(self.wizard_values(assigned_doctor=self.doctor))
 

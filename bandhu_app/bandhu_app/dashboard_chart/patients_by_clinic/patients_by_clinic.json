@@ -7,7 +7,7 @@
  "doctype": "Dashboard Chart",
  "document_type": "",
  "dynamic_filters_json": "{\"from_date\": \"frappe.datetime.add_days(frappe.datetime.get_today(), -30)\", \"to_date\": \"frappe.datetime.get_today()\"}",
- "filters_json": "{\"group_by\": \"clinic\"}",
+ "filters_json": "{\"group_by\": \"Clinic\"}",
  "idx": 0,
  "is_public": 1,
  "is_standard": 1,

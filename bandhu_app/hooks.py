@@ -8,7 +8,7 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["erpnext", "healthcare"]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -26,7 +26,10 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/bandhu_app/css/bandhu_app.css"
-app_include_js = "/assets/bandhu_app/js/workspace_redirect.js?v=2"
+app_include_js = [
+	"/assets/bandhu_app/js/session_ui.js",
+	"/assets/bandhu_app/js/workspace_redirect.js?v=2",
+]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/bandhu_app/css/bandhu_app.css"
@@ -77,10 +80,7 @@ doctype_js = {"Patient": "public/js/patient.js"}
 # ----------
 
 # add methods and filters to jinja environment
-# jinja = {
-# 	"methods": "bandhu_app.utils.jinja_methods",
-# 	"filters": "bandhu_app.utils.jinja_filters"
-# }
+jinja = {"methods": ["bandhu_app.bandhu_app.utils.custom_qr_code.get_qr_code_image_source"]}
 
 # Installation
 # ------------

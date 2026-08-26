@@ -1,3 +1,7 @@
+/* global bandhu */
+
+const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
+
 const TEST_OPTIONS = ["Malaria", "Dengue", "Leptospirosis", "Hb", "GRBS"].map((name) => ({
 	label: name,
 	value: name,
@@ -5,13 +9,17 @@ const TEST_OPTIONS = ["Malaria", "Dengue", "Leptospirosis", "Hb", "GRBS"].map((n
 
 let encountersByName = {};
 let doctorSession = null;
+let doctorPage = null;
 
-async function getPatientHistory(patient) {
+// One call for the whole queue. Fetching per patient meant a 40-patient camp fired 40 parallel
+// requests, saturating the browser connection pool on a weak link.
+async function getPatientHistories(patients) {
+	if (!patients.length) return {};
 	const response = await frappe.call({
-		method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form.get_patient_history",
-		args: { patient },
+		method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form.get_patient_histories",
+		args: { patients },
 	});
-	return response.message || [];
+	return response.message || {};
 }
 
 async function loadDashboard(page) {
@@ -28,7 +36,10 @@ async function loadDashboard(page) {
 
 	if (!status.has_session) {
 		doctorSession = null;
-		renderNoSession(page, status.message, await getUpcomingSessions());
+		const upcoming = await bandhu.session_ui.get_upcoming_sessions(
+			"bandhu_app.bandhu_app.page.doctor_form.doctor_form.get_upcoming_sessions"
+		);
+		renderNoSession(page, status.message, upcoming);
 		return;
 	}
 
@@ -39,86 +50,14 @@ async function loadDashboard(page) {
 function renderNoSession(page, message, upcoming) {
 	page.main.html(
 		'<div class="doctor-dash">' +
-			renderWelcome() +
+			bandhu.session_ui.format_welcome() +
 			'<div class="empty-state">' +
 			'<i class="fa fa-calendar-o empty-state-icon"></i>' +
 			'<span class="empty-state-text">' +
 			frappe.utils.escape_html(message || __("No session available.")) +
 			"</span></div>" +
-			renderUpcomingSessions(upcoming) +
+			bandhu.session_ui.format_upcoming_sessions(upcoming) +
 			"</div>"
-	);
-}
-
-async function getUpcomingSessions() {
-	try {
-		const response = await frappe.call({
-			method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form.get_upcoming_sessions",
-		});
-		return (response && response.message) || [];
-	} catch (error) {
-		// The upcoming list is informational; failing to load it must not blank the page.
-		return [];
-	}
-}
-
-function renderUpcomingSessions(sessions) {
-	if (!sessions || !sessions.length) return "";
-
-	const rows = sessions
-		.map(
-			(session) =>
-				'<div class="upcoming-row">' +
-				'<span class="upcoming-date">' +
-				frappe.utils.escape_html(frappe.datetime.str_to_user(session.date)) +
-				"</span>" +
-				'<span class="upcoming-site">' +
-				frappe.utils.escape_html(session.site || "") +
-				"</span>" +
-				'<span class="upcoming-time">' +
-				frappe.utils.escape_html(formatPlannedWindow(session)) +
-				"</span></div>"
-		)
-		.join("");
-
-	return (
-		'<div class="upcoming-card"><div class="upcoming-title">' +
-		__("Your Upcoming Sessions") +
-		"</div>" +
-		rows +
-		"</div>"
-	);
-}
-
-function formatPlannedWindow(session) {
-	if (!session.planned_start_time) return "";
-	const start = formatClockTime(session.planned_start_time);
-	return session.planned_end_time
-		? start + " - " + formatClockTime(session.planned_end_time)
-		: start;
-}
-
-// A Time field arrives as "9:30:00", not "09:30:00", so it cannot simply be truncated.
-function formatClockTime(value) {
-	const [hours, minutes] = String(value).split(":");
-	return hours.padStart(2, "0") + ":" + (minutes || "00").padStart(2, "0");
-}
-
-function renderSessionInfo(session) {
-	const runningClass = session.status === "In Progress" ? " running" : "";
-	return (
-		'<div class="session-bar">' +
-		'<i class="fa fa-hospital-o"></i> ' +
-		frappe.utils.escape_html(session.clinic || "") +
-		'<span class="session-sep">|</span>' +
-		'<i class="fa fa-map-marker"></i> ' +
-		frappe.utils.escape_html(session.site || "") +
-		'<span class="session-sep">|</span>' +
-		'<i class="fa fa-circle session-dot' +
-		runningClass +
-		'"></i> ' +
-		frappe.utils.escape_html(session.status) +
-		"</div>"
 	);
 }
 
@@ -142,10 +81,7 @@ async function loadQueues(page) {
 				[...active, ...completed].map((encounter) => encounter.patient).filter(Boolean)
 			),
 		];
-		const histories = await Promise.all(patients.map((patient) => getPatientHistory(patient)));
-		const historyByPatient = Object.fromEntries(
-			patients.map((patient, index) => [patient, histories[index]])
-		);
+		const historyByPatient = await getPatientHistories(patients);
 
 		active = active.map((encounter) => ({
 			...encounter,
@@ -168,8 +104,8 @@ async function loadQueues(page) {
 function renderDashboard(page, active, completed) {
 	const html =
 		'<div class="doctor-dash">' +
-		renderWelcome() +
-		(doctorSession ? renderSessionInfo(doctorSession) : "") +
+		bandhu.session_ui.format_welcome() +
+		(doctorSession ? bandhu.session_ui.format_session_info(doctorSession) : "") +
 		renderQueue(__("Active Patients"), active) +
 		renderQueue(__("Completed Today"), completed) +
 		"</div>";
@@ -207,7 +143,11 @@ function renderDashboard(page, active, completed) {
 function dispatchDoctorAction(page, encounter, action) {
 	switch (action) {
 		case "details":
-			openDetailsDialog(encounter);
+			bandhu.session_ui.open_patient_details_dialog(
+				"bandhu_app.bandhu_app.page.doctor_form.doctor_form.get_patient_registration_details",
+				encounter,
+				encountersByName[encounter] || {}
+			);
 			break;
 		case "order_test":
 			openOrderTestDialog(page, encounter);
@@ -219,141 +159,6 @@ function dispatchDoctorAction(page, encounter, action) {
 			openCompleteDialog(page, encounter);
 			break;
 	}
-}
-
-function renderWelcome() {
-	return (
-		'<div class="welcome"><h3>' +
-		__("Welcome, {0}", [frappe.user_info().fullname]) +
-		"</h3></div>"
-	);
-}
-
-async function openDetailsDialog(encounter) {
-	const row = encountersByName[encounter];
-	if (!row) return;
-
-	frappe.dom.freeze();
-	let patient;
-	try {
-		const response = await frappe.call({
-			method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form.get_patient_registration_details",
-			args: { encounter },
-		});
-		patient = response.message || {};
-	} finally {
-		frappe.dom.unfreeze();
-	}
-
-	const dialog = new frappe.ui.Dialog({
-		title: __("Patient Details"),
-		size: "large",
-		fields: [{ fieldtype: "HTML", fieldname: "details_html" }],
-	});
-	dialog.fields_dict.details_html.$wrapper.html(renderPatientDetailsHtml(patient, row));
-	dialog.show();
-}
-
-function detailRow(label, value) {
-	if (value === null || value === undefined || value === "") return "";
-	return (
-		'<div class="detail-row"><span>' +
-		frappe.utils.escape_html(label) +
-		"</span><span>" +
-		frappe.utils.escape_html(String(value)) +
-		"</span></div>"
-	);
-}
-
-function renderPatientDetailsHtml(patient, row) {
-	const registration =
-		detailRow(__("Clinic ID"), patient.custom_bandhu_id) +
-		detailRow(__("ABHA ID"), patient.custom_abha_id) +
-		detailRow(__("Mobile"), patient.mobile) +
-		detailRow(__("Date of Birth"), patient.dob) +
-		detailRow(__("Height (m)"), patient.custom_height_m) +
-		detailRow(__("Weight (kg)"), patient.custom_weight_kg) +
-		detailRow(__("BMI"), patient.custom_bmi) +
-		detailRow(__("Temperature"), patient.custom_temperature) +
-		detailRow(__("Native State"), patient.custom_native_state) +
-		detailRow(__("Native District"), patient.custom_native_district) +
-		detailRow(__("Sector of Employment"), patient.custom_sector_of_employment) +
-		detailRow(__("Company"), patient.custom_name_of_company);
-
-	const tests = (row.tests || [])
-		.map((test) => {
-			const result = test.result_type
-				? frappe.utils.escape_html(test.result_type) +
-				  (test.result_value
-						? " (" + frappe.utils.escape_html(test.result_value) + ")"
-						: "")
-				: '<span class="pending">' + __("pending") + "</span>";
-			return (
-				"<li>" +
-				frappe.utils.escape_html(test.test_name) +
-				" -- " +
-				result +
-				(test.notes
-					? "<br><small>" + frappe.utils.escape_html(test.notes) + "</small>"
-					: "") +
-				"</li>"
-			);
-		})
-		.join("");
-
-	const prescriptions = (row.prescriptions || [])
-		.map((prescription) => {
-			const meta = [
-				prescription.dosage_frequency,
-				prescription.duration_days ? prescription.duration_days + "d" : null,
-				prescription.quantity ? "x" + prescription.quantity : null,
-			]
-				.filter(Boolean)
-				.join(" ");
-			return (
-				"<li>" +
-				frappe.utils.escape_html(prescription.medicines) +
-				(meta ? " (" + frappe.utils.escape_html(meta) + ")" : "") +
-				(prescription.dispensed ? " -- " + __("Dispensed") : "") +
-				(prescription.instructions
-					? "<br><small>" +
-					  frappe.utils.escape_html(prescription.instructions) +
-					  "</small>"
-					: "") +
-				"</li>"
-			);
-		})
-		.join("");
-
-	const diagnosis = (row.diagnosis || [])
-		.map(
-			(entry) =>
-				"<li>" +
-				frappe.utils.escape_html(entry.diagnosis_name) +
-				(entry.notes ? " -- " + frappe.utils.escape_html(entry.notes) : "") +
-				"</li>"
-		)
-		.join("");
-
-	return (
-		"<h5>" +
-		__("Registration Details") +
-		"</h5>" +
-		registration +
-		(tests
-			? '<h5 class="detail-heading">' + __("Tests") + "</h5><ul>" + tests + "</ul>"
-			: "") +
-		(prescriptions
-			? '<h5 class="detail-heading">' +
-			  __("Prescriptions") +
-			  "</h5><ul>" +
-			  prescriptions +
-			  "</ul>"
-			: "") +
-		(diagnosis
-			? '<h5 class="detail-heading">' + __("Diagnosis") + "</h5><ul>" + diagnosis + "</ul>"
-			: "")
-	);
 }
 
 function openOrderTestDialog(page, encounter) {
@@ -484,34 +289,36 @@ async function submitDoctorAction(page, method, args) {
 	}
 
 	frappe.show_alert({ message: __("Saved"), indicator: "green" });
-	await loadQueues(page);
-}
-
-function actionButton(encounterName, action, label) {
-	return (
-		'<button type="button" class="btn btn-xs btn-default doctor-action-btn" data-encounter="' +
-		frappe.utils.escape_html(encounterName) +
-		'" data-action="' +
-		action +
-		'">' +
-		frappe.utils.escape_html(label) +
-		"</button>"
-	);
+	await bandhu.session_ui.refresh_page(page, loadQueues);
 }
 
 function renderActionButtons(encounter) {
-	const buttons = [actionButton(encounter.name, "details", __("Details"))];
+	const actions = [["details", __("Details")]];
 
 	if (encounter.custom_workflow_state === "Waiting for Doctor") {
-		buttons.push(actionButton(encounter.name, "order_test", __("Order Test")));
-		buttons.push(actionButton(encounter.name, "prescribe", __("Prescribe Medicine")));
-		buttons.push(actionButton(encounter.name, "complete", __("Mark Complete")));
-	} else if (encounter.custom_workflow_state === "Awaiting Doctor Review") {
-		buttons.push(actionButton(encounter.name, "prescribe", __("Prescribe Medicine")));
-		buttons.push(actionButton(encounter.name, "complete", __("Mark Complete")));
+		actions.push(["order_test", __("Order Test")]);
+	}
+	if (
+		encounter.custom_workflow_state === "Waiting for Doctor" ||
+		encounter.custom_workflow_state === "Awaiting Doctor Review"
+	) {
+		actions.push(["prescribe", __("Prescribe Medicine")]);
+		actions.push(["complete", __("Mark Complete")]);
 	}
 
-	return '<div class="doctor-action-btns">' + buttons.join("") + "</div>";
+	const buttons = actions
+		.map(([action, label]) =>
+			bandhu.session_ui.format_action_button(
+				"doctor-action-btn",
+				encounter.name,
+				action,
+				label,
+				false
+			)
+		)
+		.join("");
+
+	return '<div class="doctor-action-btns">' + buttons + "</div>";
 }
 
 function renderClinicalSummary(encounter) {
@@ -591,13 +398,13 @@ function renderQueue(title, encounters) {
 				'<tr class="doctor-queue-row" data-name="' +
 				frappe.utils.escape_html(encounter.name) +
 				'">' +
-				"<td>" +
+				'<td class="patient-cell">' +
 				frappe.utils.escape_html(encounter.patient_name || "") +
 				"</td>" +
-				"<td>" +
+				'<td class="age-cell">' +
 				frappe.utils.escape_html(encounter.patient_age || "") +
 				"</td>" +
-				"<td>" +
+				'<td class="sex-cell">' +
 				frappe.utils.escape_html(encounter.patient_sex || "") +
 				"</td>" +
 				'<td class="history-cell">' +
@@ -614,7 +421,7 @@ function renderQueue(title, encounters) {
 				'<td class="clinical-cell">' +
 				renderClinicalSummary(encounter) +
 				"</td>" +
-				"<td>" +
+				'<td class="action-cell">' +
 				renderActionButtons(encounter) +
 				"</td>" +
 				"</tr>"
@@ -664,8 +471,19 @@ frappe.pages["doctor-form"].on_page_load = function (wrapper) {
 		single_column: true,
 	});
 
-	page.set_secondary_action(__("Refresh"), () => loadDashboard(page));
+	page.set_secondary_action(__("Refresh"), refreshDashboard);
 	page.set_primary_action(__("My Schedule"), () => frappe.set_route("my-schedule"), "calendar");
 
-	loadDashboard(page);
+	doctorPage = page;
 };
+
+async function refreshDashboard() {
+	await frappe.require(SESSION_UI_ASSET);
+	await bandhu.session_ui.refresh_page(doctorPage, loadDashboard);
+}
+
+// Desk keeps this page's DOM and module state alive, so returning from a Patient Encounter would
+// otherwise show the queue exactly as it was before the encounter was edited -- a doctor could
+// prescribe again for a patient they had just completed. on_page_show also fires on the very first
+// show (frappe/public/js/frappe/views/pageview.js:104-107), so it is the only loader needed.
+frappe.pages["doctor-form"].on_page_show = refreshDashboard;

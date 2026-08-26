@@ -1,4 +1,9 @@
+/* global bandhu */
+
+const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
+
 let cadSession = null;
+let cadPage = null;
 let formOptions = { states: [], sectors: [] };
 
 const REGISTER_FIELDS = [
@@ -69,13 +74,13 @@ async function loadDashboard(page) {
 	});
 	formOptions = optionsResult.message || { states: [], sectors: [] };
 
-	renderFrontDesk(page, data);
+	await renderFrontDesk(page, data);
 }
 
 function renderNoSession(page, data) {
 	page.main.html(
 		'<div class="cad-dash">' +
-			renderWelcome() +
+			bandhu.session_ui.format_welcome() +
 			'<div class="empty-state">' +
 			'<i class="fa fa-calendar-o empty-state-icon"></i>' +
 			'<span class="empty-state-text">' +
@@ -87,8 +92,8 @@ function renderNoSession(page, data) {
 function renderWaitingForNurse(page, data) {
 	page.main.html(
 		'<div class="cad-dash">' +
-			renderWelcome() +
-			renderSessionInfo(data) +
+			bandhu.session_ui.format_welcome() +
+			bandhu.session_ui.format_session_info(data) +
 			'<div class="empty-state">' +
 			'<i class="fa fa-hourglass-half empty-state-icon"></i>' +
 			'<span class="empty-state-text">' +
@@ -102,8 +107,8 @@ function renderWaitingForNurse(page, data) {
 function renderCompleted(page, data) {
 	page.main.html(
 		'<div class="cad-dash">' +
-			renderWelcome() +
-			renderSessionInfo(data) +
+			bandhu.session_ui.format_welcome() +
+			bandhu.session_ui.format_session_info(data) +
 			'<div class="empty-state">' +
 			'<i class="fa fa-check-circle empty-state-icon done"></i>' +
 			'<span class="empty-state-text">' +
@@ -112,11 +117,11 @@ function renderCompleted(page, data) {
 	);
 }
 
-function renderFrontDesk(page, data) {
+async function renderFrontDesk(page, data) {
 	const html =
 		'<div class="cad-dash">' +
-		renderWelcome() +
-		renderSessionInfo(data) +
+		bandhu.session_ui.format_welcome() +
+		bandhu.session_ui.format_session_info(data) +
 		renderSearchSection() +
 		renderRegisterSection() +
 		'<div class="cad-queue-section">' +
@@ -148,7 +153,7 @@ function renderFrontDesk(page, data) {
 	page.main.html(html);
 	bindSearchEvents(page);
 	bindRegisterEvents(page);
-	loadQueue(page);
+	await loadQueue(page);
 	focus_scan_input(page);
 }
 
@@ -187,32 +192,6 @@ async function print_patient_card(patient) {
 	card_window.document.close();
 	card_window.focus();
 	card_window.print();
-}
-
-function renderWelcome() {
-	return (
-		'<div class="welcome"><h3>' +
-		__("Welcome, {0}", [frappe.user_info().fullname]) +
-		"</h3></div>"
-	);
-}
-
-function renderSessionInfo(session) {
-	const runningClass = session.status === "In Progress" ? " running" : "";
-	return (
-		'<div class="session-bar">' +
-		'<i class="fa fa-hospital-o"></i> ' +
-		frappe.utils.escape_html(session.clinic || "") +
-		'<span class="session-sep">|</span>' +
-		'<i class="fa fa-map-marker"></i> ' +
-		frappe.utils.escape_html(session.site || "") +
-		'<span class="session-sep">|</span>' +
-		'<i class="fa fa-circle session-dot' +
-		runningClass +
-		'"></i> ' +
-		frappe.utils.escape_html(session.status) +
-		"</div>"
-	);
 }
 
 function renderSearchSection() {
@@ -400,10 +379,12 @@ function match_scanned_card(query, results) {
 }
 
 function queue_scanned_patient(page, patient) {
+	// frappe.confirm appends its message as HTML (frappe/public/js/frappe/ui/messages.js:48) and
+	// __() substitutes {0} verbatim, so a patient name is an injection point until it is escaped.
 	frappe.confirm(
 		__("Add {0} ({1}) to today's queue?", [
-			patient.patient_name || "",
-			patient.custom_bandhu_id || "",
+			frappe.utils.escape_html(patient.patient_name || ""),
+			frappe.utils.escape_html(patient.custom_bandhu_id || ""),
 		]),
 		async () => {
 			await addPatientToQueue(page, patient.name, () => {
@@ -638,8 +619,22 @@ frappe.pages["cad-form"].on_page_load = function (wrapper) {
 		single_column: true,
 	});
 
-	page.set_secondary_action(__("Refresh"), () => loadDashboard(page));
+	page.set_secondary_action(__("Refresh"), refreshDashboard);
 	page.set_primary_action(__("My Schedule"), () => frappe.set_route("my-schedule"), "calendar");
 
-	loadDashboard(page);
+	cadPage = page;
+};
+
+async function refreshDashboard() {
+	await frappe.require(SESSION_UI_ASSET);
+	await bandhu.session_ui.refresh_page(cadPage, loadDashboard);
+}
+
+// Desk keeps this page's DOM and module state alive across route changes, so the queue would
+// otherwise still show the state it had when the CAD left the page. Only the queue is reloaded
+// when the front desk is already up -- a full re-render would wipe a half-typed registration.
+frappe.pages["cad-form"].on_page_show = async function () {
+	await frappe.require(SESSION_UI_ASSET);
+	const load = cadPage.main.find(".cad-queue-body").length ? loadQueue : loadDashboard;
+	await bandhu.session_ui.refresh_page(cadPage, load);
 };

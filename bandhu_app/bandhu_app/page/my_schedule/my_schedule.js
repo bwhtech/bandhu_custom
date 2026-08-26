@@ -1,20 +1,8 @@
-function formatClockTime(value) {
-	if (!value) return "";
-	// A Time field arrives as "9:30:00", not "09:30:00", so it cannot simply be truncated.
-	const [hours, minutes] = String(value).split(":");
-	const hour = parseInt(hours, 10);
-	const suffix = hour < 12 ? "AM" : "PM";
-	const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-	return hour12 + ":" + (minutes || "00").padStart(2, "0") + " " + suffix;
-}
+/* global bandhu */
 
-function formatTimeWindow(session) {
-	if (!session.planned_start_time) return __("Time not set");
-	const start = formatClockTime(session.planned_start_time);
-	return session.planned_end_time
-		? start + " – " + formatClockTime(session.planned_end_time)
-		: start;
-}
+const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
+
+let schedulePage = null;
 
 function daysFromToday(date) {
 	return moment(date).startOf("day").diff(moment().startOf("day"), "days");
@@ -115,7 +103,9 @@ function renderCard(session) {
 		frappe.utils.escape_html(joinParts([session.lsg, session.district])) +
 		"</div></div>" +
 		'<div class="sched-meta">' +
-		frappe.utils.escape_html(formatTimeWindow(session)) +
+		frappe.utils.escape_html(
+			bandhu.session_ui.format_planned_window(session) || __("Time not set")
+		) +
 		(session.unit ? "<br>" + frappe.utils.escape_html(session.unit) : "") +
 		"</div>" +
 		'<i class="fa fa-chevron-down sched-caret"></i>' +
@@ -187,7 +177,17 @@ frappe.pages["my-schedule"].on_page_load = function (wrapper) {
 		single_column: true,
 	});
 
-	page.set_secondary_action(__("Refresh"), () => loadSchedule(page));
+	page.set_secondary_action(__("Refresh"), refreshSchedule);
 
-	loadSchedule(page);
+	schedulePage = page;
 };
+
+async function refreshSchedule() {
+	await frappe.require(SESSION_UI_ASSET);
+	await bandhu.session_ui.refresh_page(schedulePage, loadSchedule);
+}
+
+// Desk keeps this page's DOM alive, so a schedule cancelled while the user was on another page
+// would still read as active on return. on_page_show also fires on the very first show
+// (frappe/public/js/frappe/views/pageview.js:104-107), so it is the only loader needed.
+frappe.pages["my-schedule"].on_page_show = refreshSchedule;
