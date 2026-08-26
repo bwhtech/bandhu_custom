@@ -1,5 +1,5 @@
 {
- "app": "frappe",
+ "app": "bandhu_app",
  "charts": [
   {
    "chart_name": "Camps Per Week",

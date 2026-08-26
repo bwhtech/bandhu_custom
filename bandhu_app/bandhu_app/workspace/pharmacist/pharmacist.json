@@ -1,5 +1,5 @@
 {
- "app": "frappe",
+ "app": "bandhu_app",
  "charts": [],
  "content": "[{\"id\":\"Pxr9eadgR1\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\">Pharmacist Module</span>\",\"col\":12}},{\"id\":\"ntNpvi8M-i\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"-YhD3nJcxq\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"JjYg_YcpqR\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Medicine Movement\",\"col\":12}},{\"id\":\"PH4weaJJrZ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Medicines\",\"col\":12}}]",
  "creation": "2026-04-16 23:13:47.807606",

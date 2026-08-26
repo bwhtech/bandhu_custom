@@ -1,5 +1,5 @@
 {
- "app": "frappe",
+ "app": "bandhu_app",
  "charts": [],
  "content": "[{\"id\":\"fzKWYz8m01\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h2\\\">Inventory</span>\",\"col\":12}},{\"id\":\"9O1ffjXXP4\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"OvQ6U4miAX\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Asset\",\"col\":4}},{\"id\":\"xIhCvR8PXo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Asset Movement\",\"col\":4}},{\"id\":\"jbtCET1Qjv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Asset Repair\",\"col\":4}}]",
  "creation": "2026-04-22 07:22:15.397367",
