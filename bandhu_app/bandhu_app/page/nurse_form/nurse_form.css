@@ -200,23 +200,6 @@
 	white-space: nowrap;
 }
 
-.detail-row {
-	display: flex;
-	justify-content: space-between;
-	gap: 12px;
-	padding: 4px 0;
-	border-bottom: 1px solid var(--border-color);
-	font-size: var(--text-sm);
-}
-
-.detail-row span:first-child {
-	color: var(--text-muted);
-}
-
-.detail-heading {
-	margin-top: 16px;
-}
-
 @media (max-width: 768px) {
 	.nurse-dash {
 		padding: 0 var(--padding-sm);
