@@ -104,15 +104,18 @@ Never invent APIs, flags, config keys, versions, or library behavior. Unsure
 
 ## What this is
 Mobile clinic (field health camp) MIS on Frappe + ERPNext + Healthcare.
-Site: **`bandhu-int.localhost`** (bench `develop`, web on :8010). App module root:
+Site: **`bandhu.localhost`** (bench `develop`, web on :8010) — the canonical site,
+migrated and seeded 2026-08-26, and the one to click through. `bandhu-int.localhost`
+is the older demo site, kept as the target for `bench run-tests` so a test run never
+disturbs the site being demoed. App module root:
 `bandhu_app.bandhu_app`. Bench frappe is **17.x-develop**. The `bandhuapp.local`
 name used throughout the older entries below no longer exists on this machine,
 and neither does the "v15"/"v16.18.2" version claim — read those entries with
-that substitution in mind. `bandhu.localhost` also exists and has the app
-installed, but it was last migrated 2026-07-26, has no Bandhu App Page records
-and is missing schema (no `unit` on Bandhu Clinic Session), so tests run there
-fail for environmental reasons that read like code faults. Run everything
-against `bandhu-int.localhost` until that site is brought current.
+that substitution in mind. Run `bench --site bandhu-int.localhost run-tests --app bandhu_app`; frappe throttles
+user creation at 60/hour and the suite creates users per class, so a second run inside
+the hour dies with `Throttled` — `throttle_user_limit` is set to 500 there. Note
+`bench set-config` writes a string unless you pass `--parse`, which surfaces as
+`'>' not supported between int and str`, not as a config error.
 Roles: CAD (front desk), Doctor, Nurse, Programme Manager/System Manager.
 Full scope doc: see CMID scope-of-work (developer's copy in chat history).
 
@@ -830,8 +833,8 @@ Overwrite in place, don't append noise.
     total row sums every numeric column, and a summed average is nonsense.
   - **`age_group()` in `utils/patient.py` uses bands we chose** (0-14, 15-29,
     30-44, 45-59, 60+) because the scope doc names age-group breakdowns without
-    defining them. Confirm with CMID; changing the bands later changes every
-    historical report.
+    defining them. **Confirmed by the client 2026-08-26 — treat these as fixed;
+    changing them now rewrites every historical report.**
   - **Frappe's IntegrationTestCase does not isolate rows between tests in a class.**
     Five of six Tests Report tests failed first time because each test saw the
     previous test's camps. Fixed by giving every test its own Site in `setUp` and
