@@ -84,9 +84,17 @@ def sync_to_queue(doc, method):
 	frappe.db.savepoint("patient_queue_insert")
 	try:
 		frappe.get_doc({"doctype": "Patient Queue", **values}).insert(ignore_permissions=True)
-	except frappe.DuplicateEntryError:
+	except (frappe.UniqueValidationError, frappe.DuplicateEntryError):
+		# `patient` is a unique field, not the primary key, so the loser of the race comes out of
+		# base_document.show_unique_validation_message() as UniqueValidationError
+		# (frappe/model/base_document.py:917). DuplicateEntryError is only raised for a name
+		# collision (base_document.py:837) and is kept because the row is named by a dated series
+		# that two same-second inserts can still collide on.
 		frappe.db.rollback(save_point="patient_queue_insert")
 		existing = frappe.db.get_value("Patient Queue", {"patient": doc.patient}, "name")
 		if not existing:
 			raise
+		# The unique violation already queued a "Patient must be unique" msgprint. The race is
+		# handled, so showing it would report a failure the front desk did not have.
+		frappe.clear_last_message()
 		frappe.db.set_value("Patient Queue", existing, values)

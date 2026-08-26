@@ -1,11 +1,14 @@
 # Copyright (c) 2026, CMID and Contributors
 # See license.txt
 
+from unittest.mock import patch
+
 import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, now, today
 
 from bandhu_app.bandhu_app.doctype.patient_queue.patient_queue import PatientQueue
+from bandhu_app.bandhu_app.utils.patient_encounter import sync_to_queue
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -69,6 +72,46 @@ class IntegrationTestPatientQueue(IntegrationTestCase):
 			.insert(ignore_permissions=True)
 			.name
 		)
+
+	def test_a_lost_race_on_the_unique_patient_row_is_recovered(self):
+		"""A concurrent front desk wins the insert while this request is mid-flight.
+
+		`Patient Queue.patient` is a unique field, so the loser gets UniqueValidationError, not
+		the DuplicateEntryError a primary-key collision would raise. Missing the existing row
+		once is what a real race does; the second lookup, inside the recovery, sees it.
+		"""
+		patient = self.make_patient("Queue Race Patient")
+		encounter = frappe.get_doc(
+			{
+				"doctype": "Patient Encounter",
+				"patient": patient.name,
+				"practitioner": self.make_practitioner("Queue Race Practitioner"),
+				"custom_workflow_state": "Waiting for Doctor",
+				"encounter_date": today(),
+			}
+		).insert(ignore_permissions=True)
+
+		winning_row = frappe.db.get_value("Patient Queue", {"patient": patient.name}, "name")
+		self.assertTrue(winning_row)
+
+		encounter.custom_workflow_state = "Awaiting Test"
+		read_value = frappe.db.get_value
+		queue_lookups = []
+
+		def miss_the_queue_row_once(doctype, *args, **kwargs):
+			if doctype == "Patient Queue":
+				queue_lookups.append(doctype)
+				if len(queue_lookups) == 1:
+					return None
+			return read_value(doctype, *args, **kwargs)
+
+		with patch.object(frappe.db, "get_value", side_effect=miss_the_queue_row_once):
+			sync_to_queue(encounter, "on_update")
+
+		self.assertEqual(
+			frappe.db.get_value("Patient Queue", winning_row, "current_stage"), "With Nurse (Test)"
+		)
+		self.assertEqual(frappe.db.count("Patient Queue", {"patient": patient.name}), 1)
 
 	def test_clearing_a_board_row_leaves_the_encounter_it_projects(self):
 		patient = self.make_patient("Queue Cleanup Patient")
