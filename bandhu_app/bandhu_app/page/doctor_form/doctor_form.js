@@ -2,12 +2,8 @@
 
 const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
 
-const TEST_OPTIONS = ["Malaria", "Dengue", "Leptospirosis", "Hb", "GRBS"].map((name) => ({
-	label: name,
-	value: name,
-}));
-
 let encountersByName = {};
+let testOptions = null;
 let doctorSession = null;
 let doctorPage = null;
 
@@ -52,7 +48,7 @@ function renderNoSession(page, message, upcoming) {
 		'<div class="doctor-dash">' +
 			bandhu.session_ui.format_welcome() +
 			'<div class="empty-state">' +
-			'<i class="fa fa-calendar-o empty-state-icon"></i>' +
+			frappe.utils.icon("calendar-off", "xl", "", "", "current-color empty-state-icon") +
 			'<span class="empty-state-text">' +
 			frappe.utils.escape_html(message || __("No session available.")) +
 			"</span></div>" +
@@ -140,7 +136,7 @@ function renderDashboard(page, active, completed) {
 	});
 }
 
-function dispatchDoctorAction(page, encounter, action) {
+async function dispatchDoctorAction(page, encounter, action) {
 	switch (action) {
 		case "details":
 			bandhu.session_ui.open_patient_details_dialog(
@@ -150,7 +146,7 @@ function dispatchDoctorAction(page, encounter, action) {
 			);
 			break;
 		case "order_test":
-			openOrderTestDialog(page, encounter);
+			await openOrderTestDialog(page, encounter);
 			break;
 		case "prescribe":
 			openPrescribeDialog(page, encounter);
@@ -161,7 +157,29 @@ function dispatchDoctorAction(page, encounter, action) {
 	}
 }
 
-function openOrderTestDialog(page, encounter) {
+// The clinic's test list is a master, so the checkboxes cannot be a constant. Fetched once
+// per page load rather than per dialog — it changes when an admin edits the master, not
+// between two patients.
+async function getTestOptions() {
+	if (!testOptions) {
+		const response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form.get_test_options",
+		});
+		testOptions = (response.message || []).map((test) => ({
+			label: test.label,
+			value: test.name,
+		}));
+	}
+	return testOptions;
+}
+
+async function openOrderTestDialog(page, encounter) {
+	const options = await getTestOptions();
+	if (!options.length) {
+		frappe.msgprint(__("No tests are configured. Ask an administrator to add one."));
+		return;
+	}
+
 	const dialog = new frappe.ui.Dialog({
 		title: __("Order Tests"),
 		fields: [
@@ -169,7 +187,7 @@ function openOrderTestDialog(page, encounter) {
 				fieldtype: "MultiCheck",
 				fieldname: "tests",
 				label: __("Tests"),
-				options: TEST_OPTIONS,
+				options,
 				columns: 2,
 			},
 			{ fieldtype: "Small Text", fieldname: "notes", label: __("Instructions for Nurse") },
@@ -357,7 +375,7 @@ function renderQueue(title, encounters) {
 			count +
 			"</h4>" +
 			'<div class="empty-state">' +
-			'<i class="fa fa-inbox empty-state-icon small"></i>' +
+			frappe.utils.icon("inbox", "xl", "", "", "current-color empty-state-icon small") +
 			'<span class="empty-state-text">' +
 			__("No patients.") +
 			"</span>" +
@@ -375,7 +393,9 @@ function renderQueue(title, encounters) {
 				: __("Repeat Patient") + " &bull; " + visitCount + " " + __("Visits");
 			const expandIndicator = isFirstVisit
 				? ""
-				: '<span class="history-expand-indicator"><i class="fa fa-chevron-down"></i></span>';
+				: '<span class="history-expand-indicator">' +
+				  frappe.utils.icon("chevron-down", "xs", "", "", "current-color") +
+				  "</span>";
 
 			let historyList = "";
 			if (!isFirstVisit) {

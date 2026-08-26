@@ -87,7 +87,7 @@ function renderNoSession(page, data) {
 		'<div class="cad-dash">' +
 			bandhu.session_ui.format_welcome() +
 			'<div class="empty-state">' +
-			'<i class="fa fa-calendar-o empty-state-icon"></i>' +
+			frappe.utils.icon("calendar-off", "xl", "", "", "current-color empty-state-icon") +
 			'<span class="empty-state-text">' +
 			frappe.utils.escape_html(data.message || __("No session available.")) +
 			"</span></div></div>"
@@ -100,7 +100,7 @@ function renderWaitingForNurse(page, data) {
 			bandhu.session_ui.format_welcome() +
 			bandhu.session_ui.format_session_info(data) +
 			'<div class="empty-state">' +
-			'<i class="fa fa-hourglass-half empty-state-icon"></i>' +
+			frappe.utils.icon("hourglass", "xl", "", "", "current-color empty-state-icon") +
 			'<span class="empty-state-text">' +
 			__(
 				"Waiting for the nurse to start this clinic session. Patients can't be registered yet."
@@ -115,7 +115,7 @@ function renderCompleted(page, data) {
 			bandhu.session_ui.format_welcome() +
 			bandhu.session_ui.format_session_info(data) +
 			'<div class="empty-state">' +
-			'<i class="fa fa-check-circle empty-state-icon done"></i>' +
+			frappe.utils.icon("circle-check", "xl", "", "", "current-color empty-state-icon done") +
 			'<span class="empty-state-text">' +
 			__("Session completed. No further patients can be registered.") +
 			"</span></div></div>"
@@ -206,11 +206,13 @@ function renderSearchSection() {
 		__("Find Existing Patient") +
 		"</h4>" +
 		'<div class="search-row">' +
+		'<div class="search-field">' +
+		frappe.utils.icon("search", "sm", "", "", "current-color search-field-icon") +
 		'<input type="text" class="form-control cad-search-input" placeholder="' +
 		frappe.utils.escape_html(
 			__("Scan the patient's card, or search by Clinic ID, ABHA ID, Mobile, Name or DOB")
 		) +
-		'">' +
+		'"></div>' +
 		'<button class="btn btn-primary cad-search-btn">' +
 		__("Search") +
 		"</button>" +

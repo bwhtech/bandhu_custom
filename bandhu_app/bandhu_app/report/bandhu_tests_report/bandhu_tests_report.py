@@ -190,7 +190,13 @@ def build_summary(rows: list) -> list:
 def get_columns() -> list:
 	return [
 		{"fieldname": "date", "label": _("Date"), "fieldtype": "Date", "width": 100},
-		{"fieldname": "test_name", "label": _("Test"), "fieldtype": "Data", "width": 120},
+		{
+			"fieldname": "test_name",
+			"label": _("Test"),
+			"fieldtype": "Link",
+			"options": "Bandhu Test",
+			"width": 120,
+		},
 		{"fieldname": "result", "label": _("Result"), "fieldtype": "Data", "width": 100},
 		{"fieldname": "result_value", "label": _("Value"), "fieldtype": "Data", "width": 110},
 		{"fieldname": "clinic_id", "label": _("Clinic ID"), "fieldtype": "Data", "width": 120},

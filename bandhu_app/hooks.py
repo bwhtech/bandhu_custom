@@ -86,7 +86,7 @@ jinja = {"methods": ["bandhu_app.bandhu_app.utils.custom_qr_code.get_qr_code_ima
 # ------------
 
 # before_install = "bandhu_app.install.before_install"
-# after_install = "bandhu_app.install.after_install"
+after_install = "bandhu_app.install.after_install"
 
 # Migration
 # ------------

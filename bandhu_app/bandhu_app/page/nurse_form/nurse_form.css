@@ -60,13 +60,15 @@
 }
 
 .nurse-dash .empty-state .empty-state-icon {
-	font-size: 32px;
+	width: 32px;
+	height: 32px;
 	margin-bottom: 10px;
 	opacity: 0.4;
 }
 
 .nurse-dash .empty-state .empty-state-icon.small {
-	font-size: 24px;
+	width: 24px;
+	height: 24px;
 	margin-bottom: 8px;
 }
 

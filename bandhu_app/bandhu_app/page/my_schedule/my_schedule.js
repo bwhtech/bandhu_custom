@@ -27,6 +27,7 @@ function renderDetail(session) {
 	// to be read one at a time, so they collapse into one muted line beneath it.
 	const place =
 		'<div class="detail-place"><div class="detail-site">' +
+		frappe.utils.icon("map-pin", "sm", "", "", "current-color detail-site-icon") +
 		frappe.utils.escape_html(session.site || "") +
 		"</div>" +
 		(joinParts([session.location, session.lsg, session.district, session.state])
@@ -68,6 +69,7 @@ function renderDetail(session) {
 				? '<a class="detail-call" href="tel:' +
 				  encodeURIComponent(member.mobile) +
 				  '">' +
+				  frappe.utils.icon("phone", "xs", "", "", "current-color detail-call-icon") +
 				  frappe.utils.escape_html(member.mobile) +
 				  "</a>"
 				: '<span class="no-contact">' + __("No number on record") + "</span>";
@@ -108,7 +110,10 @@ function renderCard(session) {
 	const days = daysFromToday(session.date);
 	const isCancelled = session.status === "Cancelled";
 	const badge = isCancelled
-		? '<span class="sched-badge cancelled">' + __("Cancelled — do not travel") + "</span>"
+		? '<span class="sched-badge cancelled">' +
+		  frappe.utils.icon("triangle-alert", "xs", "", "", "current-color sched-badge-icon") +
+		  __("Cancelled — do not travel") +
+		  "</span>"
 		: days === 0
 		? '<span class="sched-badge today">' + __("Today") + "</span>"
 		: "";
@@ -140,7 +145,7 @@ function renderCard(session) {
 		) +
 		(session.unit ? "<br>" + frappe.utils.escape_html(session.unit) : "") +
 		"</div>" +
-		'<i class="fa fa-chevron-down sched-caret"></i>' +
+		frappe.utils.icon("chevron-down", "sm", "", "", "current-color sched-caret") +
 		"</div>" +
 		renderDetail(session) +
 		"</div>"
@@ -165,7 +170,7 @@ function renderSchedule(sessions) {
 function renderEmpty(message) {
 	return (
 		'<div class="empty-state">' +
-		'<i class="fa fa-calendar-o empty-state-icon"></i>' +
+		frappe.utils.icon("calendar-off", "xl", "", "", "current-color empty-state-icon") +
 		'<span class="empty-state-text">' +
 		frappe.utils.escape_html(message || __("You have no clinic sessions scheduled.")) +
 		"</span></div>"

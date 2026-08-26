@@ -17,7 +17,8 @@
 }
 
 .cad-dash .empty-state .empty-state-icon {
-	font-size: 32px;
+	width: 32px;
+	height: 32px;
 	margin-bottom: 10px;
 	opacity: 0.4;
 }
@@ -90,8 +91,24 @@
 	gap: var(--padding-sm);
 }
 
-.cad-dash .search-row input {
+.cad-dash .search-field {
+	position: relative;
 	flex: 1;
+}
+
+.cad-dash .search-field input {
+	width: 100%;
+	padding-left: 34px;
+}
+
+/* pointer-events off so the glyph never eats a tap meant for the field it sits in. */
+.cad-dash .search-field-icon {
+	position: absolute;
+	top: 50%;
+	left: 10px;
+	margin-top: -8px;
+	color: var(--text-muted);
+	pointer-events: none;
 }
 
 .cad-dash .cad-search-results {

@@ -1,10 +1,9 @@
 import frappe
 from frappe import _
 
+from bandhu_app.bandhu_app.utils.clinic_test import get_enabled_tests
 from bandhu_app.bandhu_app.utils.patient_details import get_patient_details, get_session_encounters
 from bandhu_app.bandhu_app.utils.session import find_active_session, find_upcoming_sessions
-
-VALID_TEST_NAMES = {"Malaria", "Dengue", "Leptospirosis", "Hb", "GRBS"}
 
 
 def require_doctor_access() -> None:
@@ -185,6 +184,21 @@ def get_patient_registration_details(encounter: str):
 	return get_patient_details(doc.patient)
 
 
+@frappe.whitelist()
+def get_test_options() -> list[dict]:
+	"""The order-test checkboxes. A value test carries its unit in the label so the doctor
+	knows what the nurse will be asked to measure."""
+	require_doctor_access()
+
+	return [
+		{
+			"name": test.name,
+			"label": f"{test.test_name} ({test.unit})" if test.unit else test.test_name,
+		}
+		for test in get_enabled_tests()
+	]
+
+
 @frappe.whitelist(methods=["POST"])
 def order_test(encounter: str, tests: list | str, notes: str | None = None) -> None:
 	require_doctor_access()
@@ -192,7 +206,7 @@ def order_test(encounter: str, tests: list | str, notes: str | None = None) -> N
 
 	if not tests:
 		frappe.throw(_("Select at least one test."))
-	invalid = set(tests) - VALID_TEST_NAMES
+	invalid = set(tests) - {test.name for test in get_enabled_tests()}
 	if invalid:
 		frappe.throw(_("Unknown test(s): {0}").format(", ".join(invalid)))
 

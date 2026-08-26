@@ -26,7 +26,7 @@ async function loadDashboard(page) {
 			'<div class="nurse-dash">' +
 				bandhu.session_ui.format_welcome() +
 				'<div class="empty-state">' +
-				'<i class="fa fa-calendar-o empty-state-icon"></i>' +
+				frappe.utils.icon("calendar-off", "xl", "", "", "current-color empty-state-icon") +
 				'<span class="empty-state-text">' +
 				frappe.utils.escape_html(data.message) +
 				"</span></div>" +
@@ -59,7 +59,7 @@ async function loadDashboard(page) {
 				bandhu.session_ui.format_welcome() +
 				bandhu.session_ui.format_session_info(data) +
 				'<div class="empty-state">' +
-				'<i class="fa fa-check-circle empty-state-icon done"></i>' +
+				frappe.utils.icon("circle-check", "xl", "", "", "current-color empty-state-icon done") +
 				'<span class="empty-state-text">' +
 				__("Session completed. Great work!") +
 				"</span></div></div>"
@@ -360,7 +360,7 @@ function renderQueueSection(title, encounters, action) {
 			count +
 			"</h4>" +
 			'<div class="empty-state">' +
-			'<i class="fa fa-inbox empty-state-icon"></i>' +
+			frappe.utils.icon("inbox", "xl", "", "", "current-color empty-state-icon") +
 			'<span class="empty-state-text">' +
 			__("No patients in queue.") +
 			"</span>" +

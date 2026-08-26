@@ -81,7 +81,9 @@
 
 .my-schedule .sched-caret {
 	color: var(--text-muted);
-	font-size: 12px;
+	width: 14px;
+	height: 14px;
+	flex: none;
 	margin-top: 4px;
 	transition: transform 0.15s;
 }
@@ -129,6 +131,13 @@
 	color: var(--heading-color);
 }
 
+/* Muted against the heading it marks: the pin says "destination", the name is the answer. */
+.my-schedule .detail-site-icon {
+	color: var(--text-muted);
+	margin-right: 6px;
+	vertical-align: -3px;
+}
+
 .my-schedule .detail-where {
 	font-size: var(--text-sm);
 	color: var(--text-muted);
@@ -163,6 +172,11 @@
 	white-space: nowrap;
 }
 
+.my-schedule .detail-call-icon {
+	margin-right: 5px;
+	vertical-align: -1px;
+}
+
 .my-schedule .sched-badge {
 	display: inline-block;
 	padding: 2px 8px;
@@ -182,6 +196,11 @@
 	color: var(--text-on-red);
 }
 
+.my-schedule .sched-badge-icon {
+	margin-right: 4px;
+	vertical-align: -2px;
+}
+
 .my-schedule .empty-state {
 	display: flex;
 	flex-direction: column;
@@ -195,7 +214,8 @@
 }
 
 .my-schedule .empty-state .empty-state-icon {
-	font-size: 32px;
+	width: 32px;
+	height: 32px;
 	margin-bottom: 10px;
 	opacity: 0.4;
 }

@@ -8,9 +8,11 @@ from bandhu_app.bandhu_app.page.doctor_form.doctor_form import (
 	complete_encounter,
 	get_patient_registration_details,
 	get_session_status,
+	get_test_options,
 	order_test,
 	prescribe_medicine,
 )
+from bandhu_app.bandhu_app.utils.clinic_test import seed_default_tests
 
 
 def first_of(doctype: str) -> str | None:
@@ -134,6 +136,40 @@ class TestDoctorForm(IntegrationTestCase):
 		frappe.set_user(self.doctor_user_1)
 		with self.assertRaises(frappe.ValidationError):
 			order_test(self.encounter.name, ["Not A Real Test"])
+
+	def test_order_test_rejects_a_test_that_is_not_an_enabled_master_record(self):
+		seed_default_tests()
+		frappe.db.set_value("Bandhu Test", "Leptospirosis", "enabled", 0)
+
+		frappe.set_user(self.doctor_user_1)
+		with self.assertRaises(frappe.ValidationError):
+			order_test(self.encounter.name, ["Leptospirosis"])
+
+	def test_a_disabled_test_leaves_the_options_without_breaking_an_encounter_holding_it(self):
+		seed_default_tests()
+		frappe.set_user(self.doctor_user_1)
+		order_test(self.encounter.name, ["Leptospirosis"])
+
+		frappe.db.set_value("Bandhu Test", "Leptospirosis", "enabled", 0)
+
+		self.assertNotIn("Leptospirosis", [test["name"] for test in get_test_options()])
+
+		self.encounter.reload()
+		self.assertEqual(
+			[row.test_name for row in self.encounter.custom_test_instructions], ["Leptospirosis"]
+		)
+		# The nurse still has to be able to save a result against the row the doctor ordered
+		# before the test was retired.
+		self.encounter.custom_test_instructions[0].result_type = "Negative"
+		self.encounter.save(ignore_permissions=True)
+
+	def test_test_options_carry_the_unit_for_a_value_test(self):
+		seed_default_tests()
+		frappe.set_user(self.doctor_user_1)
+		labels = {test["name"]: test["label"] for test in get_test_options()}
+
+		self.assertEqual(labels["Hb"], "Hb (g/dL)")
+		self.assertEqual(labels["Malaria"], "Malaria")
 
 	def test_order_test_rejects_empty_list(self):
 		frappe.set_user(self.doctor_user_1)
