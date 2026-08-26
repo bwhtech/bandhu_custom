@@ -188,6 +188,9 @@ async function openOrderTestDialog(page, encounter) {
 				fieldname: "tests",
 				label: __("Tests"),
 				options,
+				// The master's display_order is the clinic's chosen order; MultiCheck
+				// re-sorts alphabetically unless told not to.
+				sort_options: false,
 				columns: 2,
 			},
 			{ fieldtype: "Small Text", fieldname: "notes", label: __("Instructions for Nurse") },
