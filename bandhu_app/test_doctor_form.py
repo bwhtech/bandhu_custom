@@ -13,6 +13,7 @@ from bandhu_app.bandhu_app.page.doctor_form.doctor_form import (
 	prescribe_medicine,
 )
 from bandhu_app.bandhu_app.utils.clinic_test import seed_default_tests
+from bandhu_app.bandhu_app.utils.patient_details import get_clinical_details_by_encounter
 
 
 def first_of(doctype: str) -> str | None:
@@ -132,6 +133,18 @@ class TestDoctorForm(IntegrationTestCase):
 		stage = frappe.db.get_value("Patient Queue", {"encounter": self.encounter.name}, "current_stage")
 		self.assertEqual(stage, "With Nurse (Test)")
 
+	def test_order_test_stamps_one_note_on_every_row_and_the_payload_reports_it_once(self):
+		"""order_test copies the doctor's single note onto each row it appends. Without the
+		payload saying so, the Patient Details dialog prints the same sentence once per test."""
+		frappe.set_user(self.doctor_user_1)
+		order_test(self.encounter.name, ["Malaria", "Hb"], notes="Fever 3 days")
+
+		frappe.set_user("Administrator")
+		details = get_clinical_details_by_encounter([self.encounter.name])[self.encounter.name]
+
+		self.assertEqual([row.notes for row in details["tests"]], ["Fever 3 days", "Fever 3 days"])
+		self.assertEqual(details["shared_test_note"], "Fever 3 days")
+
 	def test_order_test_rejects_unknown_test_name(self):
 		frappe.set_user(self.doctor_user_1)
 		with self.assertRaises(frappe.ValidationError):
@@ -244,6 +257,16 @@ class TestDoctorForm(IntegrationTestCase):
 		details = get_patient_registration_details(self.encounter.name)
 		self.assertEqual(details.custom_height_m, 1.7)
 		self.assertEqual(details.custom_weight_kg, 65)
+
+	def test_get_patient_registration_details_returns_the_stored_date_of_birth(self):
+		"""The dialog formats dob with frappe.datetime.str_to_user, so the endpoint has to hand
+		back the stored date. A pre-formatted string would be re-parsed and printed wrong."""
+		frappe.db.set_value("Patient", self.patient.name, "dob", "1992-02-14")
+
+		frappe.set_user(self.doctor_user_1)
+		details = get_patient_registration_details(self.encounter.name)
+
+		self.assertEqual(str(details.dob), "1992-02-14")
 
 	def test_get_patient_registration_details_blocks_unowned_encounter(self):
 		frappe.set_user(self.doctor_user_2)

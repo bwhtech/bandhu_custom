@@ -56,6 +56,48 @@ def get_patient_details(patient: str) -> dict:
 	return frappe.db.get_value("Patient", patient, PATIENT_DETAIL_FIELDS, as_dict=True)
 
 
+def attach_test_shapes(tests: list) -> None:
+	"""Carry each row's result shape and unit down from the Bandhu Test master.
+
+	The boards need the shape to know whether a result is a measurement or an indicator, and
+	the row itself cannot say: an ordered-but-untested row has no `result_type` at all.
+	"""
+	test_names = {test.test_name for test in tests if test.test_name}
+	if not test_names:
+		return
+
+	masters = {
+		master.name: master
+		for master in frappe.get_all(
+			"Bandhu Test",
+			filters={"name": ["in", list(test_names)]},
+			fields=["name", "result_shape", "unit"],
+		)
+	}
+
+	for test in tests:
+		master = masters.get(test.test_name)
+		test.result_shape = master.result_shape if master else None
+		test.unit = master.unit if master else None
+
+
+def shared_test_note(tests: list) -> str | None:
+	"""The single note that covers the whole test order, or None when the rows disagree.
+
+	`order_test` stamps the doctor's one note onto every row it appends, so the boards would
+	otherwise print the same sentence once per test. Reporting it here keeps the per-row notes
+	intact for the rows that genuinely carry their own.
+	"""
+	if not tests:
+		return None
+
+	notes = {(test.get("notes") or "").strip() for test in tests}
+	if len(notes) > 1:
+		return None
+
+	return notes.pop() or None
+
+
 def get_clinical_details_by_encounter(encounter_names: list) -> dict:
 	"""Tests, prescriptions and diagnosis for a whole queue in one query per child table.
 	Row by row this was three queries a patient, on a camp board a nurse reloads all day."""
@@ -75,6 +117,11 @@ def get_clinical_details_by_encounter(encounter_names: list) -> dict:
 		)
 		for row in rows:
 			details[row.pop("parent")][key].append(row)
+
+	attach_test_shapes([test for encounter in details.values() for test in encounter["tests"]])
+
+	for encounter_details in details.values():
+		encounter_details["shared_test_note"] = shared_test_note(encounter_details["tests"])
 
 	return details
 
