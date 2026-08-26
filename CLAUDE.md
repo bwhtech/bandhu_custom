@@ -104,7 +104,15 @@ Never invent APIs, flags, config keys, versions, or library behavior. Unsure
 
 ## What this is
 Mobile clinic (field health camp) MIS on Frappe + ERPNext + Healthcare.
-Site: `bandhuapp.local`. App module root: `bandhu_app.bandhu_app`.
+Site: **`bandhu-int.localhost`** (bench `develop`, web on :8010). App module root:
+`bandhu_app.bandhu_app`. Bench frappe is **17.x-develop**. The `bandhuapp.local`
+name used throughout the older entries below no longer exists on this machine,
+and neither does the "v15"/"v16.18.2" version claim — read those entries with
+that substitution in mind. `bandhu.localhost` also exists and has the app
+installed, but it was last migrated 2026-07-26, has no Bandhu App Page records
+and is missing schema (no `unit` on Bandhu Clinic Session), so tests run there
+fail for environmental reasons that read like code faults. Run everything
+against `bandhu-int.localhost` until that site is brought current.
 Roles: CAD (front desk), Doctor, Nurse, Programme Manager/System Manager.
 Full scope doc: see CMID scope-of-work (developer's copy in chat history).
 
@@ -829,3 +837,68 @@ Overwrite in place, don't append noise.
     previous test's camps. Fixed by giving every test its own Site in `setUp` and
     filtering on it. Nothing leaked to the site — the rollback happens, but only
     after the class.
+- 2026-08-26: PR stack consolidated, and the audit's remaining findings closed.
+  - **Ten PRs were open at once (#9–#18) and eight of them were redundant.**
+    #18 (`dadsena01:schedule-and-roles-followup`) was opened on the same base as
+    #10 and already contained every commit from #10–#17, unchanged and by the
+    same SHA, plus five newer ones. Closed #10–#17 as superseded, each with a
+    comment naming its commit SHA, the `git merge-base --is-ancestor` check that
+    proved containment, and where the work now lives — so nobody later reads a
+    wall of closed PRs as abandoned work and re-raises it. **No commit was
+    dropped.** #9 (README) is unrelated and stays open. If this shape recurs:
+    close the subsumed PRs rather than merging the stack in order — merging them
+    one by one conflicts against the branch that already contains them.
+  - Local `fix/audit-blockers` (desk-page radius tokens + a wip audit-blocker
+    commit, never pushed) was rebased onto #18's head as
+    **`fix/audit-consolidated`**. Two conflicts, both resolved on evidence, not
+    preference: (1) frappe defines `--radius-*` in
+    `frappe/public/css/espresso/radius.css` and does **not** define
+    `--border-radius-*` at all, so the reworked wizard styles were switched to
+    the real tokens — an undefined var silently renders as no radius; (2) the
+    patient card kept PR #18's field labels and ABHA block **and** the earlier
+    `get_qr_code_image_source()` data-URI fix, which is load-bearing because the
+    QR File is `is_private = 1` and a browser fetching `<img src>` authenticates
+    as the CAD, who holds no Patient permission.
+  - **F3 was never actually fixed, despite the 2026-08-15 entry claiming it.**
+    `utils/patient_encounter.py` caught `frappe.DuplicateEntryError`, but that is
+    raised only for a **primary-key** collision (`base_document.py:837`); a
+    **unique-field** violation — which is what `Patient Queue.patient` is — goes
+    through `show_unique_validation_message()` and raises
+    `frappe.UniqueValidationError` (`base_document.py:917`), an unrelated branch
+    of the exception tree (`NameError` vs `ValidationError`). The savepoint and
+    re-read therefore never ran and the losing registration still rolled back.
+    Caught by reproducing the race with two concurrent bench processes, not by
+    reading the diff. Now catches both, and calls `frappe.clear_last_message()`
+    so a recovered race stops showing the front desk a "Patient must be unique"
+    failure that did not happen. **Lesson: an `except` clause naming a plausible
+    exception is not evidence it is the one raised — reproduce the failure.**
+  - F1 was only partly fixed: PR #18 rewrote the card template, and two
+    attribute-context interpolations in the QR `<img>` (`src` and `alt`) were
+    still raw. Escaped. The autoescape-off landmine applies to attribute
+    contexts too — one `"` in a Data field breaks out.
+  - F6 closed by making the access **auditable rather than narrower** — the CAD
+    search legitimately spans the whole patient master (repeat patients arrive
+    from other sites), so scoping it would break the feature. `search_patient`
+    and `get_patient_card_html` now write to frappe's own **Access Log** via
+    `make_access_log`, which defers the insert. Checked before logging searches
+    that `cad_form.js` fires the search on Enter/button only, not per keystroke.
+    **Open policy question: Access Log is not in frappe's
+    `default_log_clearing_doctypes`, so this audit trail grows unbounded until
+    someone picks a retention.**
+  - F8: `get_districts` gated with `require_cad_access()`. F11: `Patient Queue`
+    given `clear_old_logs(days=90)` and registered through
+    `default_log_clearing_doctypes` — reusing Log Settings instead of adding a
+    scheduled job. Only `Done` rows are cleared; the queue is a projection that
+    `sync_to_queue` rebuilds from the encounter.
+  - **Both surviving sites were mapped, because the documented one does not
+    exist.** See "What this is" above — run tests on `bandhu-int.localhost`.
+    `bandhu.localhost` was modified while this was still unknown (allow_tests,
+    a Fiscal Year company link, `sync_customizations`, a `Walk-In` Appointment
+    Type, and the deletion of the orphan `Bandhu Complaints` DocType record,
+    0 rows, its code removed back in `1e7d145`).
+  - 132 tests pass on `bandhu-int.localhost`. F1–F5 were re-verified live in a
+    browser as the real single-role users after the rebase — note those are
+    `cad@bandhu.test` / `nurse@bandhu.test` / `doctor@bandhu.test`, and the CAD
+    gate is the role **`Clinic Assistant cum Driver`**; there is no `CAD` role
+    and the `*.tester@bandhu.local` / `*.bandhuclinic.test` users named in older
+    entries do not exist.
