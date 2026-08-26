@@ -58,7 +58,20 @@ def sync_bandhu_desktop_icons():
 	)
 	roles_by_workspace = workspace_roles({workspace.name for workspace in workspaces})
 
+	# A Desktop Icon's link_to is a Dynamic Link resolving against Workspace Sidebar, not
+	# Workspace, and the two are synced separately — a workspace whose sidebar row has not
+	# been written yet would fail link validation and, from after_migrate, take the whole
+	# migrate down with it.
+	sidebars = set(frappe.get_all("Workspace Sidebar", pluck="name"))
+
 	for workspace in workspaces:
+		if workspace.name not in sidebars:
+			frappe.log_error(
+				title="No desk icon for workspace",
+				message=f"{workspace.name} has no Workspace Sidebar record yet; skipped.",
+			)
+			continue
+
 		icon_name = frappe.db.get_value(
 			"Desktop Icon", {"link_to": workspace.name, "icon_type": "Link"}, "name"
 		)
