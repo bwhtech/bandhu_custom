@@ -1,5 +1,7 @@
 import frappe
 
+from bandhu_app.bandhu_app.page.cad_form.cad_form import require_cad_access
+
 STATE_DISTRICTS: dict[str, list[str]] = {
 	"Bihar": [
 		"Araria",
@@ -257,6 +259,11 @@ STATE_DISTRICTS: dict[str, list[str]] = {
 
 @frappe.whitelist()
 def get_districts(txt: str = "", state: str | None = None) -> list[str]:
+	# Only the CAD registration form asks for these (cad_form.js:511, on native state change), so
+	# it carries the same gate as the rest of that form instead of being open to every
+	# authenticated user.
+	require_cad_access()
+
 	if not state:
 		return []
 
