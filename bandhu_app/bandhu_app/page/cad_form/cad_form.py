@@ -2,6 +2,7 @@ import re
 
 import frappe
 from frappe import _
+from frappe.core.doctype.access_log.access_log import make_access_log
 from frappe.utils import flt, validate_phone_number
 
 from bandhu_app.bandhu_app.utils.session import find_active_session
@@ -87,7 +88,7 @@ def search_patient(query: str) -> list:
 		return []
 
 	like = f"%{query}%"
-	return frappe.get_all(
+	results = frappe.get_all(
 		"Patient",
 		or_filters=[
 			["custom_bandhu_id", "like", like],
@@ -99,6 +100,15 @@ def search_patient(query: str) -> list:
 		fields=["name", "patient_name", "custom_bandhu_id", "sex", "dob"],
 		limit=20,
 	)
+
+	# The search reads the whole patient master by design (a CAD legitimately meets patients
+	# registered at another site), so the term is recorded rather than the search being narrowed.
+	# This is one row per deliberate search, not per keystroke — cad_form.js fires it on Enter or
+	# the search button only (cad_form.js:322-327) — and make_access_log defers the insert, so it
+	# costs the request nothing.
+	make_access_log(doctype="Patient", method="CAD Patient Search", filters=query)
+
+	return results
 
 
 PATIENT_CARD_PRINT_FORMAT = "Bandhu Patient Card"
@@ -123,6 +133,10 @@ def get_patient_card_html(patient: str) -> str:
 	# Rendering a print format checks the Patient print permission, which this role does not
 	# hold. The flag is Frappe's own way to render on behalf of a caller that has already
 	# been authorised by other means, as require_cad_access() has done above.
+	# The card names one patient and carries their PII to a printer, so who rendered which card
+	# is the access worth keeping — the reference document makes it answerable per patient.
+	make_access_log(doctype="Patient", document=patient, method="CAD Patient Card")
+
 	frappe.flags.ignore_print_permissions = True
 	try:
 		return frappe.get_print(

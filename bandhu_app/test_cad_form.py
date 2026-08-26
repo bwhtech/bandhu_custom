@@ -316,3 +316,57 @@ class IntegrationTestCadForm(IntegrationTestCase):
 			self.assertRaises(frappe.PermissionError, get_patient_card_html, patient.name)
 		finally:
 			frappe.set_user("Administrator")
+
+	def test_search_patient_is_recorded_in_the_access_log(self):
+		patient = self._make_patient("Test Audited Search Patient")
+		bandhu_id = frappe.db.get_value("Patient", patient.name, "custom_bandhu_id")
+
+		frappe.set_user(self.cad_user)
+		try:
+			search_patient(bandhu_id)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertTrue(
+			frappe.db.exists(
+				"Access Log",
+				{
+					"user": self.cad_user,
+					"export_from": "Patient",
+					"method": "CAD Patient Search",
+					"filters": bandhu_id,
+				},
+			)
+		)
+
+	def test_patient_card_render_is_recorded_against_the_patient(self):
+		patient = self._make_patient("Test Audited Card Patient")
+
+		frappe.set_user(self.cad_user)
+		try:
+			get_patient_card_html(patient.name)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertTrue(
+			frappe.db.exists(
+				"Access Log",
+				{
+					"user": self.cad_user,
+					"export_from": "Patient",
+					"method": "CAD Patient Card",
+					"reference_document": patient.name,
+				},
+			)
+		)
+
+	def test_a_blocked_card_render_leaves_no_access_log_row(self):
+		patient = self._make_patient("Test Unlogged Card Patient")
+
+		frappe.set_user(self.no_role_user)
+		try:
+			self.assertRaises(frappe.PermissionError, get_patient_card_html, patient.name)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertFalse(frappe.db.exists("Access Log", {"reference_document": patient.name}))
