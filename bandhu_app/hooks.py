@@ -239,6 +239,10 @@ require_type_annotated_api_methods = True
 
 default_log_clearing_doctypes = {
 	"Patient Queue": 90,
+	# The CAD patient-search/card audit trail (page/cad_form/cad_form.py). Frappe ships
+	# clear_old_logs on Access Log but does not register it, so without this line the table
+	# grows for the life of the site.
+	"Access Log": 30,
 }
 
 # Translation
