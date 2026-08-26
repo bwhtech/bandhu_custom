@@ -91,7 +91,10 @@ jinja = {"methods": ["bandhu_app.bandhu_app.utils.custom_qr_code.get_qr_code_ima
 # Migration
 # ------------
 
-after_migrate = ["bandhu_app.bandhu_app.utils.desk_visibility.restrict_other_app_desktop_icons"]
+after_migrate = [
+	"bandhu_app.bandhu_app.utils.desk_visibility.sync_bandhu_desktop_icons",
+	"bandhu_app.bandhu_app.utils.desk_visibility.restrict_other_app_desktop_icons",
+]
 
 # Uninstallation
 # ------------
