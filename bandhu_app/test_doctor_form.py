@@ -12,14 +12,27 @@ from bandhu_app.bandhu_app.page.doctor_form.doctor_form import (
 	prescribe_medicine,
 )
 
-TEST_APPOINTMENT_TYPE = "General Consultation"
-TEST_PROJECT = "CMID-Migrant-Health-2026"
-TEST_SITE = "Perumbavoor-Evening-Session-Site"
-TEST_CLINIC = "Bandhu Mobile Clinic Unit 1"
-TEST_ITEM = "_Test Stock Item"
+
+def first_of(doctype: str) -> str | None:
+	"""Resolve a master by lookup rather than by name.
+
+	Hardcoded fixture names only exist on the site they were written against, so the suite
+	failed in setUp everywhere else before it reached a single assertion.
+	"""
+	names = frappe.get_all(doctype, limit=1, pluck="name")
+	return names[0] if names else None
 
 
 class TestDoctorForm(IntegrationTestCase):
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		cls.appointment_type = first_of("Appointment Type")
+		cls.project = first_of("Bandhu Projects")
+		cls.site = first_of("Site")
+		cls.clinic = first_of("Clinic")
+		cls.item = first_of("Item")
+
 	def setUp(self):
 		self.today = frappe.utils.today()
 
@@ -82,9 +95,9 @@ class TestDoctorForm(IntegrationTestCase):
 			{
 				"doctype": "Bandhu Clinic Session",
 				"date": self.today,
-				"project": TEST_PROJECT,
-				"site": TEST_SITE,
-				"clinic": TEST_CLINIC,
+				"project": self.project,
+				"site": self.site,
+				"clinic": self.clinic,
 				"status": "In Progress",
 				"assigned_doctor": practitioner.name,
 			}
@@ -98,7 +111,7 @@ class TestDoctorForm(IntegrationTestCase):
 				"practitioner": session.assigned_doctor,
 				"encounter_date": self.today,
 				"encounter_time": frappe.utils.nowtime(),
-				"appointment_type": TEST_APPOINTMENT_TYPE,
+				"appointment_type": self.appointment_type,
 				"custom_clinic_session": session.name,
 				"custom_workflow_state": workflow_state,
 			}
@@ -131,14 +144,14 @@ class TestDoctorForm(IntegrationTestCase):
 		frappe.set_user(self.doctor_user_1)
 		prescribe_medicine(
 			self.encounter.name,
-			[{"medicines": TEST_ITEM, "dosage_frequency": "BD", "duration_days": 5, "quantity": 10}],
+			[{"medicines": self.item, "dosage_frequency": "BD", "duration_days": 5, "quantity": 10}],
 		)
 
 		self.encounter.reload()
 		self.assertEqual(self.encounter.custom_workflow_state, "Awaiting Medicine")
 		self.assertEqual(len(self.encounter.custom_bandhu_prescription), 1)
 		row = self.encounter.custom_bandhu_prescription[0]
-		self.assertEqual(row.medicines, TEST_ITEM)
+		self.assertEqual(row.medicines, self.item)
 		self.assertEqual(row.dosage_frequency, "BD")
 		self.assertFalse(row.dispensed)
 

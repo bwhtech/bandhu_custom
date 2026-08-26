@@ -1,8 +1,7 @@
 import frappe
 from frappe import _
 
-from bandhu_app.bandhu_app.utils.patient import attach_compact_age
-from bandhu_app.bandhu_app.utils.patient_details import get_encounter_clinical_details, get_patient_details
+from bandhu_app.bandhu_app.utils.patient_details import get_patient_details, get_session_encounters
 from bandhu_app.bandhu_app.utils.session import find_active_session, find_upcoming_sessions
 
 VALID_TEST_NAMES = {"Malaria", "Dengue", "Leptospirosis", "Hb", "GRBS"}
@@ -95,36 +94,13 @@ def load_owned_encounter(encounter: str):
 	return doc
 
 
-def get_encounters_for_state(session, workflow_state):
-	encounters = frappe.db.get_all(
-		"Patient Encounter",
-		filters={
-			"custom_clinic_session": session,
-			"custom_workflow_state": workflow_state,
-		},
-		fields=[
-			"name",
-			"patient",
-			"patient_name",
-			"patient_age",
-			"patient_sex",
-			"encounter_date",
-			"custom_workflow_state",
-		],
-		order_by="encounter_date desc, creation desc",
-	)
-	for encounter in encounters:
-		encounter.update(get_encounter_clinical_details(encounter.name))
-	return attach_compact_age(encounters)
-
-
 @frappe.whitelist()
 def get_registered_patients():
 	require_doctor_access()
 	session = get_doctor_session()
 	if not session:
 		return []
-	return get_encounters_for_state(session, ["!=", "Completed"])
+	return get_session_encounters(session, ["!=", "Completed"])
 
 
 @frappe.whitelist()
@@ -133,7 +109,7 @@ def get_completed_patients():
 	session = get_doctor_session()
 	if not session:
 		return []
-	return get_encounters_for_state(session, "Completed")
+	return get_session_encounters(session, "Completed")
 
 
 def verify_patient_linked_to_my_session(patient: str) -> None:
@@ -159,13 +135,57 @@ def get_patient_history(patient: str):
 
 
 @frappe.whitelist()
+def get_patient_histories(patients: list | str) -> dict:
+	"""Return the encounter history for a whole queue in one call.
+
+	The page used to ask per patient, so a 40-patient camp fired 40 parallel requests and
+	saturated the browser's connection pool on the weak links these camps run on.
+	"""
+	require_doctor_access()
+	patients = frappe.parse_json(patients)
+
+	if not patients:
+		return {}
+
+	# One ownership check for the queue rather than one per patient: everything the doctor may
+	# read is an encounter in their own session, so the session's patient set is the allow-list.
+	if "System Manager" in frappe.get_roles():
+		permitted = set(patients)
+	else:
+		session = get_doctor_session()
+		if not session:
+			frappe.throw(_("You are not permitted to view this patient's details."), frappe.PermissionError)
+		permitted = set(
+			frappe.get_all(
+				"Patient Encounter",
+				filters={"custom_clinic_session": session, "patient": ["in", patients]},
+				pluck="patient",
+				distinct=True,
+			)
+		)
+		if set(patients) - permitted:
+			frappe.throw(_("You are not permitted to view this patient's details."), frappe.PermissionError)
+
+	histories = {patient: [] for patient in permitted}
+	for row in frappe.get_all(
+		"Patient Encounter",
+		filters={"patient": ["in", list(permitted)]},
+		fields=["name", "encounter_date", "patient"],
+		order_by="encounter_date desc, creation desc",
+	):
+		histories[row.pop("patient")].append(row)
+
+	return histories
+
+
+@frappe.whitelist()
 def get_patient_registration_details(encounter: str):
 	require_doctor_access()
 	doc = load_owned_encounter(encounter)
 	return get_patient_details(doc.patient)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def order_test(encounter: str, tests: list | str, notes: str | None = None) -> None:
 	require_doctor_access()
 	tests = frappe.parse_json(tests)
@@ -187,7 +207,7 @@ def order_test(encounter: str, tests: list | str, notes: str | None = None) -> N
 	doc.save(ignore_permissions=True)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def prescribe_medicine(encounter: str, prescriptions: list | str) -> None:
 	require_doctor_access()
 	prescriptions = frappe.parse_json(prescriptions)
@@ -220,7 +240,7 @@ def prescribe_medicine(encounter: str, prescriptions: list | str) -> None:
 	doc.save(ignore_permissions=True)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def complete_encounter(
 	encounter: str, diagnosis: str | None = None, clinical_notes: str | None = None
 ) -> None:

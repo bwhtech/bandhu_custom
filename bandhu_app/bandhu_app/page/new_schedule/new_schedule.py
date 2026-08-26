@@ -5,7 +5,10 @@ from frappe import _
 from frappe.utils import add_days, getdate, today
 
 from bandhu_app.bandhu_app.utils.session_schedule import (
+	ACCEPTED_FIELDS,
 	PREVIEW_LIMIT,
+	WEEKDAYS,
+	as_draft,
 	find_assignment_clashes,
 	horizon_days,
 	occurrence_dates,
@@ -17,7 +20,6 @@ FREQUENCY_CHOICES = [
 	{"value": "Monthly", "label": "Once a month"},
 ]
 
-WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 PRACTITIONER_FIELD_BY_ROLE = {
 	"assigned_doctor": "Doctor",
@@ -41,49 +43,6 @@ def practitioners_by_role(custom_role: str) -> list:
 		fields=["name as value", "practitioner_name as label"],
 		order_by="practitioner_name asc",
 	)
-
-
-ACCEPTED_FIELDS = (
-	"site",
-	"clinic",
-	"project",
-	"unit",
-	"vehicle",
-	"frequency",
-	"monthly_mode",
-	"week_of_month",
-	"day_of_month",
-	"planned_start_time",
-	"planned_end_time",
-	"valid_from",
-	"valid_upto",
-	"holiday_list",
-	"assigned_doctor",
-	"assigned_nurse",
-	"assigned_driver",
-)
-
-
-def as_draft(values) -> "frappe.model.document.Document":
-	"""Turn the wizard's payload into an unsaved schedule so the same date maths and
-	clash check serve the preview and the real save."""
-	values = frappe.parse_json(values) or {}
-	weekdays = values.get("weekdays") or []
-
-	draft = frappe.new_doc("Bandhu Session Schedule")
-	# Only the wizard's own fields are copied: passing the whole payload to update() let a
-	# caller set name, owner or last_generated_upto.
-	draft.update(
-		{
-			field: values[field]
-			for field in ACCEPTED_FIELDS
-			if values.get(field) not in (None, "")
-		}
-	)
-	for weekday in weekdays:
-		if weekday in WEEKDAYS:
-			draft.append("weekdays", {"weekday": weekday})
-	return draft
 
 
 @frappe.whitelist()
@@ -183,7 +142,7 @@ def preview_schedule(values: str) -> dict:
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_schedule(values: str) -> dict:
 	require_scheduling_access()
 
@@ -191,5 +150,8 @@ def create_schedule(values: str) -> dict:
 	draft.enabled = 1
 	draft.insert()
 
-	created = frappe.db.count("Bandhu Clinic Session", {"session_schedule": draft.name})
-	return {"name": draft.name, "created": created}
+	# The camps themselves are built by a background job, so counting rows here would report
+	# zero. The pattern is what the wizard can promise: a new schedule owns none of its dates
+	# yet, so every occurrence in the horizon becomes a camp.
+	scheduled = occurrence_dates(draft, today(), add_days(today(), horizon_days()))
+	return {"name": draft.name, "scheduled": len(scheduled)}

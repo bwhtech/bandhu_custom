@@ -167,7 +167,7 @@ def resolve_registration_origin(session: str) -> tuple[str | None, str | None]:
 	return location, unit
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def register_patient(
 	full_name: str,
 	dob: str,
@@ -245,7 +245,7 @@ def register_patient(
 	return patient.name
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_encounter(patient: str, session: str) -> str:
 	require_session_access(session)
 

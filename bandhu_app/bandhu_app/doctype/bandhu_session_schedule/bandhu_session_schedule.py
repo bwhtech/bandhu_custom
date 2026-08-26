@@ -105,7 +105,7 @@ class BandhuSessionSchedule(Document):
 			practitioner = self.get(fieldname)
 			if not practitioner:
 				continue
-			actual_role = frappe.db.get_value("Healthcare Practitioner", practitioner, "custom_role")
+			actual_role = frappe.get_cached_value("Healthcare Practitioner", practitioner, "custom_role")
 			if actual_role != required_role:
 				frappe.throw(
 					_("{0} must be a Healthcare Practitioner with role {1}, but {2} has role {3}.").format(
@@ -125,12 +125,10 @@ class BandhuSessionSchedule(Document):
 			return
 
 		pattern_changed = any(self.get(field) != before.get(field) for field in PATTERN_FIELDS)
-		weekdays_changed = [row.weekday for row in self.weekdays] != [
-			row.weekday for row in before.weekdays
-		]
+		weekdays_changed = [row.weekday for row in self.weekdays] != [row.weekday for row in before.weekdays]
 		if pattern_changed or weekdays_changed:
 			self.last_generated_upto = None
-
+			self.flags.pattern_changed = True
 
 	def warn_about_assignment_clashes(self):
 		from bandhu_app.bandhu_app.utils.session_schedule import (
@@ -164,43 +162,29 @@ class BandhuSessionSchedule(Document):
 		# Saving is when the user expects the camps to exist; making them wait for the
 		# nightly job means an empty list and a support call.
 		from bandhu_app.bandhu_app.utils.session_schedule import (
-			generate_sessions_for_schedule,
+			enqueue_session_generation,
 			is_auto_generation_enabled,
 		)
 
 		if not self.enabled or not is_auto_generation_enabled():
 			return
 
-		created = generate_sessions_for_schedule(self)
-		if created:
-			frappe.msgprint(_("{0} session(s) created.").format(len(created)), alert=True)
+		enqueue_session_generation(self.name, regenerate=bool(self.flags.pattern_changed))
+		frappe.msgprint(_("Camps are being created in the background."), alert=True)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def regenerate_future_sessions(schedule: str) -> dict:
 	"""Drop the schedule's future sessions that nobody has used yet and rebuild them
 	from the current pattern. Sessions already under way, completed, cancelled or
 	carrying patients are left exactly as they are."""
-	from bandhu_app.bandhu_app.utils.session_schedule import generate_sessions_for_schedule
+	from bandhu_app.bandhu_app.utils.session_schedule import (
+		generate_sessions_for_schedule,
+		remove_unused_future_sessions,
+	)
 
 	frappe.has_permission("Bandhu Session Schedule", "write", doc=schedule, throw=True)
 
-	candidates = frappe.get_all(
-		"Bandhu Clinic Session",
-		filters={
-			"session_schedule": schedule,
-			"status": "Planned",
-			"date": [">", today()],
-		},
-		pluck="name",
-	)
-
-	removed = []
-	for session in candidates:
-		if frappe.db.exists("Patient Encounter", {"custom_clinic_session": session}):
-			continue
-		frappe.delete_doc("Bandhu Clinic Session", session)
-		removed.append(session)
-
+	removed = remove_unused_future_sessions(schedule)
 	created = generate_sessions_for_schedule(schedule)
 	return {"removed": len(removed), "created": len(created)}

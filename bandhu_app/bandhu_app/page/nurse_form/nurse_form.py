@@ -1,8 +1,7 @@
 import frappe
 from frappe import _
 
-from bandhu_app.bandhu_app.utils.patient import attach_compact_age
-from bandhu_app.bandhu_app.utils.patient_details import get_encounter_clinical_details, get_patient_details
+from bandhu_app.bandhu_app.utils.patient_details import get_patient_details, get_session_encounters
 from bandhu_app.bandhu_app.utils.session import find_active_session, find_upcoming_sessions
 
 
@@ -105,7 +104,7 @@ def load_session_for_status_change(session_name: str) -> dict:
 	return session_doc
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def start_session(session_name: str) -> None:
 	session_doc = load_session_for_status_change(session_name)
 
@@ -128,7 +127,7 @@ def start_session(session_name: str) -> None:
 	)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def end_session(session_name: str) -> None:
 	session_doc = load_session_for_status_change(session_name)
 
@@ -142,42 +141,22 @@ def end_session(session_name: str) -> None:
 	)
 
 
-def get_encounters_with_details(session_name, workflow_state):
-	encounters = frappe.db.get_all(
-		"Patient Encounter",
-		filters={"custom_clinic_session": session_name, "custom_workflow_state": workflow_state},
-		fields=[
-			"name",
-			"patient",
-			"patient_name",
-			"patient_age",
-			"patient_sex",
-			"encounter_date",
-			"custom_workflow_state",
-		],
-		order_by="encounter_date desc, creation desc",
-	)
-	for encounter in encounters:
-		encounter.update(get_encounter_clinical_details(encounter.name))
-	return attach_compact_age(encounters)
-
-
 @frappe.whitelist()
 def get_patients_for_tests(session_name: str) -> list:
 	require_session_access(session_name)
-	return get_encounters_with_details(session_name, "Awaiting Test")
+	return get_session_encounters(session_name, "Awaiting Test")
 
 
 @frappe.whitelist()
 def get_patients_for_medicines(session_name: str) -> list:
 	require_session_access(session_name)
-	return get_encounters_with_details(session_name, "Awaiting Medicine")
+	return get_session_encounters(session_name, "Awaiting Medicine")
 
 
 @frappe.whitelist()
 def get_completed_patients(session_name: str) -> list:
 	require_session_access(session_name)
-	return get_encounters_with_details(session_name, "Completed")
+	return get_session_encounters(session_name, "Completed")
 
 
 @frappe.whitelist()
@@ -186,7 +165,7 @@ def get_patient_registration_details(encounter: str) -> dict:
 	return get_patient_details(doc.patient)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def submit_test_results(encounter: str, results: list | str) -> None:
 	doc = load_session_encounter(encounter)
 	if doc.custom_workflow_state != "Awaiting Test":
@@ -205,7 +184,7 @@ def submit_test_results(encounter: str, results: list | str) -> None:
 	doc.save(ignore_permissions=True)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def dispense_medicine(encounter: str, dispensed_rows: list | str | None = None) -> None:
 	doc = load_session_encounter(encounter)
 	if doc.custom_workflow_state != "Awaiting Medicine":

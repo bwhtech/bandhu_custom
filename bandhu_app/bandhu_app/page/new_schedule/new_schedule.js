@@ -1,3 +1,7 @@
+/* global bandhu */
+
+const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
+
 const STEPS = [__("Where"), __("When"), __("Who"), __("Check")];
 
 const DAY_INITIALS = {
@@ -629,7 +633,9 @@ async function createSchedule(page) {
 	if (!result) return;
 
 	frappe.show_alert({
-		message: __("Schedule created with {0} camp(s).", [result.created]),
+		message: __("Schedule created. {0} camp(s) are being added in the background.", [
+			result.scheduled,
+		]),
 		indicator: "green",
 	});
 	frappe.set_route("Form", "Bandhu Session Schedule", result.name);
@@ -662,5 +668,10 @@ frappe.pages["new-schedule"].on_page_load = function (wrapper) {
 		render(page);
 	});
 
-	loadOptions(page);
+	// No on_page_show reload here: this page holds a half-filled wizard, and re-running the load
+	// on every return would throw away whatever the planner had already entered.
+	(async () => {
+		await frappe.require(SESSION_UI_ASSET);
+		await bandhu.session_ui.refresh_page(page, loadOptions);
+	})();
 };
