@@ -2,20 +2,19 @@
 	--max-w: var(--page-max-width, 760px);
 	max-width: var(--max-w);
 	margin: 0 auto;
-	padding: 0 var(--padding-md) var(--padding-xl);
+	padding: 0 var(--padding-md) var(--padding-2xl);
 }
 
 .my-schedule .month-head {
 	font-size: var(--text-sm);
 	font-weight: var(--weight-semibold);
 	color: var(--text-muted);
-	text-transform: uppercase;
-	letter-spacing: 0.4px;
-	margin: var(--margin-lg) 0 var(--margin-sm);
+	margin: var(--margin-xl) 0 var(--margin-sm);
 }
 
+/* The first heading has nothing to separate itself from, so the same gap reads as a hole. */
 .my-schedule .month-head:first-child {
-	margin-top: 0;
+	margin-top: var(--margin-sm);
 }
 
 .my-schedule .sched-card {
@@ -119,13 +118,49 @@
 	color: var(--text-muted);
 }
 
-.my-schedule .detail-head {
+.my-schedule .detail-place {
+	margin-bottom: var(--margin-md);
+}
+
+/* The destination is the answer the row is opened for; everything else is qualification. */
+.my-schedule .detail-site {
+	font-size: var(--text-base);
+	font-weight: var(--weight-semibold);
+	color: var(--heading-color);
+}
+
+.my-schedule .detail-where {
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+}
+
+.my-schedule .detail-aside {
+	margin-top: 6px;
 	font-size: var(--text-xs);
+	color: var(--text-muted);
+}
+
+.my-schedule .detail-group + .detail-group {
+	margin-top: var(--margin-md);
+}
+
+.my-schedule .detail-head {
+	font-size: var(--text-sm);
 	font-weight: var(--weight-semibold);
 	color: var(--text-muted);
-	text-transform: uppercase;
-	letter-spacing: 0.4px;
-	margin: var(--margin-md) 0 2px;
+	margin: 0 0 2px;
+}
+
+/* A tel: link is the point of listing the team, so it has to read as something to press rather
+   than as right-aligned text. A bordered chip also gives the thumb a real target. */
+.my-schedule .detail-call {
+	display: inline-block;
+	padding: 3px 10px;
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-full);
+	background: var(--bg-color);
+	color: var(--text-color);
+	white-space: nowrap;
 }
 
 .my-schedule .sched-badge {

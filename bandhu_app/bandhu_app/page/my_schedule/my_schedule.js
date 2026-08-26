@@ -22,12 +22,31 @@ function joinParts(parts) {
 }
 
 function renderDetail(session) {
-	const lines = [
-		[__("Site"), session.site],
-		[__("Area"), session.location],
-		[__("LSG"), session.lsg],
-		[__("District"), joinParts([session.district, session.state])],
-		[__("Nearest PHC / CHC"), session.phcchc],
+	// The three questions this row is opened to answer, in that order: where am I going, what is
+	// coming with me, who is with me. Area/LSG/district are context for the site, not three facts
+	// to be read one at a time, so they collapse into one muted line beneath it.
+	const place =
+		'<div class="detail-place"><div class="detail-site">' +
+		frappe.utils.escape_html(session.site || "") +
+		"</div>" +
+		(joinParts([session.location, session.lsg, session.district, session.state])
+			? '<div class="detail-where">' +
+			  frappe.utils.escape_html(
+					joinParts([session.location, session.lsg, session.district, session.state])
+			  ) +
+			  "</div>"
+			: "") +
+		// A referral destination, not part of the camp's identity — present, never competing.
+		(session.phcchc
+			? '<div class="detail-aside">' +
+			  __("Nearest PHC / CHC") +
+			  ": " +
+			  frappe.utils.escape_html(session.phcchc) +
+			  "</div>"
+			: "") +
+		"</div>";
+
+	const kit = [
 		[__("Clinic"), session.clinic],
 		[__("Unit"), session.unit],
 		[__("Vehicle"), session.vehicle],
@@ -46,7 +65,7 @@ function renderDetail(session) {
 	const team = (session.team || [])
 		.map((member) => {
 			const contact = member.mobile
-				? '<a href="tel:' +
+				? '<a class="detail-call" href="tel:' +
 				  encodeURIComponent(member.mobile) +
 				  '">' +
 				  frappe.utils.escape_html(member.mobile) +
@@ -66,8 +85,21 @@ function renderDetail(session) {
 
 	return (
 		'<div class="sched-detail">' +
-		lines +
-		(team ? '<div class="detail-head">' + __("Team that day") + "</div>" + team : "") +
+		place +
+		(kit
+			? '<div class="detail-group"><div class="detail-head">' +
+			  __("Clinic and vehicle") +
+			  "</div>" +
+			  kit +
+			  "</div>"
+			: "") +
+		(team
+			? '<div class="detail-group"><div class="detail-head">' +
+			  __("Team that day") +
+			  "</div>" +
+			  team +
+			  "</div>"
+			: "") +
 		"</div>"
 	);
 }
