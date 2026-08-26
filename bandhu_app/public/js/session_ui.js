@@ -25,7 +25,7 @@ frappe.provide("bandhu.session_ui");
 	function format_load_error() {
 		return (
 			'<div class="bandhu-load-error">' +
-			'<i class="fa fa-exclamation-triangle load-error-icon"></i>' +
+			frappe.utils.icon("triangle-alert", "xl", "", "", "current-color load-error-icon") +
 			'<span class="load-error-text">' +
 			__("Could not load this page. Check the network connection and try again.") +
 			"</span>" +
@@ -43,20 +43,26 @@ frappe.provide("bandhu.session_ui");
 		);
 	}
 
+	// A camp that is over and a camp that is running have to be told apart across a phone screen
+	// in daylight, so the status is a labelled badge rather than a coloured dot: colour alone is
+	// the one signal that fails both a colour-blind reader and a washed-out outdoor screen.
+	const SESSION_STATUS_BADGES = {
+		"In Progress": { theme: "green", variant: "subtle" },
+		Planned: { theme: "blue", variant: "subtle" },
+		Cancelled: { theme: "red", variant: "subtle" },
+	};
+
 	function format_session_info(session) {
-		const running_class = session.status === "In Progress" ? " running" : "";
+		const badge = SESSION_STATUS_BADGES[session.status] || { variant: "subtle" };
 		return (
 			'<div class="session-bar">' +
-			'<i class="fa fa-hospital-o"></i> ' +
+			frappe.utils.icon("hospital", "sm", "", "", "current-color") +
 			frappe.utils.escape_html(session.clinic || "") +
 			'<span class="session-sep">|</span>' +
-			'<i class="fa fa-map-marker"></i> ' +
+			frappe.utils.icon("map-pin", "sm", "", "", "current-color") +
 			frappe.utils.escape_html(session.site || "") +
 			'<span class="session-sep">|</span>' +
-			'<i class="fa fa-circle session-dot' +
-			running_class +
-			'"></i> ' +
-			frappe.utils.escape_html(session.status) +
+			format_badge(session.status, badge.theme, badge.variant) +
 			"</div>"
 		);
 	}
@@ -167,11 +173,13 @@ frappe.provide("bandhu.session_ui");
 		return fields ? '<div class="row">' + fields + "</div>" : "";
 	}
 
+	// An omitted theme is deliberate: .es-badge's own default is gray, and there is no
+	// [data-theme="gray"] rule to name, so a closed camp gets the neutral badge by leaving it off.
 	function format_badge(label, theme, variant) {
 		return (
-			'<span class="es-badge" data-theme="' +
-			theme +
-			'" data-variant="' +
+			'<span class="es-badge"' +
+			(theme ? ' data-theme="' + theme + '"' : "") +
+			' data-variant="' +
 			variant +
 			'">' +
 			frappe.utils.escape_html(label) +

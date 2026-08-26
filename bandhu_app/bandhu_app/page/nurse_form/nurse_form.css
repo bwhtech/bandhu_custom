@@ -161,12 +161,10 @@
 	color: var(--border-color);
 }
 
-.nurse-dash .session-bar .session-dot {
-	font-size: 8px;
-}
-
-.nurse-dash .session-bar .session-dot.running {
-	color: var(--green-500);
+/* Desk's own .icon ships `margin: 0 auto`; in this flex row those auto margins swallow the
+   free space and fling each icon away from the label it belongs to. */
+.nurse-dash .session-bar .icon {
+	margin: 0;
 }
 
 .nurse-dash .welcome {
@@ -231,7 +229,8 @@
 }
 
 .bandhu-load-error .load-error-icon {
-	font-size: 32px;
+	width: 32px;
+	height: 32px;
 	opacity: 0.4;
 }
 

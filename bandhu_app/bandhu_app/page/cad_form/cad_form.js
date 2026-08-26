@@ -218,7 +218,9 @@ function renderSearchSection() {
 		"</button>" +
 		'<button class="btn btn-default cad-scan-btn" title="' +
 		frappe.utils.escape_html(__("Scan the patient's card with the camera")) +
-		'"><i class="fa fa-camera"></i> ' +
+		'">' +
+		frappe.utils.icon("camera", "sm", "", "", "current-color") +
+		" " +
 		__("Scan") +
 		"</button>" +
 		"</div>" +
@@ -231,7 +233,8 @@ function renderRegisterSection() {
 	return (
 		'<div class="cad-register-section">' +
 		'<button class="btn btn-default cad-register-toggle-btn">' +
-		'<i class="fa fa-user-plus"></i> ' +
+		frappe.utils.icon("user-plus", "sm", "", "", "current-color") +
+		" " +
 		__("Register New Patient") +
 		"</button>" +
 		'<div class="cad-register-form">' +

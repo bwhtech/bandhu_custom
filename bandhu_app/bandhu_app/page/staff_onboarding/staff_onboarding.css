@@ -69,7 +69,8 @@
 }
 
 .bandhu-load-error .load-error-icon {
-	font-size: 32px;
+	width: 32px;
+	height: 32px;
 	opacity: 0.4;
 }
 

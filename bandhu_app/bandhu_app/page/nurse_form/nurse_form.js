@@ -45,7 +45,8 @@ async function loadDashboard(page) {
 				bandhu.session_ui.format_session_info(data) +
 				'<div class="start-session-bar">' +
 				'<button class="btn btn-primary btn-lg nurse-start-session">' +
-				'<i class="fa fa-play"></i> ' +
+				frappe.utils.icon("circle-play", "sm", "", "", "current-color") +
+				" " +
 				__("Start Session") +
 				"</button></div></div>"
 		);
@@ -181,7 +182,8 @@ function renderEndSessionButton() {
 	return (
 		'<div class="end-session-bar">' +
 		'<button class="btn btn-danger btn-sm nurse-end-session">' +
-		'<i class="fa fa-stop"></i> ' +
+		frappe.utils.icon("circle-stop", "sm", "", "", "current-color") +
+		" " +
 		__("End Session") +
 		"</button></div>"
 	);
