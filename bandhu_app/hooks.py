@@ -25,7 +25,9 @@ required_apps = ["erpnext", "healthcare"]
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/bandhu_app/css/bandhu_app.css"
+# Raw asset paths are not versioned by Frappe's include_script/include_style —
+# bump ?v= on every edit or browsers keep the old file.
+app_include_css = ["/assets/bandhu_app/css/desk.css?v=2"]
 app_include_js = [
 	"/assets/bandhu_app/js/session_ui.js",
 	"/assets/bandhu_app/js/workspace_redirect.js?v=2",
