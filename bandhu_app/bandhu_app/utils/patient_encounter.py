@@ -7,15 +7,22 @@ VALID_WORKFLOW_STATES = {
 	"Awaiting Doctor Review",
 	"Awaiting Medicine",
 	"Completed",
+	"Cancelled",
 }
 
+# Cancelled is reachable from every live state and exits to none: a patient who leaves before
+# being seen can do so at any point in the loop, and letting the visit resume afterwards would
+# put an untreated patient back on a board the front desk has already cleared.
 ALLOWED_TRANSITIONS = {
-	"Waiting for Doctor": {"Awaiting Test", "Awaiting Medicine", "Completed"},
-	"Awaiting Test": {"Awaiting Doctor Review"},
-	"Awaiting Doctor Review": {"Awaiting Medicine", "Completed"},
-	"Awaiting Medicine": {"Completed"},
+	"Waiting for Doctor": {"Awaiting Test", "Awaiting Medicine", "Completed", "Cancelled"},
+	"Awaiting Test": {"Awaiting Doctor Review", "Cancelled"},
+	"Awaiting Doctor Review": {"Awaiting Medicine", "Completed", "Cancelled"},
+	"Awaiting Medicine": {"Completed", "Cancelled"},
 	"Completed": set(),
+	"Cancelled": set(),
 }
+
+TERMINAL_WORKFLOW_STATES = {"Completed", "Cancelled"}
 
 ENCOUNTER_TO_QUEUE_STAGE = {
 	"Waiting for Doctor": "Waiting",
@@ -23,6 +30,7 @@ ENCOUNTER_TO_QUEUE_STAGE = {
 	"Awaiting Doctor Review": "With Doctor",
 	"Awaiting Medicine": "With Nurse (Medicine)",
 	"Completed": "Completed",
+	"Cancelled": "Cancelled",
 }
 
 
@@ -44,9 +52,9 @@ def validate_workflow_state(doc, method):
 	if not old_state or old_state == state:
 		return
 
-	if old_state == "Completed":
+	if old_state in TERMINAL_WORKFLOW_STATES:
 		frappe.throw(
-			_("This encounter is already completed and cannot be reopened."),
+			_("This encounter is already {0} and cannot be reopened.").format(_(old_state.lower())),
 		)
 
 	if state not in ALLOWED_TRANSITIONS.get(old_state, set()):
@@ -66,10 +74,10 @@ def sync_to_queue(doc, method):
 		"patient": doc.patient,
 		"clinic_session": doc.custom_clinic_session,
 		"current_stage": stage,
-		"status": "Done" if stage == "Completed" else "Active",
+		"status": "Done" if doc.custom_workflow_state in TERMINAL_WORKFLOW_STATES else "Active",
 		"last_updated": frappe.utils.now(),
 	}
-	if stage == "Completed":
+	if doc.custom_workflow_state in TERMINAL_WORKFLOW_STATES:
 		values["completed_on"] = frappe.utils.now()
 
 	if existing:

@@ -2687,7 +2687,7 @@
    "name": "Patient Encounter-custom_workflow_state",
    "no_copy": 1,
    "non_negative": 0,
-   "options": "Waiting for Doctor\nAwaiting Test\nAwaiting Doctor Review\nAwaiting Medicine\nCompleted",
+   "options": "Waiting for Doctor\nAwaiting Test\nAwaiting Doctor Review\nAwaiting Medicine\nCompleted\nCancelled",
    "owner": "Administrator",
    "permlevel": 0,
    "placeholder": null,

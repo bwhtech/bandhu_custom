@@ -5,6 +5,7 @@ from frappe import _
 from frappe.core.doctype.access_log.access_log import make_access_log
 from frappe.utils import flt, validate_phone_number
 
+from bandhu_app.bandhu_app.utils.patient_encounter import TERMINAL_WORKFLOW_STATES
 from bandhu_app.bandhu_app.utils.session import find_active_session
 
 
@@ -277,7 +278,7 @@ def create_encounter(patient: str, session: str) -> str:
 		{
 			"patient": patient,
 			"custom_clinic_session": session,
-			"custom_workflow_state": ["!=", "Completed"],
+			"custom_workflow_state": ["not in", list(TERMINAL_WORKFLOW_STATES)],
 		},
 		"name",
 	)
@@ -311,7 +312,7 @@ def get_today_queue(session: str) -> list:
 	rows = frappe.get_all(
 		"Patient Queue",
 		filters={"clinic_session": session},
-		fields=["name", "patient", "current_stage", "status"],
+		fields=["name", "patient", "encounter", "current_stage", "status"],
 		order_by="creation asc",
 	)
 	if not rows:
@@ -328,6 +329,7 @@ def get_today_queue(session: str) -> list:
 	return [
 		{
 			"patient": row.patient,
+			"encounter": row.encounter,
 			"patient_name": patient_by_name.get(row.patient, {}).get("patient_name", ""),
 			"clinic_id": patient_by_name.get(row.patient, {}).get("custom_bandhu_id", ""),
 			"current_stage": row.current_stage,
@@ -335,3 +337,20 @@ def get_today_queue(session: str) -> list:
 		}
 		for row in rows
 	]
+
+
+@frappe.whitelist(methods=["POST"])
+def cancel_visit(encounter: str, session: str) -> None:
+	"""End a visit the patient walked out of, so it leaves the doctor and nurse boards."""
+	require_session_access(session)
+	require_running_session(session)
+
+	encounter_doc = frappe.get_doc("Patient Encounter", encounter)
+	if encounter_doc.custom_clinic_session != session:
+		frappe.throw(_("This encounter does not belong to the current clinic session."))
+
+	if encounter_doc.custom_workflow_state in TERMINAL_WORKFLOW_STATES:
+		frappe.throw(_("This visit has already ended."))
+
+	encounter_doc.custom_workflow_state = "Cancelled"
+	encounter_doc.save(ignore_permissions=True)

@@ -118,9 +118,16 @@ function renderCard(session) {
 		? '<span class="sched-badge today">' + __("Today") + "</span>"
 		: "";
 
+	const state = isCancelled ? " is-cancelled" : days === 0 ? " is-today" : "";
+
+	// The rail and its bullet live on the wrapper, not the card: the card clips its own overflow
+	// to keep the expanded detail inside its rounded corners, which would cut a marker off.
 	return (
+		'<div class="sched-item' +
+		state +
+		'">' +
 		'<div class="sched-card' +
-		(isCancelled ? " is-cancelled" : days === 0 ? " is-today" : "") +
+		state +
 		'">' +
 		'<div class="sched-row">' +
 		'<div class="sched-when">' +
@@ -148,7 +155,7 @@ function renderCard(session) {
 		frappe.utils.icon("chevron-down", "sm", "", "", "current-color sched-caret") +
 		"</div>" +
 		renderDetail(session) +
-		"</div>"
+		"</div></div>"
 	);
 }
 

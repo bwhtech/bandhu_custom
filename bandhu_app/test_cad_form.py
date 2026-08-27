@@ -6,6 +6,7 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import today
 
 from bandhu_app.bandhu_app.page.cad_form.cad_form import (
+	cancel_visit,
 	create_encounter,
 	get_form_options,
 	get_patient_card_html,
@@ -226,7 +227,9 @@ class IntegrationTestCadForm(IntegrationTestCase):
 
 	def test_create_encounter_rejects_session_not_yet_started(self):
 		patient = self._make_patient("Test Not Started Patient")
-		planned_session = self._make_session(self.cad_practitioner, self.doctor_practitioner, status="Planned")
+		planned_session = self._make_session(
+			self.cad_practitioner, self.doctor_practitioner, status="Planned"
+		)
 
 		frappe.set_user(self.cad_user)
 		try:
@@ -236,6 +239,91 @@ class IntegrationTestCadForm(IntegrationTestCase):
 			frappe.set_user("Administrator")
 
 		self.assertFalse(frappe.db.exists("Patient Encounter", {"patient": patient.name}))
+
+	def test_cancel_visit_ends_the_encounter_and_clears_the_queue_row(self):
+		patient = self._make_patient("Test Walkout Patient")
+
+		frappe.set_user(self.cad_user)
+		try:
+			encounter_name = create_encounter(patient.name, self.session)
+			cancel_visit(encounter_name, self.session)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(
+			frappe.db.get_value("Patient Encounter", encounter_name, "custom_workflow_state"),
+			"Cancelled",
+		)
+
+		queue_row = frappe.db.get_value(
+			"Patient Queue",
+			{"encounter": encounter_name},
+			["current_stage", "status"],
+			as_dict=True,
+		)
+		self.assertEqual(queue_row.current_stage, "Cancelled")
+		self.assertEqual(queue_row.status, "Done")
+
+	def test_cancel_visit_rejects_an_encounter_from_another_session(self):
+		patient = self._make_patient("Test Cross Session Patient")
+		other_session = self._make_session(self.cad_practitioner, self.doctor_practitioner)
+
+		frappe.set_user(self.cad_user)
+		try:
+			encounter_name = create_encounter(patient.name, self.session)
+			with self.assertRaises(frappe.ValidationError):
+				cancel_visit(encounter_name, other_session)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(
+			frappe.db.get_value("Patient Encounter", encounter_name, "custom_workflow_state"),
+			"Waiting for Doctor",
+		)
+
+	def test_cancel_visit_cannot_be_repeated(self):
+		patient = self._make_patient("Test Double Cancel Patient")
+
+		frappe.set_user(self.cad_user)
+		try:
+			encounter_name = create_encounter(patient.name, self.session)
+			cancel_visit(encounter_name, self.session)
+			with self.assertRaises(frappe.ValidationError):
+				cancel_visit(encounter_name, self.session)
+		finally:
+			frappe.set_user("Administrator")
+
+	# A patient who left and came back the same day must be registerable again; the cancelled
+	# encounter used to satisfy create_encounter's "already registered" lookup and be handed back.
+	def test_a_cancelled_visit_does_not_block_re_registration(self):
+		patient = self._make_patient("Test Returning Patient")
+
+		frappe.set_user(self.cad_user)
+		try:
+			first = create_encounter(patient.name, self.session)
+			cancel_visit(first, self.session)
+			second = create_encounter(patient.name, self.session)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertNotEqual(first, second)
+		self.assertEqual(
+			frappe.db.get_value("Patient Encounter", second, "custom_workflow_state"),
+			"Waiting for Doctor",
+		)
+
+	def test_get_today_queue_carries_the_encounter_for_each_row(self):
+		patient = self._make_patient("Test Queue Encounter Patient")
+
+		frappe.set_user(self.cad_user)
+		try:
+			encounter_name = create_encounter(patient.name, self.session)
+			rows = get_today_queue(self.session)
+		finally:
+			frappe.set_user("Administrator")
+
+		row = next(row for row in rows if row["patient"] == patient.name)
+		self.assertEqual(row["encounter"], encounter_name)
 
 	def test_get_patient_card_html_renders_for_cad_without_patient_permission(self):
 		patient = self._make_patient("Test Card Patient")

@@ -146,9 +146,6 @@ async function renderFrontDesk(page, data) {
 		"<th>" +
 		__("Stage") +
 		"</th>" +
-		"<th>" +
-		__("Status") +
-		"</th>" +
 		"<th></th>" +
 		"</tr></thead>" +
 		'<tbody class="cad-queue-body"></tbody>' +
@@ -220,7 +217,6 @@ function renderSearchSection() {
 		frappe.utils.escape_html(__("Scan the patient's card with the camera")) +
 		'">' +
 		frappe.utils.icon("camera", "sm", "", "", "current-color") +
-		" " +
 		__("Scan") +
 		"</button>" +
 		"</div>" +
@@ -234,7 +230,6 @@ function renderRegisterSection() {
 		'<div class="cad-register-section">' +
 		'<button class="btn btn-default cad-register-toggle-btn">' +
 		frappe.utils.icon("user-plus", "sm", "", "", "current-color") +
-		" " +
 		__("Register New Patient") +
 		"</button>" +
 		'<div class="cad-register-form">' +
@@ -339,20 +334,48 @@ function bindSearchEvents(page) {
 		print_patient_card($(this).data("patient"));
 	});
 
-	page.main.off("click", ".queue-print-btn").on("click", ".queue-print-btn", function () {
-		print_patient_card($(this).data("patient"));
+	// bound before the row handler so the explicit button and a stray row tap do not both fire
+	page.main.off("click", ".pr-queue-btn").on("click", ".pr-queue-btn", function (event) {
+		event.stopPropagation();
+		confirm_add_to_queue(page, $(this).data("patient"));
 	});
 
 	page.main.off("click", ".patient-result-row").on("click", ".patient-result-row", function () {
-		const patient = $(this).data("patient");
-		frappe.confirm(__("Add this patient to today's queue?"), async () => {
-			await addPatientToQueue(page, patient, () => {
-				page.main.find(".cad-search-results").empty();
-				page.main.find(".cad-search-input").val("");
-				focus_scan_input(page);
-			});
+		confirm_add_to_queue(page, $(this).data("patient"));
+	});
+}
+
+function confirm_add_to_queue(page, patient) {
+	frappe.confirm(__("Add this patient to today's queue?"), async () => {
+		await addPatientToQueue(page, patient, () => {
+			page.main.find(".cad-search-results").empty();
+			page.main.find(".cad-search-input").val("");
+			focus_scan_input(page);
 		});
 	});
+}
+
+// A patient who walks out before being seen has to leave the boards, but deleting the queue row
+// would only bring it back on the encounter's next save — sync_to_queue rebuilds it from the
+// encounter, so the encounter is what has to end.
+function cancel_queued_visit(page, encounter, patient_name) {
+	frappe.confirm(
+		__("End {0}'s visit without treatment? They will drop off the doctor and nurse boards.", [
+			frappe.utils.escape_html(patient_name || __("this patient")),
+		]),
+		async () => {
+			frappe.dom.freeze();
+			try {
+				await frappe.call({
+					method: "bandhu_app.bandhu_app.page.cad_form.cad_form.cancel_visit",
+					args: { encounter: encounter, session: cadSession.session_name },
+				});
+			} finally {
+				frappe.dom.unfreeze();
+			}
+			await loadQueue(page);
+		}
+	);
 }
 
 // A USB scanner is a keyboard and needs no code here (see focus_scan_input above); this is
@@ -469,11 +492,18 @@ function renderSearchResults(page, results) {
 				meta +
 				"</span>" +
 				"</div>" +
+				'<div class="pr-actions">' +
 				'<button class="btn btn-xs btn-default pr-print-btn" data-patient="' +
 				frappe.utils.escape_html(patient.name) +
 				'">' +
 				__("Print Card") +
 				"</button>" +
+				'<button class="btn btn-xs btn-primary pr-queue-btn" data-patient="' +
+				frappe.utils.escape_html(patient.name) +
+				'">' +
+				__("Add to Queue") +
+				"</button>" +
+				"</div>" +
 				"</div>"
 			);
 		})
@@ -627,7 +657,7 @@ function renderQueueTable(page, rows) {
 
 	if (!rows.length) {
 		body.html(
-			'<tr><td colspan="5" class="queue-empty">' +
+			'<tr><td colspan="4" class="queue-empty">' +
 				__("No patients in queue yet.") +
 				"</td></tr>"
 		);
@@ -642,40 +672,95 @@ function renderQueueTable(page, rows) {
 				frappe.utils.escape_html(row.patient_name || "") +
 				"</td>" +
 				'<td class="queue-clinic-id">' +
-				frappe.utils.escape_html(group_clinic_id(row.clinic_id)) +
+				frappe.utils.escape_html(bandhu.session_ui.group_clinic_id(row.clinic_id)) +
 				"</td>" +
 				"<td>" +
-				frappe.utils.escape_html(row.current_stage || "") +
+				format_stage_badge(row.current_stage) +
 				"</td>" +
-				"<td>" +
-				frappe.utils.escape_html(row.status || "") +
-				"</td>" +
-				'<td><button class="btn btn-xs btn-default queue-print-btn" data-patient="' +
+				'<td class="queue-row-actions">' +
+				'<span class="queue-more" data-patient="' +
 				frappe.utils.escape_html(row.patient || "") +
-				'">' +
-				__("Print Card") +
-				"</button></td>" +
+				'" data-encounter="' +
+				frappe.utils.escape_html(row.encounter || "") +
+				'" data-patient-name="' +
+				frappe.utils.escape_html(row.patient_name || "") +
+				'" data-can-cancel="' +
+				(row.encounter && !QUEUE_TERMINAL_STAGES.has(row.current_stage) ? "1" : "") +
+				'"></span>' +
+				"</td>" +
 				"</tr>"
 		)
 		.join("");
 
 	body.html(html);
+	attachRowMenus(page, body);
 }
 
-// Ten digits in one run are hard to read off a screen and repeat back to a patient.
-function group_clinic_id(clinic_id) {
-	if (!clinic_id) return "";
-	if (!/^\d{10}$/.test(clinic_id)) return clinic_id;
+// Every row carries the menu, including finished ones, so the actions column keeps a single
+// shape down the table. Print Card lives in it rather than beside it: the queue is the screen
+// the front desk reads, and a button on every row competed with the patient names for it.
+let queueRowMenus = [];
 
-	return (
-		clinic_id.slice(0, 2) +
-		" " +
-		clinic_id[2] +
-		" " +
-		clinic_id.slice(3, 5) +
-		" " +
-		clinic_id.slice(5)
-	);
+function attachRowMenus(page, body) {
+	queueRowMenus.forEach((menu) => menu.destroy());
+	queueRowMenus = [];
+
+	body.find(".queue-more").each(function () {
+		const patient = $(this).data("patient");
+		const encounter = $(this).data("encounter");
+		const patient_name = $(this).data("patient-name");
+
+		const options = [
+			{
+				label: __("Print Card"),
+				icon: "printer",
+				onclick: () => print_patient_card(patient),
+			},
+		];
+		if ($(this).data("can-cancel")) {
+			options.push({
+				label: __("Cancel Visit"),
+				icon: "ban",
+				theme: "red",
+				onclick: () => cancel_queued_visit(page, encounter, patient_name),
+			});
+		}
+
+		const $trigger = frappe.ui.dropdown({
+			// label "" is what makes frappe.ui.button render icon-only; Dropdown otherwise
+			// defaults the trigger to a labelled "Options" button.
+			button: {
+				label: "",
+				icon: "ellipsis",
+				variant: "ghost",
+				tooltip: __("More actions"),
+			},
+			align: "end",
+			options,
+		});
+		$(this).replaceWith($trigger);
+		queueRowMenus.push($trigger.data("es-dropdown"));
+	});
+}
+
+// Status was a second column that only ever restated the stage (Completed reads Done, every
+// other stage reads Active), so the badge carries both: colour for how the visit ended,
+// wording for where the patient is.
+const QUEUE_TERMINAL_STAGES = new Set(["Completed", "Cancelled"]);
+
+const QUEUE_STAGE_BADGES = {
+	Waiting: { theme: "amber", variant: "subtle" },
+	"With Doctor": { theme: "blue", variant: "subtle" },
+	"With Nurse (Test)": { theme: "blue", variant: "subtle" },
+	"With Nurse (Medicine)": { theme: "blue", variant: "subtle" },
+	Completed: { theme: "green", variant: "subtle" },
+	Cancelled: { theme: "red", variant: "subtle" },
+};
+
+function format_stage_badge(stage) {
+	if (!stage) return "";
+	const badge = QUEUE_STAGE_BADGES[stage] || { theme: "", variant: "subtle" };
+	return bandhu.session_ui.format_badge(__(stage), badge.theme, badge.variant);
 }
 
 frappe.pages["cad-form"].on_page_load = function (wrapper) {

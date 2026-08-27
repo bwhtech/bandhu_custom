@@ -99,9 +99,12 @@
 	padding-left: 34px;
 }
 
-/* pointer-events off so the glyph never eats a tap meant for the field it sits in. */
+/* Desk's .form-control is itself positioned, and it comes after the glyph in the DOM, so at
+   z-index auto its opaque background paints straight over it. pointer-events off so the glyph
+   never eats a tap meant for the field it sits in. */
 .cad-dash .search-field-icon {
 	position: absolute;
+	z-index: 1;
 	top: 50%;
 	left: 10px;
 	margin-top: -8px;
@@ -151,6 +154,14 @@
 .cad-dash .patient-result-row .pr-meta {
 	font-size: var(--text-xs);
 	color: var(--text-muted);
+}
+
+.cad-dash .patient-result-row .pr-actions,
+.cad-dash .queue-row-actions {
+	display: flex;
+	gap: 6px;
+	flex-shrink: 0;
+	justify-content: flex-end;
 }
 
 .cad-dash .cad-register-section {

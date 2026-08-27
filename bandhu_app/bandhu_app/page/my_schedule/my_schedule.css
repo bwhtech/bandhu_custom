@@ -1,14 +1,80 @@
 .my-schedule {
 	--max-w: var(--page-max-width, 760px);
+	--rail: 20px;
+	--rail-line: 6px;
+	--dot: 11px;
 	max-width: var(--max-w);
 	margin: 0 auto;
 	padding: 0 var(--padding-md) var(--padding-2xl);
 }
 
+/* The rail is drawn per item rather than as one line down the container so it starts at the first
+   bullet and stops at the last, instead of trailing into the month gap above and the page below. */
+.my-schedule .sched-item,
 .my-schedule .month-head {
-	font-size: var(--text-sm);
-	font-weight: var(--weight-semibold);
-	color: var(--text-muted);
+	position: relative;
+	padding-left: var(--rail);
+}
+
+.my-schedule .sched-item::before,
+.my-schedule .month-head:not(:first-child)::before {
+	content: "";
+	position: absolute;
+	left: var(--rail-line);
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: var(--border-color);
+}
+
+/* Each segment has to reach across the gap to the next one, or the rail reads as dashes — the
+   month heading's own margins are the widest of those gaps. */
+.my-schedule .sched-item::before {
+	bottom: calc(-1 * var(--margin-sm));
+}
+
+.my-schedule .month-head:not(:first-child)::before {
+	top: calc(-1 * var(--margin-xl));
+	bottom: calc(-1 * var(--margin-sm));
+}
+
+/* Nothing precedes the very first bullet, so a segment above it reads as a severed line. */
+.my-schedule .month-head:first-child + .sched-item::before {
+	top: calc(var(--padding-md) + 5px + var(--dot) / 2);
+}
+
+.my-schedule .sched-item:last-child::before {
+	bottom: auto;
+	height: calc(var(--padding-md) + 5px + var(--dot) / 2);
+}
+
+.my-schedule .sched-item::after {
+	content: "";
+	position: absolute;
+	left: var(--rail-line);
+	top: calc(var(--padding-md) + 5px);
+	width: var(--dot);
+	height: var(--dot);
+	margin-left: calc(1px - var(--dot) / 2);
+	border-radius: var(--radius-full);
+	border: 2px solid var(--border-color);
+	background: var(--bg-color);
+}
+
+.my-schedule .sched-item.is-today::after {
+	border-color: var(--green-500);
+	background: var(--green-500);
+}
+
+.my-schedule .sched-item.is-cancelled::after {
+	border-color: var(--red-500);
+	background: var(--bg-color);
+}
+
+.my-schedule .month-head {
+	font-size: var(--text-md);
+	font-weight: var(--weight-bold);
+	color: var(--heading-color);
 	margin: var(--margin-xl) 0 var(--margin-sm);
 }
 
@@ -17,11 +83,14 @@
 	margin-top: var(--margin-sm);
 }
 
+.my-schedule .sched-item {
+	margin-bottom: var(--margin-sm);
+}
+
 .my-schedule .sched-card {
 	border: 1px solid var(--border-color);
 	border-radius: var(--radius-md);
 	background: var(--bg-color);
-	margin-bottom: var(--margin-sm);
 	overflow: hidden;
 }
 
@@ -160,14 +229,12 @@
 	margin: 0 0 2px;
 }
 
-/* A tel: link is the point of listing the team, so it has to read as something to press rather
-   than as right-aligned text. A bordered chip also gives the thumb a real target. */
+/* A tel: link is the point of listing the team, so it keeps a thumb-sized tap area through
+   vertical padding — but no chrome: on the card's own tinted panel a white pill reads as a
+   second, competing surface rather than as a link. */
 .my-schedule .detail-call {
 	display: inline-block;
-	padding: 3px 10px;
-	border: 1px solid var(--border-color);
-	border-radius: var(--radius-full);
-	background: var(--bg-color);
+	padding: 3px 0;
 	color: var(--text-color);
 	white-space: nowrap;
 }
@@ -236,6 +303,12 @@
 
 	.my-schedule .sched-when {
 		min-width: 100%;
+	}
+
+	.my-schedule {
+		--rail: 16px;
+		--rail-line: 5px;
+		--dot: 9px;
 	}
 
 	.my-schedule .sched-meta {
