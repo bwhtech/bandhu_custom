@@ -10,7 +10,11 @@ frappe.ui.form.on("Bandhu Session Schedule", {
 
 		if (frm.is_new()) return;
 
-		frm.add_custom_button(__("Generate Sessions Now"), () => generate_sessions_now(frm), __("Sessions"));
+		frm.add_custom_button(
+			__("Generate Sessions Now"),
+			() => generate_sessions_now(frm),
+			__("Sessions")
+		);
 		frm.add_custom_button(
 			__("Rebuild Future Sessions"),
 			() => rebuild_future_sessions(frm),
@@ -19,7 +23,9 @@ frappe.ui.form.on("Bandhu Session Schedule", {
 		frm.add_custom_button(
 			__("View Sessions"),
 			() => {
-				frappe.set_route("List", "Bandhu Clinic Session", { session_schedule: frm.doc.name });
+				frappe.set_route("List", "Bandhu Clinic Session", {
+					session_schedule: frm.doc.name,
+				});
 			},
 			__("Sessions")
 		);
@@ -84,8 +90,7 @@ async function rebuild_future_sessions(frm) {
 	if (!confirmed) return;
 
 	const response = await frappe.call({
-		method:
-			"bandhu_app.bandhu_app.doctype.bandhu_session_schedule.bandhu_session_schedule.regenerate_future_sessions",
+		method: "bandhu_app.bandhu_app.doctype.bandhu_session_schedule.bandhu_session_schedule.regenerate_future_sessions",
 		args: { schedule: frm.doc.name },
 	});
 	if (!response || !response.message) return;

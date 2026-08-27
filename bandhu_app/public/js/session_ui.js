@@ -193,11 +193,7 @@ frappe.provide("bandhu.session_ui");
 					"weight"
 				) +
 				format_detail_field(__("BMI"), patient.custom_bmi, "gauge") +
-				format_detail_field(
-					__("Temperature"),
-					patient.custom_temperature,
-					"thermometer"
-				)
+				format_detail_field(__("Temperature"), patient.custom_temperature, "thermometer")
 		);
 	}
 
@@ -216,11 +212,7 @@ frappe.provide("bandhu.session_ui");
 					patient.custom_sector_of_employment,
 					"briefcase"
 				) +
-				format_detail_field(
-					__("Company"),
-					patient.custom_name_of_company,
-					"building-2"
-				)
+				format_detail_field(__("Company"), patient.custom_name_of_company, "building-2")
 		);
 	}
 

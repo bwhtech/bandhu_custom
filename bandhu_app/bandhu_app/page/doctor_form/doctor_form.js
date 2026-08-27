@@ -420,9 +420,7 @@ function formatTestLine(tests) {
 		);
 	}
 	if (pending.length) {
-		parts.push(
-			__("awaiting") + " " + pending.map((test) => test.test_name).join(", ")
-		);
+		parts.push(__("awaiting") + " " + pending.map((test) => test.test_name).join(", "));
 	}
 
 	return parts.join(" \u00b7 ");
@@ -640,8 +638,7 @@ function renderCompletedQueue(title, encounters) {
 
 function renderQueue(title, encounters) {
 	const count = '<span class="queue-meta"> (' + encounters.length + ")</span>";
-	const head =
-		'<h4 class="queue-head">' + frappe.utils.escape_html(title) + count + "</h4>";
+	const head = '<h4 class="queue-head">' + frappe.utils.escape_html(title) + count + "</h4>";
 
 	if (!encounters.length) {
 		return (

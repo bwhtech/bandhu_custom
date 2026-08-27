@@ -327,7 +327,9 @@ function renderNextFourWeeks() {
 	const unit = schedule.unit ? labelFor(options.units, schedule.unit) : "";
 	const time =
 		schedule.planned_start_time && schedule.planned_end_time
-			? clock_label(schedule.planned_start_time) + " - " + clock_label(schedule.planned_end_time)
+			? clock_label(schedule.planned_start_time) +
+			  " - " +
+			  clock_label(schedule.planned_end_time)
 			: "";
 
 	const rows = dates
@@ -610,7 +612,12 @@ async function loadPreview(page) {
 			method: "bandhu_app.bandhu_app.page.new_schedule.new_schedule.preview_schedule",
 			args: { values: JSON.stringify(schedule) },
 		});
-		preview = (response && response.message) || { dates: [], total: 0, clashes: [], next_4_weeks: [] };
+		preview = (response && response.message) || {
+			dates: [],
+			total: 0,
+			clashes: [],
+			next_4_weeks: [],
+		};
 	} catch (error) {
 		// The preview is guidance; losing it must not block the wizard.
 		return;

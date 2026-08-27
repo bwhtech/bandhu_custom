@@ -115,7 +115,13 @@ function renderCompleted(page, data) {
 			bandhu.session_ui.format_welcome() +
 			bandhu.session_ui.format_session_info(data) +
 			'<div class="empty-state">' +
-			frappe.utils.icon("circle-check", "xl", "", "", "current-color empty-state-icon done") +
+			frappe.utils.icon(
+				"circle-check",
+				"xl",
+				"",
+				"",
+				"current-color empty-state-icon done"
+			) +
 			'<span class="empty-state-text">' +
 			__("Session completed. No further patients can be registered.") +
 			"</span></div></div>"
@@ -326,7 +332,9 @@ function bindSearchEvents(page) {
 		if (event.which === 13) searchPatients(page);
 	});
 
-	page.main.off("click", ".cad-scan-btn").on("click", ".cad-scan-btn", () => openCardScanner(page));
+	page.main
+		.off("click", ".cad-scan-btn")
+		.on("click", ".cad-scan-btn", () => openCardScanner(page));
 
 	// bound before the row handler so printing a card does not also queue the patient
 	page.main.off("click", ".pr-print-btn").on("click", ".pr-print-btn", function (event) {
@@ -384,7 +392,9 @@ function openCardScanner(page) {
 	// frappe.ui.Scanner fails silently to the console on a denied or unsupported camera;
 	// catching it here up front is what tells the CAD why nothing opened.
 	if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
-		frappe.msgprint(__("Camera scanning needs a supported browser over HTTPS. Type the Clinic ID instead."));
+		frappe.msgprint(
+			__("Camera scanning needs a supported browser over HTTPS. Type the Clinic ID instead.")
+		);
 		return;
 	}
 

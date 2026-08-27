@@ -25,14 +25,18 @@ class IntegrationTestBandhuClinicSession(IntegrationTestCase):
 
 	@classmethod
 	def _make_practitioner(cls, first_name, custom_role):
-		return frappe.get_doc(
-			{
-				"doctype": "Healthcare Practitioner",
-				"first_name": first_name,
-				"status": "Active",
-				"custom_role": custom_role,
-			}
-		).insert(ignore_permissions=True).name
+		return (
+			frappe.get_doc(
+				{
+					"doctype": "Healthcare Practitioner",
+					"first_name": first_name,
+					"status": "Active",
+					"custom_role": custom_role,
+				}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
 
 	def _session_fields(self, **overrides):
 		fields = {
@@ -58,21 +62,15 @@ class IntegrationTestBandhuClinicSession(IntegrationTestCase):
 
 	def test_wrong_role_as_doctor_is_rejected(self):
 		with self.assertRaises(frappe.ValidationError):
-			frappe.get_doc(self._session_fields(assigned_doctor=self.nurse)).insert(
-				ignore_permissions=True
-			)
+			frappe.get_doc(self._session_fields(assigned_doctor=self.nurse)).insert(ignore_permissions=True)
 
 	def test_wrong_role_as_nurse_is_rejected(self):
 		with self.assertRaises(frappe.ValidationError):
-			frappe.get_doc(self._session_fields(assigned_nurse=self.driver)).insert(
-				ignore_permissions=True
-			)
+			frappe.get_doc(self._session_fields(assigned_nurse=self.driver)).insert(ignore_permissions=True)
 
 	def test_wrong_role_as_driver_is_rejected(self):
 		with self.assertRaises(frappe.ValidationError):
-			frappe.get_doc(self._session_fields(assigned_driver=self.doctor)).insert(
-				ignore_permissions=True
-			)
+			frappe.get_doc(self._session_fields(assigned_driver=self.doctor)).insert(ignore_permissions=True)
 
 	def test_find_active_session_prefers_in_progress_over_planned(self):
 		driver = self._make_practitioner("Priority Test Driver", "Clinic Assistant cum Driver")
