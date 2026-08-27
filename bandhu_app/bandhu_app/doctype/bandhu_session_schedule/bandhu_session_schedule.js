@@ -3,16 +3,27 @@
 
 frappe.ui.form.on("Bandhu Session Schedule", {
 	refresh: function (frm) {
+		// Stays top-level: it is the only read-only check of "does this pattern produce the
+		// dates I meant", it is the only button available on an unsaved schedule, and it is
+		// the one you reach for repeatedly while building the pattern.
 		frm.add_custom_button(__("Preview Next Dates"), () => preview_next_dates(frm));
 
 		if (frm.is_new()) return;
 
-		frm.add_custom_button(__("Generate Sessions Now"), () => generate_sessions_now(frm));
-		frm.add_custom_button(__("Rebuild Future Sessions"), () => rebuild_future_sessions(frm));
-		frm.add_custom_button(__("View Sessions"), () => {
-			frappe.set_route("List", "Bandhu Clinic Session", { session_schedule: frm.doc.name });
-		});
-		frm.add_custom_button(__("Copy This Schedule"), () => copy_schedule(frm));
+		frm.add_custom_button(__("Generate Sessions Now"), () => generate_sessions_now(frm), __("Sessions"));
+		frm.add_custom_button(
+			__("Rebuild Future Sessions"),
+			() => rebuild_future_sessions(frm),
+			__("Sessions")
+		);
+		frm.add_custom_button(
+			__("View Sessions"),
+			() => {
+				frappe.set_route("List", "Bandhu Clinic Session", { session_schedule: frm.doc.name });
+			},
+			__("Sessions")
+		);
+		frm.add_custom_button(__("Copy This Schedule"), () => copy_schedule(frm), __("Create"));
 	},
 });
 
