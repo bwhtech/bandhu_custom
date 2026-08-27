@@ -12,3 +12,4 @@ bandhu_app.patches.remove_dead_encounter_status_field
 bandhu_app.patches.clear_prescriber_from_dispensed_by
 bandhu_app.patches.seed_bandhu_tests
 bandhu_app.patches.report_unmapped_test_names
+bandhu_app.patches.show_practitioner_name_in_links
