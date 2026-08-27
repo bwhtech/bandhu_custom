@@ -46,7 +46,6 @@ async function loadDashboard(page) {
 				'<div class="start-session-bar">' +
 				'<button class="btn btn-primary btn-lg nurse-start-session">' +
 				frappe.utils.icon("circle-play", "sm", "", "", "current-color") +
-				" " +
 				__("Start Session") +
 				"</button></div></div>"
 		);
@@ -183,7 +182,6 @@ function renderEndSessionButton() {
 		'<div class="end-session-bar">' +
 		'<button class="btn btn-danger btn-sm nurse-end-session">' +
 		frappe.utils.icon("circle-stop", "sm", "", "", "current-color") +
-		" " +
 		__("End Session") +
 		"</button></div>"
 	);
