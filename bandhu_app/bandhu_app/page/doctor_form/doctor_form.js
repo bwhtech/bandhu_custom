@@ -103,24 +103,37 @@ function renderDashboard(page, active, completed) {
 		bandhu.session_ui.format_welcome() +
 		(doctorSession ? bandhu.session_ui.format_session_info(doctorSession) : "") +
 		renderQueue(__("Active Patients"), active) +
-		renderQueue(__("Completed Today"), completed) +
+		renderCompletedQueue(__("Completed Today"), completed) +
 		"</div>";
 	page.main.html(html);
 
 	page.main.off("click");
 
-	page.main.on("click", ".doctor-queue-row", function () {
-		frappe.set_route("Form", "Patient Encounter", $(this).data("name"));
+	// The card body is the Details affordance -- a dedicated Details button sat as a fourth
+	// coequal action next to three clinical ones and wrapped the row.
+	page.main.on("click", ".patient-card-body", function () {
+		const encounter = $(this).closest(".patient-card").data("name");
+		dispatchDoctorAction(page, encounter, "details");
 	});
 
-	page.main.on("click", ".history-badge.clickable", function (event) {
+	page.main.on("click", ".visit-tag.repeat", function (event) {
 		event.stopPropagation();
-		const target = $(this).siblings(".history-list");
+		const target = $(this).closest(".patient-card").find(".history-list");
 		const indicator = $(this).find(".history-expand-indicator");
 		if (target.length) {
 			target.toggle();
 			indicator.toggleClass("expanded");
 		}
+	});
+
+	page.main.on("click", ".completed-row", function (event) {
+		if ($(event.target).closest(".completed-actions").length) return;
+		dispatchDoctorAction(page, $(this).data("name"), "details");
+	});
+
+	page.main.on("click", ".rail-more .open-record", function (event) {
+		event.stopPropagation();
+		frappe.set_route("Form", "Patient Encounter", $(this).data("name"));
 	});
 
 	page.main.on("click", ".history-list a", function (event) {
@@ -313,70 +326,255 @@ async function submitDoctorAction(page, method, args) {
 	await bandhu.session_ui.refresh_page(page, loadQueues);
 }
 
-function renderActionButtons(encounter) {
-	const actions = [["details", __("Details")]];
+const WAITING_NOTES = {
+	"Awaiting Test": __("Waiting on nurse"),
+	"Awaiting Medicine": __("Waiting on pharmacy"),
+	Completed: __("Seen today"),
+	Cancelled: __("Cancelled"),
+};
+
+// Every card carries this rail, action or not. A band that appeared only on the cards with
+// something to do put a step between neighbouring cards and broke the queue's rhythm.
+function renderActionRail(encounter) {
+	const actions = [];
 
 	if (encounter.custom_workflow_state === "Waiting for Doctor") {
-		actions.push(["order_test", __("Order Test")]);
+		actions.push(["order_test", __("Order Test"), false]);
 	}
 	if (
 		encounter.custom_workflow_state === "Waiting for Doctor" ||
 		encounter.custom_workflow_state === "Awaiting Doctor Review"
 	) {
-		actions.push(["prescribe", __("Prescribe Medicine")]);
-		actions.push(["complete", __("Mark Complete")]);
+		actions.push(["prescribe", __("Prescribe Medicine"), false]);
+		actions.push(["complete", __("Mark Complete"), true]);
 	}
 
-	const buttons = actions
-		.map(([action, label]) =>
-			bandhu.session_ui.format_action_button(
-				"doctor-action-btn",
-				encounter.name,
-				action,
-				label,
-				false
-			)
-		)
-		.join("");
+	const body = actions.length
+		? actions
+				.map(([action, label, is_primary]) =>
+					bandhu.session_ui.format_action_button(
+						"doctor-action-btn",
+						encounter.name,
+						action,
+						label,
+						is_primary
+					)
+				)
+				.join("")
+		: '<span class="rail-note">' +
+		  frappe.utils.escape_html(
+				WAITING_NOTES[encounter.custom_workflow_state] || __("No action yet")
+		  ) +
+		  "</span>";
 
-	return '<div class="doctor-action-btns">' + buttons + "</div>";
+	return (
+		'<div class="patient-card-actions">' +
+		'<div class="rail-primary">' +
+		body +
+		"</div>" +
+		'<div class="rail-secondary">' +
+		bandhu.session_ui.format_action_button(
+			"doctor-action-btn rail-details",
+			encounter.name,
+			"details",
+			__("Details"),
+			false
+		) +
+		renderOverflowMenu(encounter) +
+		"</div></div>"
+	);
 }
 
-function renderClinicalSummary(encounter) {
+function renderOverflowMenu(encounter) {
+	return (
+		'<div class="dropdown rail-more">' +
+		'<button type="button" class="btn btn-sm btn-default rail-more-btn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="' +
+		frappe.utils.escape_html(__("More")) +
+		'">' +
+		frappe.utils.icon("ellipsis", "sm", "", "", "current-color") +
+		"</button>" +
+		'<ul class="dropdown-menu dropdown-menu-right" role="menu">' +
+		'<li><a class="dropdown-item open-record" data-name="' +
+		frappe.utils.escape_html(encounter.name) +
+		'">' +
+		__("Open Record") +
+		"</a></li>" +
+		"</ul></div>"
+	);
+}
+
+function formatTestLine(tests) {
+	const pending = tests.filter((test) => !test.result_type);
+	const done = tests.filter((test) => test.result_type);
 	const parts = [];
+
+	if (done.length) {
+		parts.push(
+			done
+				.map((test) =>
+					test.result_type === "Value"
+						? test.test_name + " " + (test.result_value || "")
+						: test.test_name + " " + test.result_type
+				)
+				.join(", ")
+		);
+	}
+	if (pending.length) {
+		parts.push(
+			__("awaiting") + " " + pending.map((test) => test.test_name).join(", ")
+		);
+	}
+
+	return parts.join(" \u00b7 ");
+}
+
+// A doctor reads what was ordered and what came back, not how many rows a child table holds --
+// "2 test(s) done" says nothing they can act on.
+function renderClinicalSummary(encounter) {
 	const tests = encounter.tests || [];
 	const prescriptions = encounter.prescriptions || [];
+	const lines = [];
 
 	if (tests.length) {
-		const done = tests.filter((test) => test.result_type).length;
-		parts.push(
-			done === tests.length
-				? tests.length + " " + __("test(s) done")
-				: done + "/" + tests.length + " " + __("test(s) done")
-		);
+		lines.push(__("Tests") + ": " + formatTestLine(tests));
 	}
 	if (prescriptions.length) {
 		const dispensed = prescriptions.filter((prescription) => prescription.dispensed).length;
-		parts.push(
-			dispensed === prescriptions.length
-				? prescriptions.length + " " + __("medicine(s) dispensed")
-				: prescriptions.length + " " + __("medicine(s) prescribed")
+		const medicines = prescriptions
+			.map((prescription) => prescription.medicines)
+			.filter(Boolean)
+			.join(", ");
+		lines.push(
+			__("Rx") +
+				": " +
+				medicines +
+				(dispensed === prescriptions.length
+					? " \u00b7 " + __("dispensed")
+					: " \u00b7 " + __("awaiting pharmacy"))
 		);
 	}
-	if (!parts.length) return '<span class="pending">' + __("Nothing recorded yet") + "</span>";
-	return parts.map(frappe.utils.escape_html).join("<br>");
+
+	if (!lines.length) {
+		// On a completed patient an empty summary is a fact, not something still owed.
+		return encounter.custom_workflow_state === "Completed"
+			? '<span class="muted">' + __("No tests or medicines") + "</span>"
+			: '<span class="pending">' + __("Nothing recorded yet") + "</span>";
+	}
+
+	return lines.map(frappe.utils.escape_html).join("<br>");
 }
 
-function renderQueue(title, encounters) {
+// What the doctor needs first is whether this patient is theirs to act on right now or is
+// sitting with the nurse -- the visit count they were reading before is background.
+const QUEUE_STATES = {
+	"Waiting for Doctor": { label: __("Ready for doctor"), tone: "ready" },
+	"Awaiting Test": { label: __("With nurse"), tone: "waiting" },
+	"Awaiting Doctor Review": { label: __("Results back"), tone: "review" },
+	"Awaiting Medicine": { label: __("With nurse"), tone: "waiting" },
+	Completed: { label: __("Completed"), tone: "done" },
+};
+
+function renderStatusPill(encounter) {
+	const state = QUEUE_STATES[encounter.custom_workflow_state] || {
+		label: encounter.custom_workflow_state || __("Unknown"),
+		tone: "waiting",
+	};
+	// Which of the two the nurse holds is already in the clinical line below; spelling it out
+	// here as well wrapped the pill onto a second line in a two-up card.
+	return (
+		'<span class="status-pill" data-tone="' +
+		state.tone +
+		'"><span class="status-dot"></span>' +
+		frappe.utils.escape_html(state.label) +
+		"</span>"
+	);
+}
+
+function renderVisitTag(encounter) {
+	const visitCount = encounter.history.length;
+	if (visitCount <= 1) return '<span class="visit-tag">' + __("First visit") + "</span>";
+
+	return (
+		'<span class="visit-tag repeat" data-patient="' +
+		frappe.utils.escape_html(encounter.patient) +
+		'">' +
+		__("Repeat") +
+		" &times; " +
+		visitCount +
+		'<span class="history-expand-indicator">' +
+		frappe.utils.icon("chevron-down", "xs", "", "", "current-color") +
+		"</span></span>"
+	);
+}
+
+function renderHistoryList(encounter) {
+	if (encounter.history.length <= 1) return "";
+
+	const items = encounter.history
+		.map((visit) => {
+			const visitDate = frappe.datetime.str_to_user(visit.encounter_date);
+			return (
+				"<li><a data-name='" +
+				frappe.utils.escape_html(visit.name) +
+				"'>" +
+				frappe.utils.escape_html(visitDate) +
+				"</a></li>"
+			);
+		})
+		.join("");
+
+	return '<ul class="history-list">' + items + "</ul>";
+}
+
+function renderPatientCard(encounter) {
+	const identity = [encounter.patient_age, encounter.patient_sex]
+		.concat(bandhu.session_ui.group_clinic_id(encounter.clinic_id) || [])
+		.filter(Boolean)
+		.map(frappe.utils.escape_html)
+		.join(" &middot; ");
+
+	const state = QUEUE_STATES[encounter.custom_workflow_state] || {};
+
+	return (
+		'<article class="patient-card" data-tone="' +
+		(state.tone || "waiting") +
+		'" data-name="' +
+		frappe.utils.escape_html(encounter.name) +
+		'">' +
+		'<div class="patient-card-main">' +
+		'<div class="patient-card-status">' +
+		renderStatusPill(encounter) +
+		renderVisitTag(encounter) +
+		"</div>" +
+		'<div class="patient-card-body">' +
+		'<div class="patient-card-head">' +
+		'<span class="patient-name">' +
+		frappe.utils.escape_html(encounter.patient_name || "") +
+		"</span>" +
+		'<span class="patient-meta">' +
+		identity +
+		"</span>" +
+		"</div>" +
+		'<div class="patient-clinical">' +
+		renderClinicalSummary(encounter) +
+		"</div>" +
+		renderHistoryList(encounter) +
+		"</div></div>" +
+		renderActionRail(encounter) +
+		"</article>"
+	);
+}
+
+// Nothing on a completed patient is actionable, so a card each is a card's worth of space for
+// a line of reference. The table keeps a 40-patient camp on one screen.
+function renderCompletedQueue(title, encounters) {
 	const count = '<span class="queue-meta"> (' + encounters.length + ")</span>";
+	const head = '<h4 class="queue-head">' + frappe.utils.escape_html(title) + count + "</h4>";
 
 	if (!encounters.length) {
 		return (
 			'<div class="queue-section">' +
-			'<h4 class="queue-head">' +
-			frappe.utils.escape_html(title) +
-			count +
-			"</h4>" +
+			head +
 			'<div class="empty-state">' +
 			frappe.utils.icon("inbox", "xl", "", "", "current-color empty-state-icon small") +
 			'<span class="empty-state-text">' +
@@ -387,103 +585,83 @@ function renderQueue(title, encounters) {
 	}
 
 	const rows = encounters
-		.map((encounter) => {
-			const visitCount = encounter.history.length;
-			const isFirstVisit = visitCount <= 1;
-			const badgeClass = isFirstVisit ? "first-visit" : "repeat clickable";
-			const badgeLabel = isFirstVisit
-				? __("First Visit")
-				: __("Repeat Patient") + " &bull; " + visitCount + " " + __("Visits");
-			const expandIndicator = isFirstVisit
-				? ""
-				: '<span class="history-expand-indicator">' +
-				  frappe.utils.icon("chevron-down", "xs", "", "", "current-color") +
-				  "</span>";
-
-			let historyList = "";
-			if (!isFirstVisit) {
-				const items = encounter.history
-					.map((visit) => {
-						const visitDate = frappe.datetime.str_to_user(visit.encounter_date);
-						return (
-							"<li><a data-name='" +
-							frappe.utils.escape_html(visit.name) +
-							"'>" +
-							frappe.utils.escape_html(visitDate) +
-							"</a></li>"
-						);
-					})
-					.join("");
-				historyList = '<ul class="history-list">' + items + "</ul>";
-			}
-
-			return (
-				'<tr class="doctor-queue-row" data-name="' +
+		.map(
+			(encounter) =>
+				'<tr class="completed-row" data-name="' +
 				frappe.utils.escape_html(encounter.name) +
 				'">' +
-				'<td class="patient-cell">' +
+				"<td>" +
 				frappe.utils.escape_html(encounter.patient_name || "") +
 				"</td>" +
-				'<td class="age-cell">' +
-				frappe.utils.escape_html(encounter.patient_age || "") +
+				"<td>" +
+				frappe.utils.escape_html(
+					[encounter.patient_age, encounter.patient_sex].filter(Boolean).join(" \u00b7 ")
+				) +
 				"</td>" +
-				'<td class="sex-cell">' +
-				frappe.utils.escape_html(encounter.patient_sex || "") +
+				'<td class="completed-clinic-id">' +
+				frappe.utils.escape_html(
+					bandhu.session_ui.group_clinic_id(encounter.clinic_id) || ""
+				) +
 				"</td>" +
-				'<td class="history-cell">' +
-				'<span class="history-badge ' +
-				badgeClass +
-				'" data-patient="' +
-				frappe.utils.escape_html(encounter.patient) +
-				'">' +
-				badgeLabel +
-				expandIndicator +
-				"</span>" +
-				historyList +
-				"</td>" +
-				'<td class="clinical-cell">' +
+				'<td class="completed-summary">' +
 				renderClinicalSummary(encounter) +
 				"</td>" +
-				'<td class="action-cell">' +
-				renderActionButtons(encounter) +
-				"</td>" +
-				"</tr>"
-			);
-		})
+				'<td class="completed-actions">' +
+				bandhu.session_ui.format_action_button(
+					"doctor-action-btn rail-details",
+					encounter.name,
+					"details",
+					__("Details"),
+					false
+				) +
+				renderOverflowMenu(encounter) +
+				"</td></tr>"
+		)
 		.join("");
 
 	return (
 		'<div class="queue-section">' +
-		'<h4 class="queue-head">' +
-		frappe.utils.escape_html(title) +
-		count +
-		"</h4>" +
-		'<div class="table-wrap">' +
-		'<table class="table">' +
-		"<thead><tr>" +
+		head +
+		'<div class="table-wrap"><table class="table"><thead><tr>' +
 		"<th>" +
-		__("Patient Name") +
-		"</th>" +
-		"<th>" +
-		__("Age") +
-		"</th>" +
-		"<th>" +
-		__("Sex") +
-		"</th>" +
-		"<th>" +
-		__("History") +
-		"</th>" +
-		"<th>" +
-		__("Clinical") +
-		"</th>" +
-		"<th>" +
-		__("Actions") +
-		"</th>" +
-		"</tr></thead>" +
-		"<tbody>" +
+		__("Patient") +
+		"</th><th>" +
+		__("Age / Sex") +
+		"</th><th>" +
+		__("Clinic ID") +
+		"</th><th>" +
+		__("Seen for") +
+		"</th><th></th>" +
+		"</tr></thead><tbody>" +
 		rows +
-		"</tbody>" +
-		"</table></div></div>"
+		"</tbody></table></div></div>"
+	);
+}
+
+function renderQueue(title, encounters) {
+	const count = '<span class="queue-meta"> (' + encounters.length + ")</span>";
+	const head =
+		'<h4 class="queue-head">' + frappe.utils.escape_html(title) + count + "</h4>";
+
+	if (!encounters.length) {
+		return (
+			'<div class="queue-section">' +
+			head +
+			'<div class="empty-state">' +
+			frappe.utils.icon("inbox", "xl", "", "", "current-color empty-state-icon small") +
+			'<span class="empty-state-text">' +
+			__("No patients.") +
+			"</span>" +
+			"</div></div>"
+		);
+	}
+
+	return (
+		'<div class="queue-section">' +
+		head +
+		'<div class="patient-cards">' +
+		encounters.map(renderPatientCard).join("") +
+		"</div></div>"
 	);
 }
 

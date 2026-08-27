@@ -1,7 +1,7 @@
 import frappe
 from frappe import _
 
-from bandhu_app.bandhu_app.utils.patient import attach_compact_age
+from bandhu_app.bandhu_app.utils.patient import attach_patient_display_fields
 
 PATIENT_DETAIL_FIELDS = [
 	"patient_name",
@@ -144,4 +144,4 @@ def get_session_encounters(clinic_session: str, workflow_state) -> list:
 	for encounter in encounters:
 		encounter.update(clinical_details[encounter.name])
 
-	return attach_compact_age(encounters)
+	return attach_patient_display_fields(encounters)

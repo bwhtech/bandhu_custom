@@ -123,54 +123,105 @@ frappe.provide("bandhu.session_ui");
 		);
 	}
 
-	// Desk's own read-only field shape — a small muted label above its value, laid out in the
-	// grid and typography classes the desk bundle already ships. Nothing here is page CSS of
-	// ours, so the dialog keeps following Desk across a Frappe upgrade instead of drifting.
-	function format_detail_field(label, value) {
+	// Desk's own read-only field shape — a small label above its value, laid out in the grid and
+	// typography classes the desk bundle already ships. Nothing here is page CSS of ours, so the
+	// dialog keeps following Desk across a Frappe upgrade instead of drifting. The label carries
+	// the weight and the glyph because it is what a nurse scans the column for; the value is read
+	// only once the right label has been found.
+	function format_detail_field(label, value, icon_name) {
 		if (value === null || value === undefined || value === "") return "";
 		return (
-			'<div class="col-6 col-md-4 mb-4">' +
-			'<div class="control-label text-xs">' +
+			'<div class="col-6 col-md-4 mb-4 flex items-start gap-2">' +
+			// The glyph hangs in its own gutter so the label and the value it belongs to keep a
+			// single left edge. Inline, it indented the label off the value beneath it and gave
+			// every field two ragged edges. `margin: 0` because Desk's own .icon ships
+			// `margin: 0 auto`, which in a flex row flings it away from what it labels.
+			(icon_name
+				? frappe.utils.icon(
+						icon_name,
+						"sm",
+						"",
+						"margin: 1px 0 0",
+						"current-color shrink-0"
+				  )
+				: "") +
+			'<div class="min-w-0">' +
+			'<div class="text-xs-semibold text-ink-gray-7 mb-1">' +
 			frappe.utils.escape_html(label) +
 			"</div>" +
-			'<div class="text-sm text-ink-gray-8">' +
+			'<div class="text-base text-ink-gray-9">' +
 			frappe.utils.escape_html(String(value)) +
-			"</div></div>"
+			"</div></div></div>"
 		);
 	}
 
-	function format_vitals(patient) {
-		return [
-			patient.custom_height_m ? patient.custom_height_m + " m" : null,
-			patient.custom_weight_kg ? patient.custom_weight_kg + " kg" : null,
-			patient.custom_bmi ? __("BMI") + " " + patient.custom_bmi : null,
-		]
-			.filter(Boolean)
-			.join(" · ");
+	function format_detail_row(fields) {
+		return fields ? '<div class="row">' + fields + "</div>" : "";
 	}
 
-	function format_registration_details(patient) {
-		const fields =
-			format_detail_field(__("Clinic ID"), patient.custom_bandhu_id) +
-			format_detail_field(__("ABHA ID"), patient.custom_abha_id) +
-			format_detail_field(__("Mobile"), patient.mobile) +
-			// The endpoint returns the stored date; every other Bandhu screen shows dates in
-			// the user's own format, so printing it raw here is the odd one out.
-			format_detail_field(
-				__("Date of Birth"),
-				patient.dob ? frappe.datetime.str_to_user(patient.dob) : ""
-			) +
-			format_detail_field(__("Vitals"), format_vitals(patient)) +
-			format_detail_field(__("Temperature"), patient.custom_temperature) +
-			format_detail_field(__("Native State"), patient.custom_native_state) +
-			format_detail_field(__("Native District"), patient.custom_native_district) +
-			format_detail_field(
-				__("Sector of Employment"),
-				patient.custom_sector_of_employment
-			) +
-			format_detail_field(__("Company"), patient.custom_name_of_company);
+	// Split out of one flat nine-field grid: who the patient is, what was measured today, and
+	// where they came from are three different questions, and reading order used to depend on
+	// counting across columns to find the one being asked.
+	function format_identity_details(patient) {
+		return format_detail_row(
+			format_detail_field(__("Clinic ID"), patient.custom_bandhu_id, "id-card") +
+				format_detail_field(__("ABHA ID"), patient.custom_abha_id, "badge-check") +
+				format_detail_field(__("Mobile"), patient.mobile, "phone") +
+				// The endpoint returns the stored date; every other Bandhu screen shows dates
+				// in the user's own format, so printing it raw here is the odd one out.
+				format_detail_field(
+					__("Date of Birth"),
+					patient.dob ? frappe.datetime.str_to_user(patient.dob) : "",
+					"calendar"
+				)
+		);
+	}
 
-		return fields ? '<div class="row">' + fields + "</div>" : "";
+	// One field labelled "Vitals" inside a section headed "Vitals" said the word twice and then
+	// crammed three separate measurements into a single middot-joined cell. Each reading is its
+	// own field, so each gets its own column and a nurse can find one without parsing a string.
+	function format_vitals_details(patient) {
+		return format_detail_row(
+			format_detail_field(
+				__("Height"),
+				patient.custom_height_m ? patient.custom_height_m + " m" : "",
+				"ruler"
+			) +
+				format_detail_field(
+					__("Weight"),
+					patient.custom_weight_kg ? patient.custom_weight_kg + " kg" : "",
+					"weight"
+				) +
+				format_detail_field(__("BMI"), patient.custom_bmi, "gauge") +
+				format_detail_field(
+					__("Temperature"),
+					patient.custom_temperature,
+					"thermometer"
+				)
+		);
+	}
+
+	function format_origin_details(patient) {
+		return format_detail_row(
+			// State and District took the same map-pin, which told a reader nothing about which
+			// of the two they were looking at.
+			format_detail_field(__("Native State"), patient.custom_native_state, "map") +
+				format_detail_field(
+					__("Native District"),
+					patient.custom_native_district,
+					"map-pin"
+				) +
+				format_detail_field(
+					__("Sector of Employment"),
+					patient.custom_sector_of_employment,
+					"briefcase"
+				) +
+				format_detail_field(
+					__("Company"),
+					patient.custom_name_of_company,
+					"building-2"
+				)
+		);
 	}
 
 	// An omitted theme is deliberate: .es-badge's own default is gray, and there is no
@@ -308,7 +359,9 @@ frappe.provide("bandhu.session_ui");
 	function format_patient_details(patient, encounter) {
 		const shared_note = (encounter.shared_test_note || "").trim();
 		return (
-			format_section(__("Registration Details"), format_registration_details(patient)) +
+			format_section(__("Registration Details"), format_identity_details(patient)) +
+			format_section(__("Vitals"), format_vitals_details(patient)) +
+			format_section(__("Origin & Work"), format_origin_details(patient)) +
 			format_section(
 				__("Tests"),
 				format_test_rows(encounter.tests, shared_note),
@@ -338,6 +391,13 @@ frappe.provide("bandhu.session_ui");
 			fields: [{ fieldtype: "HTML", fieldname: "details_html" }],
 		});
 		dialog.fields_dict.details_html.$wrapper.html(format_patient_details(patient, encounter));
+		// The queue rows used to navigate here on click; the dialog is now what a row opens, so
+		// this is the only remaining way to reach the underlying record.
+		dialog.set_secondary_action_label(__("Open Record"));
+		dialog.set_secondary_action(() => {
+			dialog.hide();
+			frappe.set_route("Form", "Patient Encounter", encounter_name);
+		});
 		dialog.show();
 	}
 
@@ -357,6 +417,22 @@ frappe.provide("bandhu.session_ui");
 		);
 	}
 
+	// Ten digits in one run are hard to read off a screen and repeat back to a patient.
+	function group_clinic_id(clinic_id) {
+		if (!clinic_id) return "";
+		if (!/^\d{10}$/.test(clinic_id)) return clinic_id;
+
+		return (
+			clinic_id.slice(0, 2) +
+			" " +
+			clinic_id[2] +
+			" " +
+			clinic_id.slice(3, 5) +
+			" " +
+			clinic_id.slice(5)
+		);
+	}
+
 	Object.assign(bandhu.session_ui, {
 		refresh_page,
 		format_load_error,
@@ -366,8 +442,10 @@ frappe.provide("bandhu.session_ui");
 		format_planned_window,
 		get_upcoming_sessions,
 		format_upcoming_sessions,
+		format_badge,
 		format_patient_details,
 		open_patient_details_dialog,
 		format_action_button,
+		group_clinic_id,
 	});
 })();
