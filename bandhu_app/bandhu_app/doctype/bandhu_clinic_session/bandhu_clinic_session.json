@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "CS-.YY.-.MM.-.DD.-.site.-.###",
+ "autoname": "CS-.date.-.site.-.###",
  "creation": "2026-04-13 08:14:19.128869",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -9,9 +9,14 @@
   "clinic",
   "status",
   "site",
+  "site_name",
   "project",
+  "unit",
+  "session_schedule",
   "column_break_qtbr",
   "date",
+  "planned_start_time",
+  "planned_end_time",
   "start_time",
   "end_time",
   "section_break_uyjf",
@@ -50,19 +55,55 @@
    "reqd": 1
   },
   {
+   "fetch_from": "site.site_name",
+   "fieldname": "site_name",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Site Name",
+   "read_only": 1
+  },
+  {
+   "description": "Its numeric code becomes the third digit of every Clinic ID issued in this session.",
+   "fieldname": "unit",
+   "fieldtype": "Link",
+   "label": "Unit",
+   "options": "Unit"
+  },
+  {
+   "description": "Set automatically when this session was created from a recurring schedule.",
+   "fieldname": "session_schedule",
+   "fieldtype": "Link",
+   "label": "Session Schedule",
+   "no_copy": 1,
+   "options": "Bandhu Session Schedule",
+   "read_only": 1
+  },
+  {
    "fieldname": "column_break_qtbr",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "planned_start_time",
+   "fieldtype": "Time",
+   "label": "Planned Start Time"
+  },
+  {
+   "fieldname": "planned_end_time",
+   "fieldtype": "Time",
+   "label": "Planned End Time"
   },
   {
    "fieldname": "start_time",
    "fieldtype": "Datetime",
    "label": "Start Time",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "end_time",
    "fieldtype": "Datetime",
    "label": "End Time",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -70,7 +111,8 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Planned\nIn Progress\nCompleted",
+   "no_copy": 1,
+   "options": "Planned\nIn Progress\nCompleted\nCancelled",
    "read_only": 1
   },
   {
@@ -111,12 +153,14 @@
   {
    "fieldname": "departure_time",
    "fieldtype": "Time",
-   "label": "Departure Time"
+   "label": "Departure Time",
+   "no_copy": 1
   },
   {
    "fieldname": "arrival_time",
    "fieldtype": "Time",
-   "label": "Arrival Time"
+   "label": "Arrival Time",
+   "no_copy": 1
   },
   {
    "fieldname": "column_break_ltxj",
@@ -145,7 +189,8 @@
   {
    "fieldname": "distance_travelled_km",
    "fieldtype": "Data",
-   "label": "Distance Travelled (km)"
+   "label": "Distance Travelled (km)",
+   "no_copy": 1
   }
  ],
  "grid_page_length": 50,
@@ -186,6 +231,14 @@
   {
    "read": 1,
    "role": "Clinic Assistant cum Driver"
+  },
+  {
+   "read": 1,
+   "role": "Director"
+  },
+  {
+   "read": 1,
+   "role": "Programme Manager"
   }
  ],
  "quick_entry": 1,
@@ -194,5 +247,6 @@
  "sort_field": "creation",
  "sort_order": "DESC",
  "states": [],
- "title_field": "site"
+ "title_field": "site_name",
+ "show_title_field_in_link": 1
 }

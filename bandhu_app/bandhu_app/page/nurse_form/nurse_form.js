@@ -1,289 +1,398 @@
-var _nurse_css =
-	".nurse-dash{--max-w:var(--page-max-width,900px);max-width:var(--max-w);margin:0 auto;padding:0 var(--padding-md);}" +
-	".nurse-dash .empty-state{display:flex;flex-direction:column;align-items:center;padding:var(--padding-2xl) var(--padding-md);border:1px solid var(--border-color);border-radius:var(--border-radius-md);color:var(--text-muted);background:var(--bg-color);}" +
-	".nurse-dash .table-wrap{overflow:auto;border:1px solid var(--table-border-color);border-radius:var(--border-radius-md);margin-top:var(--margin-sm);max-height:360px;}" +
-	".nurse-dash .table{margin-bottom:0;min-width:400px;}" +
-	".nurse-dash .table thead{position:sticky;top:0;z-index:1;}" +
-	".nurse-dash .table th{background:var(--subtle-fg);padding:8px 12px;font-size:var(--text-sm);font-weight:var(--weight-semibold);color:var(--heading-color);white-space:nowrap;border-bottom:1px solid var(--table-border-color);}" +
-	".nurse-dash .table td{padding:10px 12px;vertical-align:middle;border-bottom:1px solid var(--table-border-color);}" +
-	".nurse-dash .table tbody tr:last-child td{border-bottom:none;}" +
-	".nurse-queue-row{cursor:pointer;}" +
-	".nurse-dash .queue-head{font-size:var(--text-lg);font-weight:var(--weight-semibold);color:var(--heading-color);margin:0;}" +
-	".nurse-dash .queue-meta{font-weight:var(--weight-regular);font-size:var(--text-base);color:var(--text-muted);}" +
-	".nurse-dash .queue-section{margin-bottom:var(--margin-2xl);}" +
-	".nurse-dash .queue-section:last-child{margin-bottom:0;}" +
-	".nurse-dash .session-bar{display:flex;align-items:center;gap:var(--padding-sm);flex-wrap:wrap;padding:0 0 var(--padding-lg) 0;font-size:var(--text-sm);color:var(--text-muted);}" +
-	"@media(max-width:768px){" +
-	".nurse-dash{padding:0 var(--padding-sm);}" +
-	".nurse-dash .table{min-width:350px;}" +
-	".nurse-dash .table td,.nurse-dash .table th{padding:8px 10px;}}";
+/* global bandhu */
 
-var _nurse_session = null;
+const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
 
-frappe.pages["nurse-form"].on_page_load = function (wrapper) {
-	var page = frappe.ui.make_app_page({
-		parent: wrapper,
-		title: __("Nurse Dashboard"),
-		single_column: true,
-	});
+let nurseSession = null;
+let encountersByName = {};
+let nursePage = null;
 
-	page.set_secondary_action(__("Refresh"), function () {
-		load_dashboard(page);
-	});
-
-	load_dashboard(page);
-};
-
-function load_dashboard(page) {
+async function loadDashboard(page) {
 	frappe.dom.freeze();
-	frappe.call({
-		method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_session_status",
-		callback: function (r) {
-			frappe.dom.unfreeze();
-			var data = r.message || {};
-
-			if (!data.has_session) {
-				page.main.html(
-					"<style>" +
-						_nurse_css +
-						"</style>" +
-						'<div class="nurse-dash">' +
-						render_welcome() +
-						'<div class="empty-state">' +
-						'<i class="fa fa-calendar-o" style="font-size:32px;margin-bottom:10px;opacity:0.4;"></i>' +
-						'<span style="font-size:var(--text-sm);">' +
-						frappe.utils.escape_html(data.message) +
-						"</span></div></div>"
-				);
-				return;
-			}
-
-			_nurse_session = data;
-
-			if (data.status === "Planned") {
-				page.main.html(
-					"<style>" +
-						_nurse_css +
-						"</style>" +
-						'<div class="nurse-dash">' +
-						render_welcome() +
-						render_session_info(data) +
-						'<div style="padding:var(--padding-xl) 0;display:flex;justify-content:center;">' +
-						'<button class="btn btn-primary btn-lg nurse-start-session">' +
-						'<i class="fa fa-play"></i> ' +
-						__("Start Session") +
-						"</button></div></div>"
-				);
-
-				page.main.on("click", ".nurse-start-session", function () {
-					start_session(page);
-				});
-			} else if (data.status === "In Progress") {
-				load_queues(page);
-			} else if (data.status === "Completed") {
-				page.main.html(
-					"<style>" +
-						_nurse_css +
-						"</style>" +
-						'<div class="nurse-dash">' +
-						render_welcome() +
-						render_session_info(data) +
-						'<div class="empty-state">' +
-						'<i class="fa fa-check-circle" style="font-size:32px;color:var(--green-500);margin-bottom:10px;"></i>' +
-						'<span style="font-size:var(--text-sm);">' +
-						__("Session completed. Great work!") +
-						"</span></div></div>"
-				);
-			}
-		},
-	});
-}
-
-function start_session(page) {
-	frappe.dom.freeze();
-	frappe.call({
-		method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.start_session",
-		args: { session_name: _nurse_session.session_name },
-		callback: function (r) {
-			frappe.dom.unfreeze();
-			if (r.message && r.message.success) {
-				frappe.show_alert({ message: __("Session started"), indicator: "green" });
-				load_dashboard(page);
-			}
-		},
-		error: function () {
-			frappe.dom.unfreeze();
-			frappe.show_alert({ message: __("Failed to start session"), indicator: "red" });
-		},
-	});
-}
-
-function end_session(page) {
-	frappe.confirm(__("End the current session?"), function () {
-		frappe.dom.freeze();
-		frappe.call({
-			method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.end_session",
-			args: { session_name: _nurse_session.session_name },
-			callback: function (r) {
-				frappe.dom.unfreeze();
-				if (r.message && r.message.success) {
-					frappe.show_alert({ message: __("Session ended"), indicator: "green" });
-					load_dashboard(page);
-				}
-			},
-			error: function () {
-				frappe.dom.unfreeze();
-				frappe.show_alert({ message: __("Failed to end session"), indicator: "red" });
-			},
+	let data;
+	try {
+		const response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_session_status",
 		});
-	});
-}
-
-function load_queues(page) {
-	frappe.dom.freeze();
-	var session_name = _nurse_session.session_name;
-	var done = 0;
-	var data = {};
-
-	function check_done() {
-		done++;
-		if (done < 3) return;
+		data = response.message || {};
+	} finally {
 		frappe.dom.unfreeze();
-		page.main.html(
-			"<style>" +
-				_nurse_css +
-				"</style>" +
-				'<div class="nurse-dash">' +
-				render_welcome() +
-				render_session_info(_nurse_session) +
-				render_end_session_button() +
-				render_queue_section(__("Patients for Tests"), data.tests || []) +
-				render_queue_section(__("Patients for Medicines"), data.medicines || []) +
-				render_queue_section(__("Completed Patients"), data.completed || []) +
-				"</div>"
-		);
-
-		page.main.on("click", ".nurse-end-session", function () {
-			end_session(page);
-		});
-
-		page.main.on("click", ".nurse-queue-row", function () {
-			var name = $(this).data("name");
-			frappe.set_route("Form", "Patient Encounter", name);
-		});
 	}
 
-	frappe.call({
-		method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_patients_for_tests",
-		args: { session_name: session_name },
-		callback: function (r) {
-			data.tests = r.message || [];
-			check_done();
-		},
-	});
+	if (!data.has_session) {
+		const upcoming = await bandhu.session_ui.get_upcoming_sessions(
+			"bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_upcoming_sessions"
+		);
+		page.main.html(
+			'<div class="nurse-dash">' +
+				bandhu.session_ui.format_welcome() +
+				'<div class="empty-state">' +
+				frappe.utils.icon("calendar-off", "xl", "", "", "current-color empty-state-icon") +
+				'<span class="empty-state-text">' +
+				frappe.utils.escape_html(data.message) +
+				"</span></div>" +
+				bandhu.session_ui.format_upcoming_sessions(upcoming) +
+				"</div>"
+		);
+		return;
+	}
 
-	frappe.call({
-		method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_patients_for_medicines",
-		args: { session_name: session_name },
-		callback: function (r) {
-			data.medicines = r.message || [];
-			check_done();
-		},
-	});
+	nurseSession = data;
 
-	frappe.call({
-		method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_completed_patients",
-		args: { session_name: session_name },
-		callback: function (r) {
-			data.completed = r.message || [];
-			check_done();
-		},
+	if (data.status === "Planned") {
+		page.main.html(
+			'<div class="nurse-dash">' +
+				bandhu.session_ui.format_welcome() +
+				bandhu.session_ui.format_session_info(data) +
+				'<div class="start-session-bar">' +
+				'<button class="btn btn-primary btn-lg nurse-start-session">' +
+				frappe.utils.icon("circle-play", "sm", "", "", "current-color") +
+				__("Start Session") +
+				"</button></div></div>"
+		);
+
+		page.main.off("click").on("click", ".nurse-start-session", () => startSession(page));
+	} else if (data.status === "In Progress") {
+		await loadQueues(page);
+	} else if (data.status === "Completed") {
+		page.main.html(
+			'<div class="nurse-dash">' +
+				bandhu.session_ui.format_welcome() +
+				bandhu.session_ui.format_session_info(data) +
+				'<div class="empty-state">' +
+				frappe.utils.icon("circle-check", "xl", "", "", "current-color empty-state-icon done") +
+				'<span class="empty-state-text">' +
+				__("Session completed. Great work!") +
+				"</span></div></div>"
+		);
+	}
+}
+
+async function startSession(page) {
+	frappe.dom.freeze();
+	try {
+		await frappe.call({
+			method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.start_session",
+			args: { session_name: nurseSession.session_name },
+		});
+	} finally {
+		frappe.dom.unfreeze();
+	}
+
+	frappe.show_alert({ message: __("Session started"), indicator: "green" });
+	await loadDashboard(page);
+}
+
+function endSession(page) {
+	frappe.confirm(__("End the current session?"), async () => {
+		frappe.dom.freeze();
+		try {
+			await frappe.call({
+				method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.end_session",
+				args: { session_name: nurseSession.session_name },
+			});
+		} finally {
+			frappe.dom.unfreeze();
+		}
+
+		frappe.show_alert({ message: __("Session ended"), indicator: "green" });
+		await loadDashboard(page);
 	});
 }
 
-function render_welcome() {
-	var name =
-		typeof frappe.user.full_name === "function"
-			? frappe.user.full_name()
-			: frappe.user.full_name || "Nurse";
-	return (
-		'<div style="padding:var(--padding-lg) 0 var(--padding-xl) 0;">' +
-		"<h3 style='font-size:var(--text-2xl);font-weight:var(--weight-semibold);color:var(--heading-color);margin:0;'>" +
-		__("Welcome, {0}", [name]) +
-		"</h3></div>"
+async function loadQueues(page) {
+	frappe.dom.freeze();
+	const sessionName = nurseSession.session_name;
+	let tests, medicines, completed;
+	try {
+		[tests, medicines, completed] = await Promise.all([
+			frappe.call({
+				method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_patients_for_tests",
+				args: { session_name: sessionName },
+			}),
+			frappe.call({
+				method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_patients_for_medicines",
+				args: { session_name: sessionName },
+			}),
+			frappe.call({
+				method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_completed_patients",
+				args: { session_name: sessionName },
+			}),
+		]);
+	} finally {
+		frappe.dom.unfreeze();
+	}
+
+	const testRows = tests.message || [];
+	const medicineRows = medicines.message || [];
+	const completedRows = completed.message || [];
+	encountersByName = Object.fromEntries(
+		[...testRows, ...medicineRows, ...completedRows].map((encounter) => [
+			encounter.name,
+			encounter,
+		])
 	);
-}
 
-function render_session_info(session) {
-	var status_color = session.status === "In Progress" ? "var(--green-500)" : "var(--text-muted)";
-	return (
-		'<div class="session-bar">' +
-		'<i class="fa fa-hospital-o"></i> ' +
-		frappe.utils.escape_html(session.clinic || "") +
-		'<span style="color:var(--border-color);">|</span>' +
-		'<i class="fa fa-map-marker"></i> ' +
-		frappe.utils.escape_html(session.site || "") +
-		'<span style="color:var(--border-color);">|</span>' +
-		'<i class="fa fa-circle" style="color:' +
-		status_color +
-		';font-size:8px;"></i> ' +
-		frappe.utils.escape_html(session.status) +
-		"</div>"
+	page.main.html(
+		'<div class="nurse-dash">' +
+			bandhu.session_ui.format_welcome() +
+			bandhu.session_ui.format_session_info(nurseSession) +
+			renderEndSessionButton() +
+			renderQueueSection(__("Patients for Tests"), testRows, "test") +
+			renderQueueSection(__("Patients for Medicines"), medicineRows, "medicine") +
+			renderQueueSection(__("Completed Patients"), completedRows, null) +
+			"</div>"
 	);
+
+	page.main.off("click");
+
+	page.main.on("click", ".nurse-end-session", () => endSession(page));
+
+	page.main.on("click", ".nurse-queue-row", function () {
+		frappe.set_route("Form", "Patient Encounter", $(this).data("name"));
+	});
+
+	page.main.on("click", ".nurse-action-btn", function (event) {
+		event.stopPropagation();
+		const encounter = $(this).data("encounter");
+		const action = $(this).data("action");
+		dispatchNurseAction(page, encounter, action);
+	});
 }
 
-function render_end_session_button() {
+function dispatchNurseAction(page, encounter, action) {
+	switch (action) {
+		case "details":
+			bandhu.session_ui.open_patient_details_dialog(
+				"bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_patient_registration_details",
+				encounter,
+				encountersByName[encounter] || {}
+			);
+			break;
+		case "enter_results":
+			openTestResultsDialog(page, encounter);
+			break;
+		case "dispense":
+			openDispenseDialog(page, encounter);
+			break;
+	}
+}
+
+function renderEndSessionButton() {
 	return (
-		'<div style="padding:0 0 var(--padding-lg) 0;">' +
+		'<div class="end-session-bar">' +
 		'<button class="btn btn-danger btn-sm nurse-end-session">' +
-		'<i class="fa fa-stop"></i> ' +
+		frappe.utils.icon("circle-stop", "sm", "", "", "current-color") +
 		__("End Session") +
 		"</button></div>"
 	);
 }
 
-function render_queue_section(title, patients) {
-	var count = '<span class="queue-meta"> (' + patients.length + ")</span>";
+function openTestResultsDialog(page, encounter) {
+	const row = encountersByName[encounter];
+	if (!row) return;
 
-	if (!patients.length) {
+	const dialog = new frappe.ui.Dialog({
+		title: __("Enter Test Results"),
+		size: "large",
+		fields: [
+			{
+				fieldtype: "Table",
+				fieldname: "results",
+				label: __("Tests"),
+				cannot_add_rows: true,
+				cannot_delete_rows: true,
+				in_place_edit: false,
+				fields: [
+					{
+						fieldtype: "Data",
+						fieldname: "test_name",
+						label: __("Test"),
+						in_list_view: 1,
+						read_only: 1,
+					},
+					{
+						fieldtype: "Select",
+						fieldname: "result_type",
+						label: __("Result"),
+						options: "\nPositive\nNegative\nValue",
+						in_list_view: 1,
+					},
+					{
+						fieldtype: "Data",
+						fieldname: "result_value",
+						label: __("Value"),
+						in_list_view: 1,
+					},
+					{
+						fieldtype: "Small Text",
+						fieldname: "notes",
+						label: __("Doctor's Notes"),
+						read_only: 1,
+					},
+				],
+				data: (row.tests || []).map((test) => ({ ...test })),
+			},
+		],
+		primary_action_label: __("Save Results"),
+		primary_action: async (values) => {
+			dialog.hide();
+			await submitNurseAction(page, "submit_test_results", {
+				encounter,
+				results: values.results,
+			});
+		},
+	});
+	dialog.show();
+}
+
+function openDispenseDialog(page, encounter) {
+	const row = encountersByName[encounter];
+	if (!row) return;
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Dispense Medicine"),
+		size: "large",
+		fields: [
+			{
+				fieldtype: "Table",
+				fieldname: "prescriptions",
+				label: __("Medicines"),
+				cannot_add_rows: true,
+				cannot_delete_rows: true,
+				in_place_edit: false,
+				fields: [
+					{
+						fieldtype: "Data",
+						fieldname: "medicines",
+						label: __("Medicine"),
+						in_list_view: 1,
+						read_only: 1,
+					},
+					{
+						fieldtype: "Small Text",
+						fieldname: "instructions",
+						label: __("Instructions"),
+						read_only: 1,
+					},
+					{
+						fieldtype: "Check",
+						fieldname: "dispensed",
+						label: __("Dispensed"),
+						in_list_view: 1,
+						default: 1,
+					},
+				],
+				data: (row.prescriptions || []).map((prescription) => ({ ...prescription })),
+			},
+		],
+		primary_action_label: __("Complete"),
+		primary_action: async (values) => {
+			const dispensedRows = (values.prescriptions || [])
+				.filter((prescription) => prescription.dispensed)
+				.map((prescription) => prescription.name);
+			dialog.hide();
+			await submitNurseAction(page, "dispense_medicine", {
+				encounter,
+				dispensed_rows: dispensedRows,
+			});
+		},
+	});
+	dialog.show();
+}
+
+async function submitNurseAction(page, method, args) {
+	frappe.dom.freeze();
+	try {
+		await frappe.call({
+			method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form." + method,
+			args,
+		});
+	} finally {
+		frappe.dom.unfreeze();
+	}
+
+	frappe.show_alert({ message: __("Saved"), indicator: "green" });
+	await bandhu.session_ui.refresh_page(page, loadQueues);
+}
+
+function renderQueueActionButtons(encounter, action) {
+	const buttons = [
+		bandhu.session_ui.format_action_button(
+			"nurse-action-btn",
+			encounter.name,
+			"details",
+			__("Details"),
+			false
+		),
+	];
+	if (action === "test") {
+		buttons.push(
+			bandhu.session_ui.format_action_button(
+				"nurse-action-btn",
+				encounter.name,
+				"enter_results",
+				__("Enter Results"),
+				true
+			)
+		);
+	} else if (action === "medicine") {
+		buttons.push(
+			bandhu.session_ui.format_action_button(
+				"nurse-action-btn",
+				encounter.name,
+				"dispense",
+				__("Dispense"),
+				true
+			)
+		);
+	}
+	return '<div class="nurse-action-btns">' + buttons.join("") + "</div>";
+}
+
+function renderQueueSection(title, encounters, action) {
+	const count = '<span class="queue-meta"> (' + encounters.length + ")</span>";
+
+	if (!encounters.length) {
 		return (
 			'<div class="queue-section">' +
-			"<h4 class='queue-head'>" +
+			'<h4 class="queue-head">' +
 			frappe.utils.escape_html(title) +
 			count +
 			"</h4>" +
 			'<div class="empty-state">' +
-			'<i class="fa fa-inbox" style="font-size:24px;margin-bottom:8px;opacity:0.4;"></i>' +
-			'<span style="font-size:var(--text-sm);">' +
+			frappe.utils.icon("inbox", "xl", "", "", "current-color empty-state-icon") +
+			'<span class="empty-state-text">' +
 			__("No patients in queue.") +
 			"</span>" +
 			"</div></div>"
 		);
 	}
 
-	var rows = patients
-		.map(function (p) {
-			return (
+	const rows = encounters
+		.map(
+			(encounter) =>
 				'<tr class="nurse-queue-row" data-name="' +
-				frappe.utils.escape_html(p.name) +
+				frappe.utils.escape_html(encounter.name) +
 				'">' +
-				"<td>" +
-				frappe.utils.escape_html(p.patient_name || "") +
+				'<td class="patient-cell">' +
+				frappe.utils.escape_html(encounter.patient_name || "") +
 				"</td>" +
-				"<td>" +
-				frappe.utils.escape_html(p.patient_age || "") +
+				'<td class="age-cell">' +
+				frappe.utils.escape_html(encounter.patient_age || "") +
 				"</td>" +
-				"<td>" +
-				frappe.utils.escape_html(p.patient_sex || "") +
+				'<td class="sex-cell">' +
+				frappe.utils.escape_html(encounter.patient_sex || "") +
+				"</td>" +
+				'<td class="action-cell">' +
+				renderQueueActionButtons(encounter, action) +
 				"</td>" +
 				"</tr>"
-			);
-		})
+		)
 		.join("");
 
 	return (
 		'<div class="queue-section">' +
-		"<h4 class='queue-head'>" +
+		'<h4 class="queue-head">' +
 		frappe.utils.escape_html(title) +
 		count +
 		"</h4>" +
@@ -299,6 +408,9 @@ function render_queue_section(title, patients) {
 		"<th>" +
 		__("Sex") +
 		"</th>" +
+		"<th>" +
+		__("Actions") +
+		"</th>" +
 		"</tr></thead>" +
 		"<tbody>" +
 		rows +
@@ -306,3 +418,27 @@ function render_queue_section(title, patients) {
 		"</table></div></div>"
 	);
 }
+
+frappe.pages["nurse-form"].on_page_load = function (wrapper) {
+	const page = frappe.ui.make_app_page({
+		parent: wrapper,
+		title: __("Nurse"),
+		single_column: true,
+	});
+
+	page.set_secondary_action(__("Refresh"), refreshDashboard);
+	page.set_primary_action(__("My Schedule"), () => frappe.set_route("my-schedule"), "calendar");
+
+	nursePage = page;
+};
+
+async function refreshDashboard() {
+	await frappe.require(SESSION_UI_ASSET);
+	await bandhu.session_ui.refresh_page(nursePage, loadDashboard);
+}
+
+// Desk keeps this page's DOM and module state alive, so returning from a Patient Encounter would
+// otherwise show the queues exactly as they were before the encounter was edited. on_page_show
+// also fires on the very first show (frappe/public/js/frappe/views/pageview.js:104-107), so it is
+// the only loader needed.
+frappe.pages["nurse-form"].on_page_show = refreshDashboard;

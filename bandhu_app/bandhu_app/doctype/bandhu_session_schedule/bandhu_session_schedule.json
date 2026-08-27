@@ -1,0 +1,247 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "SCH-.#####",
+ "creation": "2026-08-14 09:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "site",
+  "clinic",
+  "project",
+  "unit",
+  "column_break_pattern",
+  "frequency",
+  "monthly_mode",
+  "week_of_month",
+  "day_of_month",
+  "weekdays",
+  "timing_section",
+  "planned_start_time",
+  "planned_end_time",
+  "column_break_validity",
+  "valid_from",
+  "valid_upto",
+  "holiday_list",
+  "team_section",
+  "assigned_doctor",
+  "assigned_driver",
+  "column_break_team",
+  "assigned_nurse",
+  "vehicle",
+  "generation_section",
+  "last_generated_upto"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "description": "Sessions are created automatically only while this is ticked.",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Site",
+   "options": "Site",
+   "reqd": 1
+  },
+  {
+   "fieldname": "clinic",
+   "fieldtype": "Link",
+   "label": "Clinic",
+   "options": "Clinic",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "clinic.project",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Bandhu Projects",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "description": "Its numeric code becomes the third digit of every Clinic ID issued in the generated sessions.",
+   "fieldname": "unit",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Unit",
+   "options": "Unit",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_pattern",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Weekly",
+   "fieldname": "frequency",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Frequency",
+   "options": "Weekly\nFortnightly\nMonthly",
+   "reqd": 1
+  },
+  {
+   "default": "Day of Week",
+   "depends_on": "eval:doc.frequency==\"Monthly\"",
+   "description": "\"Day of Week\" means patterns like the first Monday of every month.",
+   "fieldname": "monthly_mode",
+   "fieldtype": "Select",
+   "label": "Monthly Pattern",
+   "options": "Day of Week\nDay of Month"
+  },
+  {
+   "default": "First",
+   "depends_on": "eval:doc.frequency==\"Monthly\" && doc.monthly_mode!=\"Day of Month\"",
+   "fieldname": "week_of_month",
+   "fieldtype": "Select",
+   "label": "Week of Month",
+   "options": "First\nSecond\nThird\nFourth\nLast"
+  },
+  {
+   "depends_on": "eval:doc.frequency==\"Monthly\" && doc.monthly_mode==\"Day of Month\"",
+   "description": "A month shorter than this day is skipped rather than moved.",
+   "fieldname": "day_of_month",
+   "fieldtype": "Int",
+   "label": "Day of Month"
+  },
+  {
+   "depends_on": "eval:doc.frequency!=\"Monthly\" || doc.monthly_mode!=\"Day of Month\"",
+   "fieldname": "weekdays",
+   "fieldtype": "Table",
+   "label": "Weekdays",
+   "options": "Bandhu Session Weekday"
+  },
+  {
+   "fieldname": "timing_section",
+   "fieldtype": "Section Break",
+   "label": "Timing"
+  },
+  {
+   "fieldname": "planned_start_time",
+   "fieldtype": "Time",
+   "label": "Planned Start Time"
+  },
+  {
+   "fieldname": "planned_end_time",
+   "fieldtype": "Time",
+   "label": "Planned End Time"
+  },
+  {
+   "fieldname": "column_break_validity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "For a fortnightly schedule this is also the anchor: the week containing this date is the first \"on\" week.",
+   "fieldname": "valid_from",
+   "fieldtype": "Date",
+   "label": "Valid From",
+   "reqd": 1
+  },
+  {
+   "description": "Leave blank to keep the schedule running indefinitely.",
+   "fieldname": "valid_upto",
+   "fieldtype": "Date",
+   "label": "Valid Upto"
+  },
+  {
+   "description": "Dates on this holiday list are skipped when sessions are generated.",
+   "fieldname": "holiday_list",
+   "fieldtype": "Link",
+   "label": "Holiday List",
+   "options": "Holiday List"
+  },
+  {
+   "fieldname": "team_section",
+   "fieldtype": "Section Break",
+   "label": "Default Team"
+  },
+  {
+   "fieldname": "assigned_doctor",
+   "fieldtype": "Link",
+   "label": "Assigned Doctor",
+   "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Doctor\"]]",
+   "options": "Healthcare Practitioner"
+  },
+  {
+   "fieldname": "assigned_driver",
+   "fieldtype": "Link",
+   "label": "Assigned Driver",
+   "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Clinic Assistant cum Driver\"]]",
+   "options": "Healthcare Practitioner"
+  },
+  {
+   "fieldname": "column_break_team",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "assigned_nurse",
+   "fieldtype": "Link",
+   "label": "Assigned Nurse",
+   "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Nurse\"]]",
+   "options": "Healthcare Practitioner"
+  },
+  {
+   "fieldname": "vehicle",
+   "fieldtype": "Link",
+   "label": "Vehicle",
+   "options": "Vehicle"
+  },
+  {
+   "fieldname": "generation_section",
+   "fieldtype": "Section Break",
+   "label": "Generation"
+  },
+  {
+   "description": "Sessions have been created up to this date. Cleared when the pattern changes.",
+   "fieldname": "last_generated_upto",
+   "fieldtype": "Date",
+   "label": "Generated Upto",
+   "no_copy": 1,
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [
+  {
+   "link_doctype": "Bandhu Clinic Session",
+   "link_fieldname": "session_schedule"
+  }
+ ],
+ "modified": "2026-08-14 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Bandhu App",
+ "name": "Bandhu Session Schedule",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "site"
+}

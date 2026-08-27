@@ -9,6 +9,7 @@
   "unit_name",
   "doctor",
   "unit_code",
+  "unit_numeric_code",
   "column_break_dnkn",
   "nurse",
   "cad"
@@ -41,6 +42,14 @@
    "fieldname": "unit_code",
    "fieldtype": "Data",
    "label": "Unit Code"
+  },
+  {
+   "description": "One digit. Forms the third digit of every Clinic ID issued by this unit. Never change once patients have been registered.",
+   "fieldname": "unit_numeric_code",
+   "fieldtype": "Data",
+   "label": "Unit Numeric Code",
+   "length": 1,
+   "unique": 1
   },
   {
    "fieldname": "cad",

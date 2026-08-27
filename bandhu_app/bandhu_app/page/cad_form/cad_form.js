@@ -1,0 +1,791 @@
+/* global bandhu */
+
+const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
+
+let cadSession = null;
+let cadPage = null;
+let formOptions = { states: [], sectors: [] };
+
+const REGISTER_FIELDS = [
+	{ name: "full_name", label: __("Full Name"), type: "text" },
+	{ name: "dob", label: __("Date of Birth"), type: "date" },
+	{
+		name: "height_cm",
+		label: __("Height (cm)"),
+		type: "number",
+		attrs: 'min="0" step="0.1" inputmode="decimal"',
+	},
+	{
+		name: "weight_kg",
+		label: __("Weight (kg)"),
+		type: "number",
+		attrs: 'min="0" step="0.1" inputmode="decimal"',
+	},
+	{ name: "native_state", label: __("Native State"), type: "select", optionsKey: "states" },
+	{
+		name: "native_district",
+		label: __("Native District"),
+		type: "text",
+		attrs: 'list="cad-district-list" autocomplete="off"',
+	},
+	{
+		name: "occupation",
+		label: __("Occupation / Sector"),
+		type: "select",
+		optionsKey: "sectors",
+	},
+	{ name: "company_name", label: __("Company Name"), type: "text" },
+	{
+		name: "mobile",
+		label: __("Mobile"),
+		type: "tel",
+		attrs: 'inputmode="numeric" maxlength="10"',
+	},
+	{ name: "abha_id", label: __("ABHA ID"), type: "text" },
+];
+
+async function loadDashboard(page) {
+	frappe.dom.freeze();
+	let statusResult;
+	try {
+		statusResult = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_session_status",
+		});
+	} finally {
+		frappe.dom.unfreeze();
+	}
+
+	const data = statusResult.message || {};
+
+	if (!data.has_session) {
+		renderNoSession(page, data);
+		return;
+	}
+
+	cadSession = data;
+
+	if (data.status === "Completed") {
+		renderCompleted(page, data);
+		return;
+	}
+
+	if (data.status === "Planned") {
+		renderWaitingForNurse(page, data);
+		return;
+	}
+
+	const optionsResult = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_form_options",
+	});
+	formOptions = optionsResult.message || { states: [], sectors: [] };
+
+	await renderFrontDesk(page, data);
+}
+
+function renderNoSession(page, data) {
+	page.main.html(
+		'<div class="cad-dash">' +
+			bandhu.session_ui.format_welcome() +
+			'<div class="empty-state">' +
+			frappe.utils.icon("calendar-off", "xl", "", "", "current-color empty-state-icon") +
+			'<span class="empty-state-text">' +
+			frappe.utils.escape_html(data.message || __("No session available.")) +
+			"</span></div></div>"
+	);
+}
+
+function renderWaitingForNurse(page, data) {
+	page.main.html(
+		'<div class="cad-dash">' +
+			bandhu.session_ui.format_welcome() +
+			bandhu.session_ui.format_session_info(data) +
+			'<div class="empty-state">' +
+			frappe.utils.icon("hourglass", "xl", "", "", "current-color empty-state-icon") +
+			'<span class="empty-state-text">' +
+			__(
+				"Waiting for the nurse to start this clinic session. Patients can't be registered yet."
+			) +
+			"</span></div></div>"
+	);
+}
+
+function renderCompleted(page, data) {
+	page.main.html(
+		'<div class="cad-dash">' +
+			bandhu.session_ui.format_welcome() +
+			bandhu.session_ui.format_session_info(data) +
+			'<div class="empty-state">' +
+			frappe.utils.icon("circle-check", "xl", "", "", "current-color empty-state-icon done") +
+			'<span class="empty-state-text">' +
+			__("Session completed. No further patients can be registered.") +
+			"</span></div></div>"
+	);
+}
+
+async function renderFrontDesk(page, data) {
+	const html =
+		'<div class="cad-dash">' +
+		bandhu.session_ui.format_welcome() +
+		bandhu.session_ui.format_session_info(data) +
+		renderSearchSection() +
+		renderRegisterSection() +
+		'<div class="cad-queue-section">' +
+		'<h4 class="queue-head">' +
+		__("Today's Queue") +
+		'<span class="queue-meta cad-queue-count"></span>' +
+		"</h4>" +
+		'<div class="table-wrap">' +
+		'<table class="table">' +
+		"<thead><tr>" +
+		"<th>" +
+		__("Patient") +
+		"</th>" +
+		"<th>" +
+		__("Clinic ID") +
+		"</th>" +
+		"<th>" +
+		__("Stage") +
+		"</th>" +
+		"<th></th>" +
+		"</tr></thead>" +
+		'<tbody class="cad-queue-body"></tbody>' +
+		"</table></div></div>" +
+		"</div>";
+
+	page.main.html(html);
+	bindSearchEvents(page);
+	bindRegisterEvents(page);
+	await loadQueue(page);
+	focus_scan_input(page);
+}
+
+// A USB barcode scanner is a keyboard: it types the Clinic ID and presses Enter. That only
+// reaches the search box if the box already holds focus when the card is scanned.
+function focus_scan_input(page) {
+	page.main.find(".cad-search-input").trigger("focus");
+}
+
+// The CAD role holds no print permission on Patient, so /printview would refuse. The card
+// comes back through the page's own role-gated endpoint instead.
+async function print_patient_card(patient) {
+	if (!patient) return;
+
+	frappe.dom.freeze();
+	let card_html;
+	try {
+		const response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_patient_card_html",
+			args: { patient },
+		});
+		card_html = response.message;
+	} finally {
+		frappe.dom.unfreeze();
+	}
+
+	if (!card_html) return;
+
+	const card_window = window.open("", "_blank");
+	if (!card_window) {
+		frappe.msgprint(__("Allow pop-ups for this site to print the patient card."));
+		return;
+	}
+
+	card_window.document.write(card_html);
+	card_window.document.close();
+	card_window.focus();
+	card_window.print();
+}
+
+function renderSearchSection() {
+	return (
+		'<div class="cad-search-section">' +
+		'<h4 class="queue-head">' +
+		__("Find Existing Patient") +
+		"</h4>" +
+		'<div class="search-row">' +
+		'<div class="search-field">' +
+		frappe.utils.icon("search", "sm", "", "", "current-color search-field-icon") +
+		'<input type="text" class="form-control cad-search-input" placeholder="' +
+		frappe.utils.escape_html(
+			__("Scan the patient's card, or search by Clinic ID, ABHA ID, Mobile, Name or DOB")
+		) +
+		'"></div>' +
+		'<button class="btn btn-primary cad-search-btn">' +
+		__("Search") +
+		"</button>" +
+		'<button class="btn btn-default cad-scan-btn" title="' +
+		frappe.utils.escape_html(__("Scan the patient's card with the camera")) +
+		'">' +
+		frappe.utils.icon("camera", "sm", "", "", "current-color") +
+		__("Scan") +
+		"</button>" +
+		"</div>" +
+		'<div class="cad-search-results"></div>' +
+		"</div>"
+	);
+}
+
+function renderRegisterSection() {
+	return (
+		'<div class="cad-register-section">' +
+		'<button class="btn btn-default cad-register-toggle-btn">' +
+		frappe.utils.icon("user-plus", "sm", "", "", "current-color") +
+		__("Register New Patient") +
+		"</button>" +
+		'<div class="cad-register-form">' +
+		renderRegisterForm() +
+		"</div>" +
+		"</div>"
+	);
+}
+
+function renderSelectField(field) {
+	const options = formOptions[field.optionsKey] || [];
+	const optionHtml = options
+		.map(
+			(option) =>
+				'<option value="' +
+				frappe.utils.escape_html(option) +
+				'">' +
+				frappe.utils.escape_html(option) +
+				"</option>"
+		)
+		.join("");
+	return (
+		'<select class="form-control cad-field" data-field="' +
+		field.name +
+		'">' +
+		'<option value="">' +
+		__("-- Select --") +
+		"</option>" +
+		optionHtml +
+		"</select>"
+	);
+}
+
+function renderRegisterForm() {
+	const fields = REGISTER_FIELDS.map((field) => {
+		const input =
+			field.type === "select"
+				? renderSelectField(field)
+				: '<input type="' +
+				  field.type +
+				  '" class="form-control cad-field" data-field="' +
+				  field.name +
+				  '" ' +
+				  (field.attrs || "") +
+				  ">";
+		return (
+			'<div class="form-group">' +
+			"<label>" +
+			frappe.utils.escape_html(field.label) +
+			"</label>" +
+			input +
+			"</div>"
+		);
+	}).join("");
+
+	const sexGroup =
+		'<div class="form-group">' +
+		"<label>" +
+		__("Sex") +
+		"</label>" +
+		'<div class="sex-btn-group" data-field="sex">' +
+		["Male", "Female", "Other"]
+			.map(
+				(sex) =>
+					'<button type="button" class="btn btn-default sex-btn" data-value="' +
+					sex +
+					'">' +
+					__(sex) +
+					"</button>"
+			)
+			.join("") +
+		"</div></div>";
+
+	return (
+		'<div class="register-grid">' +
+		fields +
+		sexGroup +
+		"</div>" +
+		'<datalist id="cad-district-list"></datalist>' +
+		'<div class="register-actions">' +
+		'<button class="btn btn-primary btn-lg cad-register-submit">' +
+		__("Register & Add to Queue") +
+		"</button>" +
+		"</div>"
+	);
+}
+
+function bindSearchEvents(page) {
+	page.main
+		.off("click", ".cad-search-btn")
+		.on("click", ".cad-search-btn", () => searchPatients(page));
+
+	page.main.off("keypress", ".cad-search-input").on("keypress", ".cad-search-input", (event) => {
+		if (event.which === 13) searchPatients(page);
+	});
+
+	page.main.off("click", ".cad-scan-btn").on("click", ".cad-scan-btn", () => openCardScanner(page));
+
+	// bound before the row handler so printing a card does not also queue the patient
+	page.main.off("click", ".pr-print-btn").on("click", ".pr-print-btn", function (event) {
+		event.stopPropagation();
+		print_patient_card($(this).data("patient"));
+	});
+
+	// bound before the row handler so the explicit button and a stray row tap do not both fire
+	page.main.off("click", ".pr-queue-btn").on("click", ".pr-queue-btn", function (event) {
+		event.stopPropagation();
+		confirm_add_to_queue(page, $(this).data("patient"));
+	});
+
+	page.main.off("click", ".patient-result-row").on("click", ".patient-result-row", function () {
+		confirm_add_to_queue(page, $(this).data("patient"));
+	});
+}
+
+function confirm_add_to_queue(page, patient) {
+	frappe.confirm(__("Add this patient to today's queue?"), async () => {
+		await addPatientToQueue(page, patient, () => {
+			page.main.find(".cad-search-results").empty();
+			page.main.find(".cad-search-input").val("");
+			focus_scan_input(page);
+		});
+	});
+}
+
+// A patient who walks out before being seen has to leave the boards, but deleting the queue row
+// would only bring it back on the encounter's next save — sync_to_queue rebuilds it from the
+// encounter, so the encounter is what has to end.
+function cancel_queued_visit(page, encounter, patient_name) {
+	frappe.confirm(
+		__("End {0}'s visit without treatment? They will drop off the doctor and nurse boards.", [
+			frappe.utils.escape_html(patient_name || __("this patient")),
+		]),
+		async () => {
+			frappe.dom.freeze();
+			try {
+				await frappe.call({
+					method: "bandhu_app.bandhu_app.page.cad_form.cad_form.cancel_visit",
+					args: { encounter: encounter, session: cadSession.session_name },
+				});
+			} finally {
+				frappe.dom.unfreeze();
+			}
+			await loadQueue(page);
+		}
+	);
+}
+
+// A USB scanner is a keyboard and needs no code here (see focus_scan_input above); this is
+// for staff without one — decode the card's QR through the device camera instead.
+function openCardScanner(page) {
+	// frappe.ui.Scanner fails silently to the console on a denied or unsupported camera;
+	// catching it here up front is what tells the CAD why nothing opened.
+	if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+		frappe.msgprint(__("Camera scanning needs a supported browser over HTTPS. Type the Clinic ID instead."));
+		return;
+	}
+
+	new frappe.ui.Scanner({
+		dialog: true,
+		multiple: false,
+		on_scan(data) {
+			const clinicId = data && data.result && data.result.text;
+			if (!clinicId) return;
+
+			page.main.find(".cad-search-input").val(clinicId);
+			searchPatients(page);
+		},
+	});
+}
+
+async function searchPatients(page) {
+	const query = (page.main.find(".cad-search-input").val() || "").trim();
+	if (!query) return;
+
+	let results;
+	frappe.dom.freeze();
+	try {
+		const response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.search_patient",
+			args: { query },
+		});
+		results = response.message || [];
+	} finally {
+		frappe.dom.unfreeze();
+	}
+
+	const scanned = match_scanned_card(query, results);
+	if (scanned) {
+		queue_scanned_patient(page, scanned);
+		return;
+	}
+
+	renderSearchResults(page, results);
+}
+
+// Ten digits is the current Clinic ID; BMC-##### is the format issued before this one and
+// still printed on cards in circulation.
+const CLINIC_ID_PATTERN = /^(?:\d{10}|BMC-\d+)$/i;
+
+function match_scanned_card(query, results) {
+	if (!CLINIC_ID_PATTERN.test(query)) return null;
+
+	const exact = results.filter(
+		(patient) => (patient.custom_bandhu_id || "").toUpperCase() === query.toUpperCase()
+	);
+
+	// Anything other than a single exact hit goes to the normal list, so the CAD sees the
+	// ambiguity rather than having the screen pick a patient for them.
+	return exact.length === 1 ? exact[0] : null;
+}
+
+function queue_scanned_patient(page, patient) {
+	// frappe.confirm appends its message as HTML (frappe/public/js/frappe/ui/messages.js:48) and
+	// __() substitutes {0} verbatim, so a patient name is an injection point until it is escaped.
+	frappe.confirm(
+		__("Add {0} ({1}) to today's queue?", [
+			frappe.utils.escape_html(patient.patient_name || ""),
+			frappe.utils.escape_html(patient.custom_bandhu_id || ""),
+		]),
+		async () => {
+			await addPatientToQueue(page, patient.name, () => {
+				page.main.find(".cad-search-results").empty();
+				page.main.find(".cad-search-input").val("");
+				focus_scan_input(page);
+			});
+		},
+		() => {
+			page.main.find(".cad-search-input").val("").trigger("focus");
+		}
+	);
+}
+
+function renderSearchResults(page, results) {
+	const container = page.main.find(".cad-search-results");
+	if (!results.length) {
+		container.html(
+			'<div class="empty-state"><span class="empty-state-text">' +
+				__("No matching patients.") +
+				"</span></div>"
+		);
+		return;
+	}
+
+	const rows = results
+		.map((patient) => {
+			const meta = [patient.custom_bandhu_id, patient.sex, patient.dob]
+				.filter(Boolean)
+				.map(frappe.utils.escape_html)
+				.join(" &bull; ");
+			return (
+				'<div class="patient-result-row" data-patient="' +
+				frappe.utils.escape_html(patient.name) +
+				'">' +
+				'<div class="pr-info">' +
+				'<span class="pr-name">' +
+				frappe.utils.escape_html(patient.patient_name || "") +
+				"</span>" +
+				'<span class="pr-meta">' +
+				meta +
+				"</span>" +
+				"</div>" +
+				'<div class="pr-actions">' +
+				'<button class="btn btn-xs btn-default pr-print-btn" data-patient="' +
+				frappe.utils.escape_html(patient.name) +
+				'">' +
+				__("Print Card") +
+				"</button>" +
+				'<button class="btn btn-xs btn-primary pr-queue-btn" data-patient="' +
+				frappe.utils.escape_html(patient.name) +
+				'">' +
+				__("Add to Queue") +
+				"</button>" +
+				"</div>" +
+				"</div>"
+			);
+		})
+		.join("");
+
+	container.html(rows);
+}
+
+function bindRegisterEvents(page) {
+	page.main
+		.off("click", ".cad-register-toggle-btn")
+		.on("click", ".cad-register-toggle-btn", () => {
+			page.main.find(".cad-register-form").toggle();
+		});
+
+	page.main.off("click", ".sex-btn").on("click", ".sex-btn", function () {
+		$(this).siblings(".sex-btn").removeClass("btn-primary active").addClass("btn-default");
+		$(this).addClass("btn-primary active").removeClass("btn-default");
+	});
+
+	page.main
+		.off("click", ".cad-register-submit")
+		.on("click", ".cad-register-submit", () => submitRegistration(page));
+
+	page.main
+		.off("change", ".cad-field[data-field='native_state']")
+		.on("change", ".cad-field[data-field='native_state']", function () {
+			loadDistrictSuggestions(page, $(this).val());
+		});
+}
+
+// Native District stays free text (Autocomplete, not Link, server-side) so a state without
+// a mapped district list never blocks registration — this only offers suggestions.
+async function loadDistrictSuggestions(page, state) {
+	const datalist = page.main.find("#cad-district-list");
+	datalist.empty();
+	if (!state) return;
+
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.utils.state_districts.get_districts",
+		args: { state },
+	});
+	const districts = (response && response.message) || [];
+	datalist.html(
+		districts
+			.map((district) => '<option value="' + frappe.utils.escape_html(district) + '">')
+			.join("")
+	);
+}
+
+async function submitRegistration(page) {
+	const values = {};
+	page.main.find(".cad-field").each(function () {
+		values[$(this).data("field")] = $(this).val();
+	});
+	values.sex = page.main.find(".sex-btn.active").data("value");
+
+	if (!values.full_name || !values.full_name.trim()) {
+		frappe.msgprint(__("Full name is required."));
+		return;
+	}
+	if (!values.dob) {
+		frappe.msgprint(__("Date of birth is required."));
+		return;
+	}
+	if (!values.sex) {
+		frappe.msgprint(__("Please select sex."));
+		return;
+	}
+	if (values.mobile && !/^\d{10}$/.test(values.mobile.trim())) {
+		frappe.msgprint(__("Mobile number must be 10 digits."));
+		return;
+	}
+	if (values.height_cm && flt(values.height_cm) < 0) {
+		frappe.msgprint(__("Height cannot be negative."));
+		return;
+	}
+	if (values.weight_kg && flt(values.weight_kg) < 0) {
+		frappe.msgprint(__("Weight cannot be negative."));
+		return;
+	}
+
+	const args = {
+		full_name: values.full_name.trim(),
+		dob: values.dob,
+		sex: values.sex,
+		session: cadSession.session_name,
+	};
+	if (values.mobile) args.mobile = values.mobile;
+	if (values.height_cm) args.height_cm = values.height_cm;
+	if (values.weight_kg) args.weight_kg = values.weight_kg;
+	if (values.native_state) args.native_state = values.native_state;
+	if (values.native_district) args.native_district = values.native_district;
+	if (values.occupation) args.occupation = values.occupation;
+	if (values.company_name) args.company_name = values.company_name;
+	if (values.abha_id) args.abha_id = values.abha_id;
+
+	frappe.dom.freeze();
+	let patient;
+	try {
+		const response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.register_patient",
+			args,
+		});
+		patient = response.message;
+	} finally {
+		frappe.dom.unfreeze();
+	}
+
+	if (!patient) return;
+
+	await addPatientToQueue(page, patient, () => {
+		page.main.find(".cad-register-form").hide();
+		page.main.find(".cad-field").val("");
+		page.main.find(".sex-btn").removeClass("btn-primary active").addClass("btn-default");
+		focus_scan_input(page);
+	});
+
+	// No print prompt here. The patient's row in the queue carries its own Print Card
+	// button, so the card can be printed now or at any point during the visit without a
+	// dialog interrupting the next registration.
+	frappe.show_alert({ message: __("Patient registered."), indicator: "green" });
+}
+
+async function addPatientToQueue(page, patient, onQueued) {
+	frappe.dom.freeze();
+	try {
+		await frappe.call({
+			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.create_encounter",
+			args: { patient, session: cadSession.session_name },
+		});
+	} finally {
+		frappe.dom.unfreeze();
+	}
+
+	onQueued();
+	await loadQueue(page);
+}
+
+async function loadQueue(page) {
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_today_queue",
+		args: { session: cadSession.session_name },
+	});
+	renderQueueTable(page, response.message || []);
+}
+
+function renderQueueTable(page, rows) {
+	page.main.find(".cad-queue-count").text(" (" + rows.length + ")");
+	const body = page.main.find(".cad-queue-body");
+
+	if (!rows.length) {
+		body.html(
+			'<tr><td colspan="4" class="queue-empty">' +
+				__("No patients in queue yet.") +
+				"</td></tr>"
+		);
+		return;
+	}
+
+	const html = rows
+		.map(
+			(row) =>
+				"<tr>" +
+				"<td>" +
+				frappe.utils.escape_html(row.patient_name || "") +
+				"</td>" +
+				'<td class="queue-clinic-id">' +
+				frappe.utils.escape_html(bandhu.session_ui.group_clinic_id(row.clinic_id)) +
+				"</td>" +
+				"<td>" +
+				format_stage_badge(row.current_stage) +
+				"</td>" +
+				'<td class="queue-row-actions">' +
+				'<span class="queue-more" data-patient="' +
+				frappe.utils.escape_html(row.patient || "") +
+				'" data-encounter="' +
+				frappe.utils.escape_html(row.encounter || "") +
+				'" data-patient-name="' +
+				frappe.utils.escape_html(row.patient_name || "") +
+				'" data-can-cancel="' +
+				(row.encounter && !QUEUE_TERMINAL_STAGES.has(row.current_stage) ? "1" : "") +
+				'"></span>' +
+				"</td>" +
+				"</tr>"
+		)
+		.join("");
+
+	body.html(html);
+	attachRowMenus(page, body);
+}
+
+// Every row carries the menu, including finished ones, so the actions column keeps a single
+// shape down the table. Print Card lives in it rather than beside it: the queue is the screen
+// the front desk reads, and a button on every row competed with the patient names for it.
+let queueRowMenus = [];
+
+function attachRowMenus(page, body) {
+	queueRowMenus.forEach((menu) => menu.destroy());
+	queueRowMenus = [];
+
+	body.find(".queue-more").each(function () {
+		const patient = $(this).data("patient");
+		const encounter = $(this).data("encounter");
+		const patient_name = $(this).data("patient-name");
+
+		const options = [
+			{
+				label: __("Print Card"),
+				icon: "printer",
+				onclick: () => print_patient_card(patient),
+			},
+		];
+		if ($(this).data("can-cancel")) {
+			options.push({
+				label: __("Cancel Visit"),
+				icon: "ban",
+				theme: "red",
+				onclick: () => cancel_queued_visit(page, encounter, patient_name),
+			});
+		}
+
+		const $trigger = frappe.ui.dropdown({
+			// label "" is what makes frappe.ui.button render icon-only; Dropdown otherwise
+			// defaults the trigger to a labelled "Options" button.
+			button: {
+				label: "",
+				icon: "ellipsis",
+				variant: "ghost",
+				tooltip: __("More actions"),
+			},
+			align: "end",
+			options,
+		});
+		$(this).replaceWith($trigger);
+		queueRowMenus.push($trigger.data("es-dropdown"));
+	});
+}
+
+// Status was a second column that only ever restated the stage (Completed reads Done, every
+// other stage reads Active), so the badge carries both: colour for how the visit ended,
+// wording for where the patient is.
+const QUEUE_TERMINAL_STAGES = new Set(["Completed", "Cancelled"]);
+
+const QUEUE_STAGE_BADGES = {
+	Waiting: { theme: "amber", variant: "subtle" },
+	"With Doctor": { theme: "blue", variant: "subtle" },
+	"With Nurse (Test)": { theme: "blue", variant: "subtle" },
+	"With Nurse (Medicine)": { theme: "blue", variant: "subtle" },
+	Completed: { theme: "green", variant: "subtle" },
+	Cancelled: { theme: "red", variant: "subtle" },
+};
+
+function format_stage_badge(stage) {
+	if (!stage) return "";
+	const badge = QUEUE_STAGE_BADGES[stage] || { theme: "", variant: "subtle" };
+	return bandhu.session_ui.format_badge(__(stage), badge.theme, badge.variant);
+}
+
+frappe.pages["cad-form"].on_page_load = function (wrapper) {
+	const page = frappe.ui.make_app_page({
+		parent: wrapper,
+		title: __("CAD Front Desk"),
+		single_column: true,
+	});
+
+	page.set_secondary_action(__("Refresh"), refreshDashboard);
+	page.set_primary_action(__("My Schedule"), () => frappe.set_route("my-schedule"), "calendar");
+
+	cadPage = page;
+};
+
+async function refreshDashboard() {
+	await frappe.require(SESSION_UI_ASSET);
+	await bandhu.session_ui.refresh_page(cadPage, loadDashboard);
+}
+
+// Desk keeps this page's DOM and module state alive across route changes, so the queue would
+// otherwise still show the state it had when the CAD left the page. Only the queue is reloaded
+// when the front desk is already up -- a full re-render would wipe a half-typed registration.
+frappe.pages["cad-form"].on_page_show = async function () {
+	await frappe.require(SESSION_UI_ASSET);
+	const load = cadPage.main.find(".cad-queue-body").length ? loadQueue : loadDashboard;
+	await bandhu.session_ui.refresh_page(cadPage, load);
+};

@@ -27,7 +27,14 @@
    "quick_list_filter": "[[\"Patient Encounter\",\"custom_workflow_state\",\"=\",\"Completed\"],[\"Patient Encounter\",\"encounter_date\",\"Timespan\",\"today\"]]"
   }
  ],
- "roles": [],
+ "roles": [
+  {
+   "role": "Clinic Assistant cum Driver"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
  "sequence_id": 0.0,
  "shortcuts": [
   {

@@ -8,7 +8,7 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["erpnext", "healthcare"]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -25,8 +25,13 @@ app_license = "mit"
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/bandhu_app/css/bandhu_app.css"
-# app_include_js = "/assets/bandhu_app/js/bandhu_app.js"
+# Raw asset paths are not versioned by Frappe's include_script/include_style —
+# bump ?v= on every edit or browsers keep the old file.
+app_include_css = ["/assets/bandhu_app/css/desk.css?v=2"]
+app_include_js = [
+	"/assets/bandhu_app/js/session_ui.js",
+	"/assets/bandhu_app/js/workspace_redirect.js?v=2",
+]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/bandhu_app/css/bandhu_app.css"
@@ -77,16 +82,21 @@ doctype_js = {"Patient": "public/js/patient.js"}
 # ----------
 
 # add methods and filters to jinja environment
-# jinja = {
-# 	"methods": "bandhu_app.utils.jinja_methods",
-# 	"filters": "bandhu_app.utils.jinja_filters"
-# }
+jinja = {"methods": ["bandhu_app.bandhu_app.utils.custom_qr_code.get_qr_code_image_source"]}
 
 # Installation
 # ------------
 
 # before_install = "bandhu_app.install.before_install"
-# after_install = "bandhu_app.install.after_install"
+after_install = "bandhu_app.install.after_install"
+
+# Migration
+# ------------
+
+after_migrate = [
+	"bandhu_app.bandhu_app.utils.desk_visibility.sync_bandhu_desktop_icons",
+	"bandhu_app.bandhu_app.utils.desk_visibility.restrict_other_app_desktop_icons",
+]
 
 # Uninstallation
 # ------------
@@ -143,23 +153,11 @@ doctype_js = {"Patient": "public/js/patient.js"}
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"bandhu_app.tasks.all"
-# 	],
-# 	"daily": [
-# 		"bandhu_app.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"bandhu_app.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"bandhu_app.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"bandhu_app.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"daily": [
+		"bandhu_app.bandhu_app.utils.session_schedule.generate_scheduled_sessions",
+	],
+}
 
 # Testing
 # -------
@@ -244,9 +242,13 @@ export_python_type_annotations = True
 # Require all whitelisted methods to have type annotations
 require_type_annotated_api_methods = True
 
-# default_log_clearing_doctypes = {
-# 	"Logging DocType Name": 30  # days to retain logs
-# }
+default_log_clearing_doctypes = {
+	"Patient Queue": 90,
+	# The CAD patient-search/card audit trail (page/cad_form/cad_form.py). Frappe ships
+	# clear_old_logs on Access Log but does not register it, so without this line the table
+	# grows for the life of the site.
+	"Access Log": 30,
+}
 
 # Translation
 # ------------
@@ -267,5 +269,6 @@ doc_events = {
 	},
 	"Patient Encounter": {
 		"validate": "bandhu_app.bandhu_app.utils.patient_encounter.validate_workflow_state",
+		"on_update": "bandhu_app.bandhu_app.utils.patient_encounter.sync_to_queue",
 	},
 }

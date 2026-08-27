@@ -1,5 +1,5 @@
 {
- "app": "frappe",
+ "app": "bandhu_app",
  "charts": [],
  "content": "[{\"id\":\"2OiP63Lh2T\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h2\\\">Nurse</span>\",\"col\":12}},{\"id\":\"41QkXylKHI\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"WqSFn7qNu4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"\ud83d\udc8a Medication Dispense\",\"col\":6}},{\"id\":\"s78Ti0SWr4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"\ud83d\udcc3 Test Result\",\"col\":6}}]",
  "creation": "2026-04-27 17:58:16.212862",
@@ -24,7 +24,14 @@
  "parent_page": "",
  "public": 1,
  "quick_lists": [],
- "roles": [],
+ "roles": [
+  {
+   "role": "Nurse"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
  "sequence_id": 31.0,
  "shortcuts": [
   {
