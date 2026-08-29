@@ -100,7 +100,7 @@ def clock_value(value, fallback: str) -> str:
 	Frappe hands a Time back as `9:30:00`."""
 	if value in (None, ""):
 		return fallback
-	hours, minutes, seconds = (str(value).split(":") + ["00", "00"])[:3]
+	hours, minutes, seconds = [*str(value).split(":"), "00", "00"][:3]
 	return f"{int(hours):02d}:{minutes:0>2}:{seconds[:2]:0>2}"
 
 

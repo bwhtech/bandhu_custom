@@ -30,53 +30,73 @@ class IntegrationTestSessionReport(IntegrationTestCase):
 
 	@classmethod
 	def _make_practitioner(cls, first_name):
-		return frappe.get_doc(
-			{"doctype": "Healthcare Practitioner", "first_name": first_name, "status": "Active"}
-		).insert(ignore_permissions=True).name
+		return (
+			frappe.get_doc(
+				{"doctype": "Healthcare Practitioner", "first_name": first_name, "status": "Active"}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
 
 	@classmethod
 	def _make_location(cls, lsg):
-		return frappe.get_doc(
-			{
-				"doctype": "Bandhu Location",
-				"location_name": f"{lsg} {frappe.generate_hash(length=6)}",
-				"lsg": lsg,
-				"district": "Ernakulam",
-				"state": "Kerala",
-			}
-		).insert(ignore_permissions=True).name
+		return (
+			frappe.get_doc(
+				{
+					"doctype": "Bandhu Location",
+					"location_name": f"{lsg} {frappe.generate_hash(length=6)}",
+					"lsg": lsg,
+					"district": "Ernakulam",
+					"state": "Kerala",
+				}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
 
 	@classmethod
 	def _make_site(cls, site_name, location):
-		return frappe.get_doc(
-			{
-				"doctype": "Site",
-				"site_name": f"{site_name} {frappe.generate_hash(length=6)}",
-				"location": location,
-			}
-		).insert(ignore_permissions=True).name
+		return (
+			frappe.get_doc(
+				{
+					"doctype": "Site",
+					"site_name": f"{site_name} {frappe.generate_hash(length=6)}",
+					"location": location,
+				}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
 
 	def _make_session(self, date, site=None, status="Completed"):
-		return frappe.get_doc(
-			{
-				"doctype": "Bandhu Clinic Session",
-				"date": date,
-				"clinic": self.clinic,
-				"site": site or self.site,
-				"project": self.project,
-				"assigned_doctor": self.doctor,
-				"status": status,
-			}
-		).insert(ignore_permissions=True).name
+		return (
+			frappe.get_doc(
+				{
+					"doctype": "Bandhu Clinic Session",
+					"date": date,
+					"clinic": self.clinic,
+					"site": site or self.site,
+					"project": self.project,
+					"assigned_doctor": self.doctor,
+					"status": status,
+				}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
 
 	def _make_patient(self):
-		return frappe.get_doc(
-			{
-				"doctype": "Patient",
-				"first_name": f"Report Patient {frappe.generate_hash(length=8)}",
-				"sex": self.gender,
-			}
-		).insert(ignore_permissions=True).name
+		return (
+			frappe.get_doc(
+				{
+					"doctype": "Patient",
+					"first_name": f"Report Patient {frappe.generate_hash(length=8)}",
+					"sex": self.gender,
+				}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
 
 	def _make_encounter(self, session, patient=None, tests=None, prescriptions=None, state="Completed"):
 		return frappe.get_doc(
@@ -97,7 +117,7 @@ class IntegrationTestSessionReport(IntegrationTestCase):
 	def _run(self, **filters):
 		filters.setdefault("from_date", today())
 		filters.setdefault("to_date", today())
-		columns, rows = execute(filters)[:2]
+		_columns, rows = execute(filters)[:2]
 		return rows
 
 	def _row_for(self, rows, session):

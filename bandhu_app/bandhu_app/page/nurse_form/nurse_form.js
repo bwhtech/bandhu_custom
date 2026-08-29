@@ -59,7 +59,13 @@ async function loadDashboard(page) {
 				bandhu.session_ui.format_welcome() +
 				bandhu.session_ui.format_session_info(data) +
 				'<div class="empty-state">' +
-				frappe.utils.icon("circle-check", "xl", "", "", "current-color empty-state-icon done") +
+				frappe.utils.icon(
+					"circle-check",
+					"xl",
+					"",
+					"",
+					"current-color empty-state-icon done"
+				) +
 				'<span class="empty-state-text">' +
 				__("Session completed. Great work!") +
 				"</span></div></div>"

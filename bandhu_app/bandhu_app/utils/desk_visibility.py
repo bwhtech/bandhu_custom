@@ -36,9 +36,7 @@ def restrict_other_app_desktop_icons():
 			# "Subcontracting" that way here), and its save fails link validation. That is not
 			# ours to repair, and it must not stop the icons after it in the list from being
 			# hidden — which is exactly what happened before this was caught.
-			frappe.log_error(
-				title="Could not restrict desktop icon", message=f"{icon_name}: {error}"
-			)
+			frappe.log_error(title="Could not restrict desktop icon", message=f"{icon_name}: {error}")
 
 
 def sync_bandhu_desktop_icons():

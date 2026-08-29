@@ -21,9 +21,17 @@ class IntegrationTestClinicReport(IntegrationTestCase):
 		cls.appointment_type = frappe.get_all("Appointment Type", limit=1, pluck="name")[0]
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
-		cls.doctor = frappe.get_doc(
-			{"doctype": "Healthcare Practitioner", "first_name": "Clinic Report Doctor", "status": "Active"}
-		).insert(ignore_permissions=True).name
+		cls.doctor = (
+			frappe.get_doc(
+				{
+					"doctype": "Healthcare Practitioner",
+					"first_name": "Clinic Report Doctor",
+					"status": "Active",
+				}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
 
 	def setUp(self):
 		# Records from an earlier test are still visible to this one, so each test works
@@ -38,35 +46,47 @@ class IntegrationTestClinicReport(IntegrationTestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		self.site = frappe.get_doc(
-			{
-				"doctype": "Site",
-				"site_name": f"Clinic Report Worksite {frappe.generate_hash(length=6)}",
-				"location": self.location.name,
-			}
-		).insert(ignore_permissions=True).name
+		self.site = (
+			frappe.get_doc(
+				{
+					"doctype": "Site",
+					"site_name": f"Clinic Report Worksite {frappe.generate_hash(length=6)}",
+					"location": self.location.name,
+				}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
 
 	def _make_session(self, status="Completed"):
-		return frappe.get_doc(
-			{
-				"doctype": "Bandhu Clinic Session",
-				"date": today(),
-				"clinic": self.clinic,
-				"site": self.site,
-				"project": self.project,
-				"assigned_doctor": self.doctor,
-				"status": status,
-			}
-		).insert(ignore_permissions=True).name
+		return (
+			frappe.get_doc(
+				{
+					"doctype": "Bandhu Clinic Session",
+					"date": today(),
+					"clinic": self.clinic,
+					"site": self.site,
+					"project": self.project,
+					"assigned_doctor": self.doctor,
+					"status": status,
+				}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
 
 	def _make_encounter(self, session):
-		patient = frappe.get_doc(
-			{
-				"doctype": "Patient",
-				"first_name": f"Clinic Report Patient {frappe.generate_hash(length=8)}",
-				"sex": self.gender,
-			}
-		).insert(ignore_permissions=True).name
+		patient = (
+			frappe.get_doc(
+				{
+					"doctype": "Patient",
+					"first_name": f"Clinic Report Patient {frappe.generate_hash(length=8)}",
+					"sex": self.gender,
+				}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
 
 		return frappe.get_doc(
 			{
