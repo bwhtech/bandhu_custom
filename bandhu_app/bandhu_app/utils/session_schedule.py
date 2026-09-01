@@ -1,6 +1,7 @@
 # Copyright (c) 2026, CMID and contributors
 # For license information, please see license.txt
 
+from collections import defaultdict
 from datetime import date, timedelta
 
 import frappe
@@ -37,6 +38,60 @@ SESSION_FIELDS_FROM_SCHEDULE = (
 	"assigned_driver",
 	"vehicle",
 )
+
+
+def require_scheduling_access() -> None:
+	"""Shared by the New Schedule wizard and the New Session quick-create — both write
+	Bandhu Clinic Session rows and neither has a role of its own to gate on."""
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(
+			_("You do not have permission to create clinic schedules."),
+			frappe.PermissionError,
+		)
+
+
+def practitioners_by_role(custom_role: str) -> list:
+	return frappe.get_all(
+		"Healthcare Practitioner",
+		filters={"custom_role": custom_role, "status": "Active"},
+		fields=["name as value", "practitioner_name as label"],
+		order_by="practitioner_name asc",
+	)
+
+
+def association_maps() -> dict:
+	"""Project/Site/Clinic/Unit pairings actually run before, so a form's dropdowns can
+	narrow to what makes sense instead of every master in the system. Only Clinic.project is
+	a real schema link — Site and Unit have no FK to Project or Clinic — so this is derived
+	from history, not the doctypes, and an empty map for a key means "no history yet",
+	which callers must treat as "don't filter" rather than "nothing is valid"."""
+	combos = frappe.get_all("Bandhu Clinic Session", fields=["project", "site", "clinic", "unit"])
+
+	project_sites = defaultdict(set)
+	site_clinics = defaultdict(set)
+	clinic_units = defaultdict(set)
+	for combo in combos:
+		if combo.project and combo.site:
+			project_sites[combo.project].add(combo.site)
+		if combo.site and combo.clinic:
+			site_clinics[combo.site].add(combo.clinic)
+		if combo.clinic and combo.unit:
+			clinic_units[combo.clinic].add(combo.unit)
+
+	return {
+		"project_sites": {key: sorted(value) for key, value in project_sites.items()},
+		"site_clinics": {key: sorted(value) for key, value in site_clinics.items()},
+		"clinic_units": {key: sorted(value) for key, value in clinic_units.items()},
+	}
+
+
+def clock_value(value, fallback: str) -> str:
+	"""`<input type="time">` silently renders empty unless the value is zero-padded, and
+	Frappe hands a Time back as `9:30:00`."""
+	if value in (None, ""):
+		return fallback
+	hours, minutes, seconds = [*str(value).split(":"), "00", "00"][:3]
+	return f"{int(hours):02d}:{minutes:0>2}:{seconds[:2]:0>2}"
 
 
 def week_start(day: date) -> date:
