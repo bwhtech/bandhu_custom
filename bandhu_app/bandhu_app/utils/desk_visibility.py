@@ -17,9 +17,19 @@ ALLOWED_ROLES = ["System Manager"]
 
 def restrict_other_app_desktop_icons():
 	"""Hide other apps' top-level desk icons from everyone but System Manager."""
+	# Desktop Icon.app carries the exact same landmine sync_bandhu_desktop_icons already
+	# works around on Workspace.app: it is only as good as whatever app was active in the
+	# Desk UI at creation time, and every one of this app's own 9 icons has it blank. Filtering
+	# on it here undid sync_bandhu_desktop_icons's own fix on every single after_migrate run —
+	# CAD, Doctor and Nurse's tiles got locked back to System Manager only immediately after
+	# being unlocked. link_to against this app's own workspace names is the reliable check.
+	bandhu_workspaces = frappe.get_all("Workspace", filters={"module": "Bandhu App"}, pluck="name")
 	foreign_icons = frappe.get_all(
 		"Desktop Icon",
-		filters={"app": ["!=", "bandhu_app"], "parent_icon": ["in", ["", None]]},
+		filters={
+			"parent_icon": ["in", ["", None]],
+			"link_to": ["not in", bandhu_workspaces or [""]],
+		},
 		pluck="name",
 	)
 
