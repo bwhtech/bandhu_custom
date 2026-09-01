@@ -1,5 +1,6 @@
 import frappe
 from frappe import _
+from frappe.utils import flt
 
 from bandhu_app.bandhu_app.utils.patient_details import get_patient_details, get_session_encounters
 from bandhu_app.bandhu_app.utils.session import find_active_session, find_upcoming_sessions
@@ -186,6 +187,48 @@ def submit_test_results(encounter: str, results: list | str) -> None:
 		row.result_value = result.get("result_value")
 
 	doc.custom_workflow_state = "Awaiting Doctor Review"
+	doc.save(ignore_permissions=True)
+
+
+@frappe.whitelist(methods=["POST"])
+def record_vitals(
+	encounter: str,
+	height_cm: float | None = None,
+	weight_kg: float | None = None,
+	temperature: float | None = None,
+	pulse_rate: int | None = None,
+	spo2: int | None = None,
+	bp_systolic: int | None = None,
+	bp_diastolic: int | None = None,
+) -> None:
+	doc = load_session_encounter(encounter)
+	if doc.custom_workflow_state not in ("Awaiting Test", "Awaiting Medicine"):
+		frappe.throw(_("Vitals can only be recorded while the patient is with the nurse."))
+
+	values = [height_cm, weight_kg, temperature, pulse_rate, spo2, bp_systolic, bp_diastolic]
+	if not any(value is not None for value in values):
+		frappe.throw(_("Enter at least one vital sign."))
+	for value in values:
+		if value is not None and flt(value) <= 0:
+			frappe.throw(_("Vital signs must be positive numbers."))
+
+	if height_cm is not None:
+		doc.custom_height = height_cm
+	if weight_kg is not None:
+		doc.custom_weight = weight_kg
+	if temperature is not None:
+		doc.custom_temperature = temperature
+	if pulse_rate is not None:
+		doc.custom_pulse_rate = pulse_rate
+	if spo2 is not None:
+		doc.custom_spo2 = spo2
+	if bp_systolic is not None and bp_diastolic is not None:
+		doc.custom_blood_pressure = f"{bp_systolic}/{bp_diastolic}"
+
+	if doc.custom_height and doc.custom_weight:
+		height_m = flt(doc.custom_height) / 100
+		doc.custom_bmi = round(flt(doc.custom_weight) / (height_m * height_m), 2)
+
 	doc.save(ignore_permissions=True)
 
 

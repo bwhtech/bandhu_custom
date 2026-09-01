@@ -3,12 +3,13 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import add_days, nowtime, today
+from frappe.utils import add_days, flt, nowtime, today
 
 from bandhu_app.bandhu_app.page.nurse_form.nurse_form import (
 	dispense_medicine,
 	end_session,
 	get_patient_registration_details,
+	record_vitals,
 	start_session,
 	submit_test_results,
 )
@@ -166,6 +167,50 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 			frappe.db.get_value("Patient Encounter", encounter.name, "custom_workflow_state"),
 			"Waiting for Doctor",
 		)
+
+	def test_record_vitals_writes_fields_and_computes_bmi(self):
+		encounter = self._make_encounter(self.session, "Awaiting Test", tests=[{"test_name": "Malaria"}])
+
+		frappe.set_user(self.nurse_user)
+		try:
+			record_vitals(
+				encounter.name,
+				height_cm=170,
+				weight_kg=68,
+				temperature=98.6,
+				pulse_rate=76,
+				spo2=98,
+				bp_systolic=120,
+				bp_diastolic=80,
+			)
+		finally:
+			frappe.set_user("Administrator")
+
+		encounter.reload()
+		self.assertEqual(flt(encounter.custom_height), 170)
+		self.assertEqual(flt(encounter.custom_weight), 68)
+		self.assertEqual(encounter.custom_blood_pressure, "120/80")
+		self.assertEqual(flt(encounter.custom_bmi), 23.53)
+		# The workflow state is untouched: recording vitals is not a queue transition.
+		self.assertEqual(encounter.custom_workflow_state, "Awaiting Test")
+
+	def test_record_vitals_rejects_empty_call(self):
+		encounter = self._make_encounter(self.session, "Awaiting Test", tests=[{"test_name": "Malaria"}])
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(frappe.ValidationError, record_vitals, encounter.name)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_record_vitals_rejects_a_patient_not_with_the_nurse(self):
+		encounter = self._make_encounter(self.session, "Waiting for Doctor")
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(frappe.ValidationError, record_vitals, encounter.name, weight_kg=68)
+		finally:
+			frappe.set_user("Administrator")
 
 	def test_dispense_medicine_marks_rows_and_completes(self):
 		encounter = self._make_encounter(
