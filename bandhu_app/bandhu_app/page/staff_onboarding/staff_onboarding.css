@@ -8,7 +8,7 @@
 .staff-onboarding-dash .onboarding-form {
 	padding: var(--padding-lg);
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	background: var(--bg-color);
 }
 
@@ -38,7 +38,7 @@
 	display: none;
 	margin-top: var(--margin-md);
 	padding: var(--padding-md);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	background: var(--subtle-fg);
 	font-size: var(--text-sm);
 }
@@ -62,7 +62,7 @@
 	margin: var(--margin-md) auto;
 	padding: var(--padding-2xl) var(--padding-md);
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	background: var(--bg-color);
 	color: var(--text-muted);
 	text-align: center;
