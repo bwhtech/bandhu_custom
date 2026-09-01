@@ -3,7 +3,7 @@ import re
 import frappe
 from frappe import _
 from frappe.core.doctype.access_log.access_log import make_access_log
-from frappe.utils import flt, validate_phone_number
+from frappe.utils import flt, getdate, validate_phone_number
 
 from bandhu_app.bandhu_app.utils.patient_encounter import TERMINAL_WORKFLOW_STATES
 from bandhu_app.bandhu_app.utils.session import find_active_session
@@ -65,18 +65,33 @@ def get_session_status() -> dict:
 	}
 
 
+# India and Nepal are the two source countries CMID actually registers patients from; the
+# form shows them as fixed quick-tap tabs rather than reading them from the Country master,
+# which holds all 250 countries and has no "is common" flag of its own.
+QUICK_COUNTRIES = ["India", "Nepal"]
+
+
 @frappe.whitelist()
 def get_form_options() -> dict:
 	require_cad_access()
-	states = frappe.get_all(
-		"State",
-		fields=["name", "is_major_state"],
-		order_by="is_major_state desc, name asc",
+	major_states = frappe.get_all(
+		"State", filters={"is_major_state": 1}, fields=["name"], order_by="name asc", pluck="name"
 	)
-	sectors = frappe.get_all("Sectors", fields=["name"], order_by="name asc")
+	other_states = frappe.get_all(
+		"State", filters={"is_major_state": 0}, fields=["name"], order_by="name asc", pluck="name"
+	)
+	major_sectors = frappe.get_all(
+		"Sectors", filters={"is_major_sector": 1}, fields=["name"], order_by="name asc", pluck="name"
+	)
+	other_countries = frappe.get_all(
+		"Country", filters={"name": ["not in", QUICK_COUNTRIES]}, order_by="name asc", pluck="name"
+	)
 	return {
-		"states": [s.name for s in states],
-		"sectors": [s.name for s in sectors],
+		"major_states": major_states,
+		"other_states": other_states,
+		"major_sectors": major_sectors,
+		"quick_countries": QUICK_COUNTRIES,
+		"other_countries": other_countries,
 	}
 
 
@@ -182,18 +197,24 @@ def resolve_registration_origin(session: str) -> tuple[str | None, str | None]:
 	return location, unit
 
 
+MAX_PLAUSIBLE_AGE = 120
+
+
 @frappe.whitelist(methods=["POST"])
 def register_patient(
 	full_name: str,
-	dob: str,
 	sex: str,
+	dob: str | None = None,
+	age: float | None = None,
 	session: str | None = None,
 	mobile: str | None = None,
 	height_cm: float | None = None,
 	weight_kg: float | None = None,
+	native_country: str | None = None,
 	native_state: str | None = None,
 	native_district: str | None = None,
 	occupation: str | None = None,
+	specify_sector: str | None = None,
 	company_name: str | None = None,
 	abha_id: str | None = None,
 ) -> str:
@@ -212,10 +233,20 @@ def register_patient(
 
 	if not full_name:
 		frappe.throw(_("Full name is required."))
-	if not dob:
-		frappe.throw(_("Date of birth is required."))
 	if not sex:
 		frappe.throw(_("Sex is required."))
+
+	if not dob:
+		# Field registration often can't get an exact birth date out of a migrant worker who
+		# knows their age but not their birthday. Jan 1 of the birth year marks the DOB as an
+		# estimate rather than today's month/day, which would read as a real recorded birthday
+		# it isn't. An explicit DOB always wins over a derived one.
+		if age is None:
+			frappe.throw(_("Date of birth or age is required."))
+		if flt(age) < 0 or flt(age) > MAX_PLAUSIBLE_AGE:
+			frappe.throw(_("Age must be between 0 and {0}.").format(MAX_PLAUSIBLE_AGE))
+		birth_year = getdate().year - int(flt(age))
+		dob = f"{birth_year}-01-01"
 
 	if height_cm is not None and flt(height_cm) < 0:
 		frappe.throw(_("Height cannot be negative."))
@@ -243,9 +274,11 @@ def register_patient(
 		"sex": sex,
 		"dob": dob,
 		"mobile": mobile,
+		"custom_native_country": native_country or None,
 		"custom_native_state": native_state or None,
 		"custom_native_district": native_district or None,
 		"custom_sector_of_employment": occupation or None,
+		"custom_specify_employment_sector": specify_sector or None,
 		"custom_name_of_company": company_name or None,
 		"custom_abha_id": abha_id or None,
 	}
