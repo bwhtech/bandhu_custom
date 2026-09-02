@@ -5,6 +5,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import nowtime, today
 
+from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.report.bandhu_clinic_report.bandhu_clinic_report import execute
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
@@ -16,9 +17,10 @@ class IntegrationTestClinicReport(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.project = frappe.get_all("Bandhu Projects", limit=1, pluck="name")[0]
-		cls.appointment_type = frappe.get_all("Appointment Type", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.project = baseline["project"]
+		cls.appointment_type = baseline["appointment_type"]
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
 		cls.doctor = (

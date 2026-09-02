@@ -14,3 +14,5 @@ bandhu_app.patches.seed_bandhu_tests
 bandhu_app.patches.report_unmapped_test_names
 bandhu_app.patches.backfill_session_site_name
 bandhu_app.patches.show_practitioner_name_in_links
+bandhu_app.patches.seed_major_sectors
+bandhu_app.patches.seed_indian_states

@@ -180,20 +180,32 @@ frappe.provide("bandhu.session_ui");
 	// One field labelled "Vitals" inside a section headed "Vitals" said the word twice and then
 	// crammed three separate measurements into a single middot-joined cell. Each reading is its
 	// own field, so each gets its own column and a nurse can find one without parsing a string.
-	function format_vitals_details(patient) {
+	//
+	// Height/weight/BMI/temperature can come from two places: what the patient carried in from
+	// registration, and what the nurse measured this visit. The visit's own reading is what is
+	// clinically true right now, so it wins whenever the nurse has recorded one.
+	function format_vitals_details(patient, encounter) {
+		const height = encounter.custom_height
+			? encounter.custom_height + " cm"
+			: patient.custom_height_m
+			? patient.custom_height_m + " m"
+			: "";
+		const weight = encounter.custom_weight
+			? encounter.custom_weight + " kg"
+			: patient.custom_weight_kg
+			? patient.custom_weight_kg + " kg"
+			: "";
+		const bmi = encounter.custom_bmi || patient.custom_bmi;
+		const temperature = encounter.custom_temperature || patient.custom_temperature;
+
 		return format_detail_row(
-			format_detail_field(
-				__("Height"),
-				patient.custom_height_m ? patient.custom_height_m + " m" : "",
-				"ruler"
-			) +
-				format_detail_field(
-					__("Weight"),
-					patient.custom_weight_kg ? patient.custom_weight_kg + " kg" : "",
-					"weight"
-				) +
-				format_detail_field(__("BMI"), patient.custom_bmi, "gauge") +
-				format_detail_field(__("Temperature"), patient.custom_temperature, "thermometer")
+			format_detail_field(__("Height"), height, "ruler") +
+				format_detail_field(__("Weight"), weight, "weight") +
+				format_detail_field(__("BMI"), bmi, "gauge") +
+				format_detail_field(__("Temperature"), temperature, "thermometer") +
+				format_detail_field(__("Pulse"), encounter.custom_pulse_rate, "heart-pulse") +
+				format_detail_field(__("SpO2"), encounter.custom_spo2, "activity") +
+				format_detail_field(__("Blood Pressure"), encounter.custom_blood_pressure, "gauge")
 		);
 	}
 
@@ -352,8 +364,32 @@ frappe.provide("bandhu.session_ui");
 		const shared_note = (encounter.shared_test_note || "").trim();
 		return (
 			format_section(__("Registration Details"), format_identity_details(patient)) +
-			format_section(__("Vitals"), format_vitals_details(patient)) +
+			format_section(__("Vitals"), format_vitals_details(patient, encounter)) +
 			format_section(__("Origin & Work"), format_origin_details(patient)) +
+			format_section(
+				__("Chief Complaint"),
+				encounter.custom_chief_complaints
+					? '<div class="text-sm text-ink-gray-8">' +
+							frappe.utils.escape_html(encounter.custom_chief_complaints) +
+							"</div>"
+					: ""
+			) +
+			format_section(
+				__("Past History"),
+				encounter.custom_past_history
+					? '<div class="text-sm text-ink-gray-8">' +
+							frappe.utils.escape_html(encounter.custom_past_history) +
+							"</div>"
+					: ""
+			) +
+			format_section(
+				__("Allergy History"),
+				encounter.custom_allergy_history
+					? '<div class="text-sm text-ink-gray-8">' +
+							frappe.utils.escape_html(encounter.custom_allergy_history) +
+							"</div>"
+					: ""
+			) +
 			format_section(
 				__("Tests"),
 				format_test_rows(encounter.tests, shared_note),

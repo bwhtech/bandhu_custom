@@ -5,6 +5,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, nowtime, today
 
+from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.report.bandhu_session_report.bandhu_session_report import execute
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
@@ -16,9 +17,11 @@ class IntegrationTestSessionReport(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.project = frappe.get_all("Bandhu Projects", limit=1, pluck="name")[0]
-		cls.appointment_type = frappe.get_all("Appointment Type", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.project = baseline["project"]
+		cls.appointment_type = baseline["appointment_type"]
+		cls.item = baseline["item"]
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
 		cls.doctor = cls._make_practitioner("Test Report Doctor")
@@ -146,8 +149,8 @@ class IntegrationTestSessionReport(IntegrationTestCase):
 				{"test_name": "Dengue"},
 			],
 			prescriptions=[
-				{"medicines": self._any_item(), "quantity": 1, "dispensed": 1},
-				{"medicines": self._any_item(), "quantity": 1},
+				{"medicines": self.item, "quantity": 1, "dispensed": 1},
+				{"medicines": self.item, "quantity": 1},
 			],
 		)
 
@@ -186,8 +189,3 @@ class IntegrationTestSessionReport(IntegrationTestCase):
 			execute,
 			{"from_date": today(), "to_date": add_days(today(), -1)},
 		)
-
-	def _any_item(self):
-		if not hasattr(self.__class__, "_item"):
-			self.__class__._item = frappe.get_all("Item", limit=1, pluck="name")[0]
-		return self.__class__._item

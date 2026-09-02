@@ -180,6 +180,9 @@ function dispatchNurseAction(page, encounter, action) {
 		case "dispense":
 			openDispenseDialog(page, encounter);
 			break;
+		case "vitals":
+			openVitalsDialog(page, encounter);
+			break;
 	}
 }
 
@@ -306,6 +309,77 @@ function openDispenseDialog(page, encounter) {
 	dialog.show();
 }
 
+function openVitalsDialog(page, encounter) {
+	const row = encountersByName[encounter] || {};
+	const [bpSystolic, bpDiastolic] = (row.custom_blood_pressure || "").split("/");
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Record Vitals"),
+		fields: [
+			{
+				fieldtype: "Float",
+				fieldname: "height_cm",
+				label: __("Height (cm)"),
+				default: row.custom_height,
+			},
+			{
+				fieldtype: "Float",
+				fieldname: "weight_kg",
+				label: __("Weight (kg)"),
+				default: row.custom_weight,
+			},
+			{ fieldtype: "Column Break" },
+			{
+				fieldtype: "Float",
+				fieldname: "temperature",
+				label: __("Temperature (°F)"),
+				default: row.custom_temperature,
+			},
+			{
+				fieldtype: "Int",
+				fieldname: "spo2",
+				label: __("SpO2 (%)"),
+				default: row.custom_spo2,
+			},
+			{ fieldtype: "Section Break" },
+			{
+				fieldtype: "Int",
+				fieldname: "pulse_rate",
+				label: __("Pulse (bpm)"),
+				default: row.custom_pulse_rate,
+			},
+			{
+				fieldtype: "Int",
+				fieldname: "bp_systolic",
+				label: __("BP Systolic"),
+				default: bpSystolic || null,
+			},
+			{ fieldtype: "Column Break" },
+			{
+				fieldtype: "Int",
+				fieldname: "bp_diastolic",
+				label: __("BP Diastolic"),
+				default: bpDiastolic || null,
+			},
+		],
+		primary_action_label: __("Save Vitals"),
+		primary_action: async (values) => {
+			dialog.hide();
+			await submitNurseAction(page, "record_vitals", {
+				encounter,
+				height_cm: values.height_cm || null,
+				weight_kg: values.weight_kg || null,
+				temperature: values.temperature || null,
+				pulse_rate: values.pulse_rate || null,
+				spo2: values.spo2 || null,
+				bp_systolic: values.bp_systolic || null,
+				bp_diastolic: values.bp_diastolic || null,
+			});
+		},
+	});
+	dialog.show();
+}
+
 async function submitNurseAction(page, method, args) {
 	frappe.dom.freeze();
 	try {
@@ -331,6 +405,17 @@ function renderQueueActionButtons(encounter, action) {
 			false
 		),
 	];
+	if (action === "test" || action === "medicine") {
+		buttons.push(
+			bandhu.session_ui.format_action_button(
+				"nurse-action-btn",
+				encounter.name,
+				"vitals",
+				__("Vitals"),
+				false
+			)
+		);
+	}
 	if (action === "test") {
 		buttons.push(
 			bandhu.session_ui.format_action_button(

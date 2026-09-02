@@ -7,6 +7,18 @@ let testOptions = null;
 let doctorSession = null;
 let doctorPage = null;
 
+function chiefComplaintOf(encounter) {
+	return (encountersByName[encounter] || {}).custom_chief_complaints || "";
+}
+
+function pastHistoryOf(encounter) {
+	return (encountersByName[encounter] || {}).custom_past_history || "";
+}
+
+function allergyHistoryOf(encounter) {
+	return (encountersByName[encounter] || {}).custom_allergy_history || "";
+}
+
 // One call for the whole queue. Fetching per patient meant a 40-patient camp fired 40 parallel
 // requests, saturating the browser connection pool on a weak link.
 async function getPatientHistories(patients) {
@@ -136,6 +148,11 @@ function renderDashboard(page, active, completed) {
 		frappe.set_route("Form", "Patient Encounter", $(this).data("name"));
 	});
 
+	page.main.on("click", ".rail-more .print-referral", function (event) {
+		event.stopPropagation();
+		printReferralLetter($(this).data("name"));
+	});
+
 	page.main.on("click", ".history-list a", function (event) {
 		event.stopPropagation();
 		frappe.set_route("Form", "Patient Encounter", $(this).data("name"));
@@ -197,6 +214,24 @@ async function openOrderTestDialog(page, encounter) {
 		title: __("Order Tests"),
 		fields: [
 			{
+				fieldtype: "Small Text",
+				fieldname: "chief_complaint",
+				label: __("Chief Complaint"),
+				default: chiefComplaintOf(encounter),
+			},
+			{
+				fieldtype: "Small Text",
+				fieldname: "past_history",
+				label: __("Past History"),
+				default: pastHistoryOf(encounter),
+			},
+			{
+				fieldtype: "Small Text",
+				fieldname: "allergy_history",
+				label: __("Allergy History"),
+				default: allergyHistoryOf(encounter),
+			},
+			{
 				fieldtype: "MultiCheck",
 				fieldname: "tests",
 				label: __("Tests"),
@@ -219,6 +254,9 @@ async function openOrderTestDialog(page, encounter) {
 				encounter,
 				tests: values.tests,
 				notes: values.notes,
+				chief_complaint: values.chief_complaint,
+				past_history: values.past_history,
+				allergy_history: values.allergy_history,
 			});
 		},
 	});
@@ -230,6 +268,24 @@ function openPrescribeDialog(page, encounter) {
 		title: __("Prescribe Medicine"),
 		size: "large",
 		fields: [
+			{
+				fieldtype: "Small Text",
+				fieldname: "chief_complaint",
+				label: __("Chief Complaint"),
+				default: chiefComplaintOf(encounter),
+			},
+			{
+				fieldtype: "Small Text",
+				fieldname: "past_history",
+				label: __("Past History"),
+				default: pastHistoryOf(encounter),
+			},
+			{
+				fieldtype: "Small Text",
+				fieldname: "allergy_history",
+				label: __("Allergy History"),
+				default: allergyHistoryOf(encounter),
+			},
 			{
 				fieldtype: "Table",
 				fieldname: "prescriptions",
@@ -281,6 +337,9 @@ function openPrescribeDialog(page, encounter) {
 			await submitDoctorAction(page, "prescribe_medicine", {
 				encounter,
 				prescriptions: rows,
+				chief_complaint: values.chief_complaint,
+				past_history: values.past_history,
+				allergy_history: values.allergy_history,
 			});
 		},
 	});
@@ -291,20 +350,82 @@ function openCompleteDialog(page, encounter) {
 	const dialog = new frappe.ui.Dialog({
 		title: __("Mark Complete"),
 		fields: [
+			{
+				fieldtype: "Small Text",
+				fieldname: "chief_complaint",
+				label: __("Chief Complaint"),
+				default: chiefComplaintOf(encounter),
+			},
+			{
+				fieldtype: "Small Text",
+				fieldname: "past_history",
+				label: __("Past History"),
+				default: pastHistoryOf(encounter),
+			},
+			{
+				fieldtype: "Small Text",
+				fieldname: "allergy_history",
+				label: __("Allergy History"),
+				default: allergyHistoryOf(encounter),
+			},
 			{ fieldtype: "Data", fieldname: "diagnosis", label: __("Diagnosis (optional)") },
 			{
 				fieldtype: "Small Text",
 				fieldname: "clinical_notes",
 				label: __("Clinical Notes (optional)"),
 			},
+			{ fieldtype: "Section Break" },
+			{ fieldtype: "Check", fieldname: "refer_patient", label: __("Refer this patient") },
+			{
+				fieldtype: "Data",
+				fieldname: "referred_to",
+				label: __("Referred To"),
+				depends_on: "eval:doc.refer_patient",
+				mandatory_depends_on: "eval:doc.refer_patient",
+			},
+			{
+				fieldtype: "Link",
+				fieldname: "referred_to_practitioner",
+				options: "Healthcare Practitioner",
+				label: __("Referred Practitioner (optional)"),
+				depends_on: "eval:doc.refer_patient",
+			},
+			{
+				fieldtype: "Select",
+				fieldname: "referral_priority",
+				label: __("Priority"),
+				options: "Low\nMedium\nHigh",
+				default: "Medium",
+				depends_on: "eval:doc.refer_patient",
+			},
+			{
+				fieldtype: "Small Text",
+				fieldname: "referral_reason",
+				label: __("Referral Reason"),
+				depends_on: "eval:doc.refer_patient",
+				mandatory_depends_on: "eval:doc.refer_patient",
+			},
 		],
 		primary_action_label: __("Mark Complete"),
 		primary_action: async (values) => {
+			if (values.refer_patient && (!values.referred_to || !values.referral_reason)) {
+				frappe.msgprint(__("A referral needs both where the patient is going and why."));
+				return;
+			}
 			dialog.hide();
 			await submitDoctorAction(page, "complete_encounter", {
 				encounter,
 				diagnosis: values.diagnosis,
 				clinical_notes: values.clinical_notes,
+				chief_complaint: values.chief_complaint,
+				past_history: values.past_history,
+				allergy_history: values.allergy_history,
+				referred_to: values.refer_patient ? values.referred_to : null,
+				referred_to_practitioner: values.refer_patient
+					? values.referred_to_practitioner
+					: null,
+				referral_reason: values.refer_patient ? values.referral_reason : null,
+				referral_priority: values.refer_patient ? values.referral_priority : null,
 			});
 		},
 	});
@@ -394,6 +515,13 @@ function renderOverflowMenu(encounter) {
 		frappe.utils.icon("ellipsis", "sm", "", "", "current-color") +
 		"</button>" +
 		'<ul class="dropdown-menu dropdown-menu-right" role="menu">' +
+		(encounter.custom_has_referral
+			? '<li><a class="dropdown-item print-referral" data-name="' +
+			  frappe.utils.escape_html(encounter.name) +
+			  '">' +
+			  __("Print Referral Letter") +
+			  "</a></li>"
+			: "") +
 		'<li><a class="dropdown-item open-record" data-name="' +
 		frappe.utils.escape_html(encounter.name) +
 		'">' +
@@ -401,6 +529,38 @@ function renderOverflowMenu(encounter) {
 		"</a></li>" +
 		"</ul></div>"
 	);
+}
+
+// Referral is System Manager only in DocType permissions, same reason cad_form.js cannot use
+// /printview for the patient card — the letter comes back through this page's own gated
+// endpoint instead.
+async function printReferralLetter(encounter) {
+	if (!encounter) return;
+
+	frappe.dom.freeze();
+	let letter_html;
+	try {
+		const response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form.get_referral_letter_html",
+			args: { encounter },
+		});
+		letter_html = response.message;
+	} finally {
+		frappe.dom.unfreeze();
+	}
+
+	if (!letter_html) return;
+
+	const letter_window = window.open("", "_blank");
+	if (!letter_window) {
+		frappe.msgprint(__("Allow pop-ups for this site to print the referral letter."));
+		return;
+	}
+
+	letter_window.document.write(letter_html);
+	letter_window.document.close();
+	letter_window.focus();
+	letter_window.print();
 }
 
 function formatTestLine(tests) {

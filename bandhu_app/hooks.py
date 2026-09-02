@@ -29,7 +29,7 @@ required_apps = ["erpnext", "healthcare"]
 # bump ?v= on every edit or browsers keep the old file.
 app_include_css = ["/assets/bandhu_app/css/desk.css?v=2"]
 app_include_js = [
-	"/assets/bandhu_app/js/session_ui.js",
+	"/assets/bandhu_app/js/session_ui.js?v=2",
 	"/assets/bandhu_app/js/workspace_redirect.js?v=2",
 ]
 
@@ -96,6 +96,8 @@ after_install = "bandhu_app.install.after_install"
 after_migrate = [
 	"bandhu_app.bandhu_app.utils.desk_visibility.sync_bandhu_desktop_icons",
 	"bandhu_app.bandhu_app.utils.desk_visibility.restrict_other_app_desktop_icons",
+	"bandhu_app.bandhu_app.page.staff_onboarding.staff_onboarding.seed_default_genders",
+	"bandhu_app.bandhu_app.utils.patient_encounter.seed_default_appointment_type",
 ]
 
 # Uninstallation

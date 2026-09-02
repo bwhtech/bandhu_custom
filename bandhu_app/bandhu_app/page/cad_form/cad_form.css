@@ -11,7 +11,7 @@
 	align-items: center;
 	padding: var(--padding-2xl) var(--padding-md);
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	color: var(--text-muted);
 	background: var(--bg-color);
 }
@@ -122,7 +122,7 @@
 	gap: var(--padding-sm);
 	padding: 10px 12px;
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	margin-bottom: 6px;
 	cursor: pointer;
 	background: var(--bg-color);
@@ -173,7 +173,7 @@
 	margin-top: var(--margin-sm);
 	padding: var(--padding-lg);
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	background: var(--bg-color);
 }
 
@@ -193,13 +193,49 @@
 	margin-bottom: 4px;
 }
 
-.cad-dash .sex-btn-group {
+.cad-dash .required-mark {
+	color: var(--danger);
+}
+
+.cad-dash .field-note {
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+}
+
+/* Full Name, Native District and ABHA ID each render alone in a row of this 2-column grid
+   -- left at the default single cell, they leave the other column empty next to them. */
+.cad-dash .register-grid .field-wide {
+	grid-column: 1 / -1;
+}
+
+/* Sex, Country, Native State and Occupation/Sector all render as one of these — a row of
+   quick-tap tabs. Full width across the 2-column grid, since a 6-7 tab group (state, sector)
+   needs more room than a single grid cell gives it. */
+.cad-dash .tab-group-wrap {
+	grid-column: 1 / -1;
+}
+
+.cad-dash .tab-btn-group {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 8px;
 }
 
-.cad-dash .sex-btn {
-	flex: 1;
+.cad-dash .tab-btn {
+	flex: 1 1 auto;
+	min-width: 100px;
+}
+
+.cad-dash .other-picker,
+.cad-dash .detail-field {
+	margin-top: 8px;
+}
+
+/* Bootstrap's `.form-control { display: block }` has the same specificity as the browser's
+   own `[hidden] { display: none }` rule and loads after it, so the `hidden` attribute alone
+   does not hide a `.form-control` — this makes sure it actually does. */
+.cad-dash .form-control[hidden] {
+	display: none !important;
 }
 
 .cad-dash .register-actions {
@@ -215,7 +251,7 @@
 .cad-dash .table-wrap {
 	overflow: auto;
 	border: 1px solid var(--table-border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	margin-top: var(--margin-sm);
 }
 
@@ -286,7 +322,7 @@
 	margin: var(--margin-md) auto;
 	padding: var(--padding-2xl) var(--padding-md);
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	background: var(--bg-color);
 	color: var(--text-muted);
 	text-align: center;

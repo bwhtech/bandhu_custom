@@ -4,9 +4,11 @@
 import frappe
 from frappe.tests import IntegrationTestCase
 
+from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.page.doctor_form.doctor_form import (
 	complete_encounter,
 	get_patient_registration_details,
+	get_referral_letter_html,
 	get_session_status,
 	get_test_options,
 	order_test,
@@ -16,25 +18,16 @@ from bandhu_app.bandhu_app.utils.clinic_test import seed_default_tests
 from bandhu_app.bandhu_app.utils.patient_details import get_clinical_details_by_encounter
 
 
-def first_of(doctype: str) -> str | None:
-	"""Resolve a master by lookup rather than by name.
-
-	Hardcoded fixture names only exist on the site they were written against, so the suite
-	failed in setUp everywhere else before it reached a single assertion.
-	"""
-	names = frappe.get_all(doctype, limit=1, pluck="name")
-	return names[0] if names else None
-
-
 class TestDoctorForm(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls.appointment_type = first_of("Appointment Type")
-		cls.project = first_of("Bandhu Projects")
-		cls.site = first_of("Site")
-		cls.clinic = first_of("Clinic")
-		cls.item = first_of("Item")
+		baseline = ensure_baseline_fixtures()
+		cls.appointment_type = baseline["appointment_type"]
+		cls.project = baseline["project"]
+		cls.site = baseline["site"]
+		cls.clinic = baseline["clinic"]
+		cls.item = baseline["item"]
 
 	def setUp(self):
 		self.today = frappe.utils.today()
@@ -226,6 +219,80 @@ class TestDoctorForm(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			prescribe_medicine(self.encounter.name, [{"dosage_frequency": "BD"}])
 
+	def test_order_test_records_chief_complaint(self):
+		frappe.set_user(self.doctor_user_1)
+		order_test(self.encounter.name, ["Malaria"], chief_complaint="Fever for 3 days")
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_chief_complaints, "Fever for 3 days")
+
+	def test_prescribe_medicine_records_chief_complaint(self):
+		frappe.set_user(self.doctor_user_1)
+		prescribe_medicine(
+			self.encounter.name,
+			[{"medicines": self.item, "dosage_frequency": "BD", "duration_days": 5, "quantity": 10}],
+			chief_complaint="Joint pain",
+		)
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_chief_complaints, "Joint pain")
+
+	def test_complete_encounter_records_chief_complaint(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(self.encounter.name, chief_complaint="Cough")
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_chief_complaints, "Cough")
+
+	def test_order_test_records_past_and_allergy_history(self):
+		frappe.set_user(self.doctor_user_1)
+		order_test(
+			self.encounter.name,
+			["Malaria"],
+			past_history="Diabetes",
+			allergy_history="Penicillin",
+		)
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_past_history, "Diabetes")
+		self.assertEqual(self.encounter.custom_allergy_history, "Penicillin")
+
+	def test_prescribe_medicine_records_past_and_allergy_history(self):
+		frappe.set_user(self.doctor_user_1)
+		prescribe_medicine(
+			self.encounter.name,
+			[{"medicines": self.item, "dosage_frequency": "BD", "duration_days": 5, "quantity": 10}],
+			past_history="Hypertension",
+			allergy_history="Sulfa drugs",
+		)
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_past_history, "Hypertension")
+		self.assertEqual(self.encounter.custom_allergy_history, "Sulfa drugs")
+
+	def test_complete_encounter_records_past_and_allergy_history(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(self.encounter.name, past_history="Asthma", allergy_history="Dust")
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_past_history, "Asthma")
+		self.assertEqual(self.encounter.custom_allergy_history, "Dust")
+
+	def test_a_blank_chief_complaint_does_not_erase_one_already_recorded(self):
+		frappe.set_user(self.doctor_user_1)
+		order_test(self.encounter.name, ["Malaria"], chief_complaint="Fever for 3 days")
+
+		frappe.db.set_value(
+			"Patient Encounter", self.encounter.name, "custom_workflow_state", "Awaiting Doctor Review"
+		)
+		prescribe_medicine(
+			self.encounter.name,
+			[{"medicines": self.item, "dosage_frequency": "BD", "duration_days": 5, "quantity": 10}],
+		)
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_chief_complaints, "Fever for 3 days")
+
 	def test_complete_encounter_records_diagnosis(self):
 		frappe.set_user(self.doctor_user_1)
 		complete_encounter(self.encounter.name, diagnosis="Viral fever", clinical_notes="Rest advised")
@@ -241,6 +308,92 @@ class TestDoctorForm(IntegrationTestCase):
 		complete_encounter(self.encounter.name)
 		self.encounter.reload()
 		self.assertEqual(self.encounter.custom_workflow_state, "Completed")
+
+	def test_complete_encounter_creates_a_referral(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(
+			self.encounter.name,
+			referred_to="Ernakulam General Hospital",
+			referred_to_practitioner=self.practitioner_2.name,
+			referral_reason="Suspected fracture, needs an X-ray",
+			referral_priority="High",
+		)
+
+		self.encounter.reload()
+		self.assertTrue(self.encounter.custom_has_referral)
+
+		referral = frappe.get_last_doc("Referral", filters={"patient_encounter": self.encounter.name})
+		self.assertEqual(referral.patient, self.patient.name)
+		self.assertEqual(referral.referred_to, "Ernakulam General Hospital")
+		self.assertEqual(referral.referred_to_practitioner, self.practitioner_2.name)
+		self.assertEqual(referral.reason, "Suspected fracture, needs an X-ray")
+		self.assertEqual(referral.priority, "High")
+		self.assertEqual(referral.status, "Pending")
+		self.assertTrue(referral.helpline_flag)
+		self.assertEqual(referral.project, self.project)
+		self.assertEqual(referral.clinic_session, self.session_1.name)
+		self.assertEqual(referral.referral_by_source, self.practitioner_1.name)
+
+	def test_complete_encounter_referral_defaults_to_medium_priority(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(
+			self.encounter.name,
+			referred_to="Ernakulam General Hospital",
+			referral_reason="Follow-up care",
+		)
+
+		referral = frappe.get_last_doc("Referral", filters={"patient_encounter": self.encounter.name})
+		self.assertEqual(referral.priority, "Medium")
+
+	def test_complete_encounter_rejects_a_referral_missing_the_reason(self):
+		frappe.set_user(self.doctor_user_1)
+		with self.assertRaises(frappe.ValidationError):
+			complete_encounter(self.encounter.name, referred_to="Ernakulam General Hospital")
+
+	def test_complete_encounter_without_referral_fields_creates_no_referral(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(self.encounter.name, diagnosis="Viral fever")
+
+		self.encounter.reload()
+		self.assertFalse(self.encounter.custom_has_referral)
+		self.assertEqual(frappe.db.count("Referral", {"patient_encounter": self.encounter.name}), 0)
+
+	def test_referral_letter_renders_for_a_referred_patient(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(
+			self.encounter.name,
+			referred_to="Ernakulam General Hospital",
+			referral_reason="Suspected fracture",
+		)
+
+		html = get_referral_letter_html(self.encounter.name)
+		self.assertIn("Ernakulam General Hospital", html)
+		self.assertIn("Suspected fracture", html)
+
+	def test_referral_letter_escapes_injected_referral_fields(self):
+		"""Jinja's print-format environment has autoescape off app-wide, so a field that reaches
+		the template unescaped is a stored-XSS hole for whoever prints the letter next. Frappe's
+		own base_document._sanitize_content already strips <script> and the onerror attribute on
+		save, so this checks the property that actually matters — no live script or event
+		handler reaches the output — rather than which layer (ORM sanitization or the template's
+		own `| e`) is the one that caught it."""
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(
+			self.encounter.name,
+			referred_to="<img src=x onerror=alert(1)>",
+			referral_reason="<script>alert(1)</script>",
+		)
+
+		html = get_referral_letter_html(self.encounter.name)
+		self.assertNotIn("alert(1)", html)
+		self.assertNotIn("onerror=", html)
+
+	def test_referral_letter_rejects_a_patient_with_no_referral(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(self.encounter.name, diagnosis="Viral fever")
+
+		with self.assertRaises(frappe.DoesNotExistError):
+			get_referral_letter_html(self.encounter.name)
 
 	def test_doctor_cannot_act_on_another_doctors_patient(self):
 		frappe.set_user(self.doctor_user_2)

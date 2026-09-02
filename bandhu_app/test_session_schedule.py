@@ -7,6 +7,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import getdate, today
 
+from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.doctype.bandhu_session_schedule.bandhu_session_schedule import (
 	regenerate_future_sessions,
 )
@@ -26,9 +27,12 @@ class IntegrationTestSessionSchedule(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
-		cls.unit = frappe.get_all("Unit", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.site = baseline["site"]
+		cls.unit = baseline["unit"]
+		cls.doctor = baseline["doctor"]
+		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
 	def build_schedule(self, weekdays=None, save=False, **overrides):
 		values = {
@@ -168,13 +172,19 @@ class IntegrationTestSessionSchedule(IntegrationTestCase):
 			for name in self.sessions_of(schedule.name)
 			if getdate(frappe.db.get_value("Bandhu Clinic Session", name, "date")) > getdate(today())
 		)
+		patient = frappe.get_doc(
+			{
+				"doctype": "Patient",
+				"first_name": "Rebuild Test Patient",
+				"sex": self.gender,
+				"dob": "1990-01-01",
+			}
+		).insert(ignore_permissions=True)
 		frappe.get_doc(
 			{
 				"doctype": "Patient Encounter",
-				"patient": frappe.get_all("Patient", limit=1, pluck="name")[0],
-				"practitioner": frappe.get_all(
-					"Healthcare Practitioner", filters={"custom_role": "Doctor"}, limit=1, pluck="name"
-				)[0],
+				"patient": patient.name,
+				"practitioner": self.doctor,
 				"encounter_date": today(),
 				"custom_clinic_session": future_session,
 			}

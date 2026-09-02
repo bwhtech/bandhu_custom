@@ -16,6 +16,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import today
 
+from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.page.doctor_form import doctor_form
 from bandhu_app.bandhu_app.page.nurse_form import nurse_form
 from bandhu_app.test_api_boundary import CAD, DOCTOR, NURSE, call_over_http
@@ -25,9 +26,11 @@ class TestEncounterConcurrency(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
-		cls.project = frappe.get_all("Bandhu Projects", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.site = baseline["site"]
+		cls.project = baseline["project"]
+		cls.item = baseline["item"]
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
 	def setUp(self):
@@ -185,8 +188,7 @@ class TestEncounterConcurrency(IntegrationTestCase):
 	def test_a_double_fired_dispense_completes_the_patient_once(self):
 		encounter = self.make_encounter("Awaiting Medicine")
 		doc = frappe.get_doc("Patient Encounter", encounter)
-		item = frappe.get_all("Item", limit=1, pluck="name")[0]
-		doc.append("custom_bandhu_prescription", {"medicines": item, "quantity": 1})
+		doc.append("custom_bandhu_prescription", {"medicines": self.item, "quantity": 1})
 		doc.save(ignore_permissions=True)
 		prescription_row = doc.custom_bandhu_prescription[0].name
 

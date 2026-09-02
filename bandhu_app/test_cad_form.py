@@ -3,8 +3,9 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import today
+from frappe.utils import getdate, today
 
+from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.page.cad_form.cad_form import (
 	cancel_visit,
 	create_encounter,
@@ -25,9 +26,10 @@ class IntegrationTestCadForm(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
-		cls.project = frappe.get_all("Bandhu Projects", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.site = baseline["site"]
+		cls.project = baseline["project"]
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
 		cls.cad_practitioner = cls._make_practitioner("Test CAD Alpha", "Clinic Assistant cum Driver")
@@ -141,6 +143,72 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		self.assertEqual(doc.custom_abha_id, "ABHA-TEST-001")
 		self.assertTrue(doc.custom_bandhu_id)
 
+	def test_register_patient_estimates_dob_from_age_when_dob_unknown(self):
+		frappe.set_user(self.cad_user)
+		try:
+			patient_name = register_patient(
+				full_name="Test Age Only Patient",
+				sex=self.gender,
+				age=40,
+			)
+		finally:
+			frappe.set_user("Administrator")
+
+		doc = frappe.get_doc("Patient", patient_name)
+		# Jan 1 of the birth year, not today's month/day minus 40 years — a migrant worker who
+		# only knows their age didn't just have a birthday today, so that would be a fake date.
+		self.assertEqual(str(doc.dob), f"{getdate().year - 40}-01-01")
+
+	def test_register_patient_prefers_explicit_dob_over_age(self):
+		frappe.set_user(self.cad_user)
+		try:
+			patient_name = register_patient(
+				full_name="Test Dob Wins Patient",
+				dob="1990-05-15",
+				sex=self.gender,
+				age=40,
+			)
+		finally:
+			frappe.set_user("Administrator")
+
+		doc = frappe.get_doc("Patient", patient_name)
+		self.assertEqual(str(doc.dob), "1990-05-15")
+
+	def test_register_patient_rejects_missing_dob_and_age(self):
+		frappe.set_user(self.cad_user)
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				register_patient(full_name="Test No Dob No Age Patient", sex=self.gender)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_register_patient_rejects_implausible_age(self):
+		frappe.set_user(self.cad_user)
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				register_patient(full_name="Test Implausible Age Patient", sex=self.gender, age=200)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_register_patient_stores_country_and_specified_sector(self):
+		frappe.set_user(self.cad_user)
+		try:
+			patient_name = register_patient(
+				full_name="Test Country Sector Patient",
+				dob="1990-05-15",
+				sex=self.gender,
+				native_country="Nepal",
+				occupation="Other",
+				specify_sector="Street vendor",
+			)
+		finally:
+			frappe.set_user("Administrator")
+
+		doc = frappe.get_doc("Patient", patient_name)
+		self.assertEqual(doc.custom_native_country, "Nepal")
+		self.assertEqual(doc.custom_sector_of_employment, "Other")
+		self.assertEqual(doc.custom_specify_employment_sector, "Street vendor")
+
 	def test_register_patient_rejects_negative_height(self):
 		frappe.set_user(self.cad_user)
 		try:
@@ -187,8 +255,13 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		finally:
 			frappe.set_user("Administrator")
 
-		self.assertIn("Kerala", options["states"])
-		self.assertTrue(len(options["sectors"]) > 0)
+		self.assertIn("Kerala", options["other_states"])
+		self.assertIn("Bihar", options["major_states"])
+		self.assertNotIn("Kerala", options["major_states"])
+		self.assertIn("Construction", options["major_sectors"])
+		self.assertIn("India", options["quick_countries"])
+		self.assertIn("Nepal", options["quick_countries"])
+		self.assertNotIn("India", options["other_countries"])
 
 	def test_register_patient_rejects_state_not_in_master(self):
 		frappe.set_user(self.cad_user)

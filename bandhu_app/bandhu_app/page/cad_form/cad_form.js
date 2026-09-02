@@ -4,11 +4,32 @@ const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
 
 let cadSession = null;
 let cadPage = null;
-let formOptions = { states: [], sectors: [] };
+let formOptions = { major_states: [], other_states: [], major_sectors: [], other_countries: [] };
 
-const REGISTER_FIELDS = [
-	{ name: "full_name", label: __("Full Name"), type: "text" },
+// India and Nepal are always offered as quick taps; a full Country master backs "Other".
+const QUICK_COUNTRIES = ["India", "Nepal"];
+
+const NAME_FIELD = {
+	name: "full_name",
+	label: __("Full Name"),
+	type: "text",
+	wide: true,
+	required: true,
+};
+
+// CMID asked for age to sit right after Sex, with DOB alongside it: a field CAD can fill
+// straight from what the patient tells them, without having to work out a birth date first.
+const AGE_AND_DOB_FIELDS = [
+	{
+		name: "age",
+		label: __("Age (Years)"),
+		type: "number",
+		attrs: 'min="0" max="120" step="1" inputmode="numeric"',
+	},
 	{ name: "dob", label: __("Date of Birth"), type: "date" },
+];
+
+const MEASUREMENT_FIELDS = [
 	{
 		name: "height_cm",
 		label: __("Height (cm)"),
@@ -21,19 +42,9 @@ const REGISTER_FIELDS = [
 		type: "number",
 		attrs: 'min="0" step="0.1" inputmode="decimal"',
 	},
-	{ name: "native_state", label: __("Native State"), type: "select", optionsKey: "states" },
-	{
-		name: "native_district",
-		label: __("Native District"),
-		type: "text",
-		attrs: 'list="cad-district-list" autocomplete="off"',
-	},
-	{
-		name: "occupation",
-		label: __("Occupation / Sector"),
-		type: "select",
-		optionsKey: "sectors",
-	},
+];
+
+const CONTACT_FIELDS = [
 	{ name: "company_name", label: __("Company Name"), type: "text" },
 	{
 		name: "mobile",
@@ -41,7 +52,7 @@ const REGISTER_FIELDS = [
 		type: "tel",
 		attrs: 'inputmode="numeric" maxlength="10"',
 	},
-	{ name: "abha_id", label: __("ABHA ID"), type: "text" },
+	{ name: "abha_id", label: __("ABHA ID"), type: "text", wide: true },
 ];
 
 async function loadDashboard(page) {
@@ -77,7 +88,12 @@ async function loadDashboard(page) {
 	const optionsResult = await frappe.call({
 		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_form_options",
 	});
-	formOptions = optionsResult.message || { states: [], sectors: [] };
+	formOptions = optionsResult.message || {
+		major_states: [],
+		other_states: [],
+		major_sectors: [],
+		other_countries: [],
+	};
 
 	await renderFrontDesk(page, data);
 }
@@ -245,8 +261,73 @@ function renderRegisterSection() {
 	);
 }
 
-function renderSelectField(field) {
-	const options = formOptions[field.optionsKey] || [];
+// Shared by every field label on this form — a plain field.required or config.required
+// flag, matching what register_patient (cad_form.py) actually enforces server-side, so the
+// mark is never a promise the backend doesn't keep.
+function requiredMark(required) {
+	return required ? ' <span class="required-mark">*</span>' : "";
+}
+
+function renderField(field) {
+	const input =
+		'<input type="' +
+		field.type +
+		'" class="form-control cad-field" data-field="' +
+		field.name +
+		'" ' +
+		(field.attrs || "") +
+		">";
+	return (
+		'<div class="form-group' +
+		(field.wide ? " field-wide" : "") +
+		'">' +
+		"<label>" +
+		frappe.utils.escape_html(field.label) +
+		requiredMark(field.required) +
+		"</label>" +
+		input +
+		"</div>"
+	);
+}
+
+function renderFields(fields) {
+	return fields.map(renderField).join("");
+}
+
+// Age and DOB aren't each individually required (register_patient accepts either), so a
+// plain asterisk on one or both would overstate it -- this says the actual either/or rule.
+function renderFieldNote(text) {
+	return (
+		'<div class="form-group field-wide field-note">' +
+		frappe.utils.escape_html(text) +
+		"</div>"
+	);
+}
+
+// A plain select, same as the Country/State "Other" picker -- populated once the state
+// above resolves a district list (loadDistrictSuggestions), disabled until then. A native
+// <datalist> used to back this field; the browser positions that popup itself with no CSS
+// hook, and CAD staff saw it land away from the field it belonged to.
+function renderDistrictField() {
+	return (
+		'<div class="form-group field-wide">' +
+		"<label>" +
+		frappe.utils.escape_html(__("Native District")) +
+		"</label>" +
+		'<select class="form-control cad-field district-select" data-field="native_district" disabled>' +
+		'<option value="">' +
+		frappe.utils.escape_html(__("-- Select a native state first --")) +
+		"</option>" +
+		"</select>" +
+		"</div>"
+	);
+}
+
+// A picker select, hidden until its group's "Other" tab is tapped. Its own value flows into
+// the group's hidden field via the delegated change handler in bindRegisterEvents — the
+// select itself never carries the `cad-field` class, so submitRegistration never reads it
+// directly, only the value it forwarded.
+function renderOtherPicker(options, placeholderLabel) {
 	const optionHtml = options
 		.map(
 			(option) =>
@@ -258,63 +339,124 @@ function renderSelectField(field) {
 		)
 		.join("");
 	return (
-		'<select class="form-control cad-field" data-field="' +
-		field.name +
-		'">' +
+		'<select class="form-control other-picker" hidden>' +
 		'<option value="">' +
-		__("-- Select --") +
+		frappe.utils.escape_html(placeholderLabel) +
 		"</option>" +
 		optionHtml +
 		"</select>"
 	);
 }
 
-function renderRegisterForm() {
-	const fields = REGISTER_FIELDS.map((field) => {
-		const input =
-			field.type === "select"
-				? renderSelectField(field)
-				: '<input type="' +
-				  field.type +
-				  '" class="form-control cad-field" data-field="' +
-				  field.name +
-				  '" ' +
-				  (field.attrs || "") +
-				  ">";
-		return (
-			'<div class="form-group">' +
-			"<label>" +
-			frappe.utils.escape_html(field.label) +
-			"</label>" +
-			input +
-			"</div>"
-		);
-	}).join("");
-
-	const sexGroup =
-		'<div class="form-group">' +
+// A row of quick-tap tab buttons backed by one hidden `cad-field` input, shared by Sex,
+// Country, Native State and Sector so the tab/reveal wiring exists exactly once.
+//
+// mode "direct": tapping a tab stores its own value straight into the hidden field — used
+// where every tab (including "Other") is itself a real, storable value.
+// mode "picker": tapping "Other" leaves the hidden field blank and reveals `otherPickerHtml`
+// instead, so the CAD chooses the real value from a full list rather than storing the
+// literal string "Other" — used where "Other" only means "not one of the common ones".
+function renderTabGroup(config) {
+	const buttons = config.options
+		.map((option) => {
+			const isDefault = option === config.defaultValue;
+			return (
+				'<button type="button" class="btn ' +
+				(isDefault ? "btn-primary active" : "btn-default") +
+				' tab-btn" data-value="' +
+				frappe.utils.escape_html(option) +
+				'">' +
+				frappe.utils.escape_html(__(option)) +
+				"</button>"
+			);
+		})
+		.join("");
+	return (
+		'<div class="form-group tab-group-wrap" data-mode="' +
+		config.mode +
+		'">' +
 		"<label>" +
-		__("Sex") +
+		frappe.utils.escape_html(config.label) +
+		requiredMark(config.required) +
 		"</label>" +
-		'<div class="sex-btn-group" data-field="sex">' +
-		["Male", "Female", "Other"]
-			.map(
-				(sex) =>
-					'<button type="button" class="btn btn-default sex-btn" data-value="' +
-					sex +
-					'">' +
-					__(sex) +
-					"</button>"
-			)
-			.join("") +
-		"</div></div>";
+		'<input type="hidden" class="cad-field" data-field="' +
+		config.field +
+		'" value="' +
+		frappe.utils.escape_html(config.defaultValue || "") +
+		'">' +
+		'<div class="tab-btn-group">' +
+		buttons +
+		"</div>" +
+		(config.otherPickerHtml || "") +
+		(config.detailFieldHtml || "") +
+		"</div>"
+	);
+}
 
+function renderSexGroup() {
+	return renderTabGroup({
+		field: "sex",
+		label: __("Sex"),
+		options: ["Male", "Female", "Other"],
+		mode: "direct",
+		required: true,
+	});
+}
+
+function renderCountryGroup() {
+	return renderTabGroup({
+		field: "native_country",
+		label: __("Country"),
+		options: QUICK_COUNTRIES.concat(["Other"]),
+		mode: "picker",
+		defaultValue: "India",
+		otherPickerHtml: renderOtherPicker(
+			formOptions.other_countries || [],
+			__("-- Select Country --")
+		),
+	});
+}
+
+function renderStateGroup() {
+	return renderTabGroup({
+		field: "native_state",
+		label: __("Native State"),
+		options: (formOptions.major_states || []).concat(["Other"]),
+		mode: "picker",
+		otherPickerHtml: renderOtherPicker(
+			formOptions.other_states || [],
+			__("-- Select State --")
+		),
+	});
+}
+
+function renderSectorGroup() {
+	return renderTabGroup({
+		field: "occupation",
+		label: __("Occupation / Sector"),
+		options: (formOptions.major_sectors || []).concat(["Other"]),
+		mode: "direct",
+		detailFieldHtml:
+			'<input type="text" class="form-control cad-field detail-field" data-field="specify_sector" placeholder="' +
+			frappe.utils.escape_html(__("Specify sector")) +
+			'" hidden>',
+	});
+}
+
+function renderRegisterForm() {
 	return (
 		'<div class="register-grid">' +
-		fields +
-		sexGroup +
+		renderField(NAME_FIELD) +
+		renderSexGroup() +
+		renderFields(AGE_AND_DOB_FIELDS) +
+		renderFieldNote(__("Age or Date of Birth is required.")) +
+		renderFields(MEASUREMENT_FIELDS) +
+		renderCountryGroup() +
+		renderStateGroup() +
+		renderDistrictField() +
+		renderSectorGroup() +
+		renderFields(CONTACT_FIELDS) +
 		"</div>" +
-		'<datalist id="cad-district-list"></datalist>' +
 		'<div class="register-actions">' +
 		'<button class="btn btn-primary btn-lg cad-register-submit">' +
 		__("Register & Add to Queue") +
@@ -351,6 +493,18 @@ function bindSearchEvents(page) {
 	page.main.off("click", ".patient-result-row").on("click", ".patient-result-row", function () {
 		confirm_add_to_queue(page, $(this).data("patient"));
 	});
+
+	page.main.off("click", ".queue-print-card").on("click", ".queue-print-card", function (event) {
+		event.preventDefault();
+		print_patient_card($(this).data("patient"));
+	});
+
+	page.main
+		.off("click", ".queue-cancel-visit")
+		.on("click", ".queue-cancel-visit", function (event) {
+			event.preventDefault();
+			cancel_queued_visit(page, $(this).data("encounter"), $(this).data("patient-name"));
+		});
 }
 
 function confirm_add_to_queue(page, patient) {
@@ -529,27 +683,58 @@ function bindRegisterEvents(page) {
 			page.main.find(".cad-register-form").toggle();
 		});
 
-	page.main.off("click", ".sex-btn").on("click", ".sex-btn", function () {
-		$(this).siblings(".sex-btn").removeClass("btn-primary active").addClass("btn-default");
+	// One handler for all four tab groups (Sex, Country, Native State, Occupation/Sector):
+	// see renderTabGroup's comment for what "direct" vs "picker" mode means.
+	page.main.off("click", ".tab-btn").on("click", ".tab-btn", function () {
+		const wrap = $(this).closest(".tab-group-wrap");
+		wrap.find(".tab-btn").removeClass("btn-primary active").addClass("btn-default");
 		$(this).addClass("btn-primary active").removeClass("btn-default");
+
+		const value = $(this).data("value");
+		const isOther = value === "Other";
+		const hiddenField = wrap.find("input.cad-field");
+
+		if (wrap.data("mode") === "picker") {
+			hiddenField.val(isOther ? "" : value);
+			wrap.find(".other-picker").prop("hidden", !isOther).val("");
+		} else {
+			hiddenField.val(value);
+		}
+		wrap.find(".detail-field").prop("hidden", !isOther).val("");
+
+		if (hiddenField.data("field") === "native_state")
+			loadDistrictSuggestions(page, hiddenField.val());
+	});
+
+	// A picker's own change is what actually resolves the group's real value once "Other"
+	// revealed it — see renderOtherPicker.
+	page.main.off("change", ".other-picker").on("change", ".other-picker", function () {
+		const wrap = $(this).closest(".tab-group-wrap");
+		const hiddenField = wrap.find("input.cad-field");
+		hiddenField.val($(this).val());
+
+		if (hiddenField.data("field") === "native_state")
+			loadDistrictSuggestions(page, hiddenField.val());
 	});
 
 	page.main
 		.off("click", ".cad-register-submit")
 		.on("click", ".cad-register-submit", () => submitRegistration(page));
-
-	page.main
-		.off("change", ".cad-field[data-field='native_state']")
-		.on("change", ".cad-field[data-field='native_state']", function () {
-			loadDistrictSuggestions(page, $(this).val());
-		});
 }
 
-// Native District stays free text (Autocomplete, not Link, server-side) so a state without
-// a mapped district list never blocks registration — this only offers suggestions.
+// Every one of the 36 real states/UTs has a district list now (state_districts.py), so the
+// select just needs repopulating each time the state above changes -- no free-text fallback
+// path to keep in sync with it.
 async function loadDistrictSuggestions(page, state) {
-	const datalist = page.main.find("#cad-district-list");
-	datalist.empty();
+	const select = page.main.find(".district-select");
+	select
+		.empty()
+		.append(
+			'<option value="">' +
+				frappe.utils.escape_html(__("-- Select District --")) +
+				"</option>"
+		)
+		.prop("disabled", true);
 	if (!state) return;
 
 	const response = await frappe.call({
@@ -557,11 +742,19 @@ async function loadDistrictSuggestions(page, state) {
 		args: { state },
 	});
 	const districts = (response && response.message) || [];
-	datalist.html(
+	select.append(
 		districts
-			.map((district) => '<option value="' + frappe.utils.escape_html(district) + '">')
+			.map(
+				(district) =>
+					'<option value="' +
+					frappe.utils.escape_html(district) +
+					'">' +
+					frappe.utils.escape_html(district) +
+					"</option>"
+			)
 			.join("")
 	);
+	select.prop("disabled", false);
 }
 
 async function submitRegistration(page) {
@@ -569,14 +762,16 @@ async function submitRegistration(page) {
 	page.main.find(".cad-field").each(function () {
 		values[$(this).data("field")] = $(this).val();
 	});
-	values.sex = page.main.find(".sex-btn.active").data("value");
 
 	if (!values.full_name || !values.full_name.trim()) {
 		frappe.msgprint(__("Full name is required."));
 		return;
 	}
-	if (!values.dob) {
-		frappe.msgprint(__("Date of birth is required."));
+	// "" is falsy but a real age (0 for a newborn) is a legitimate way to skip DOB, so this
+	// checks presence rather than truthiness.
+	const hasAge = values.age !== undefined && values.age !== "";
+	if (!values.dob && !hasAge) {
+		frappe.msgprint(__("Enter the date of birth, or an approximate age if it isn't known."));
 		return;
 	}
 	if (!values.sex) {
@@ -598,16 +793,19 @@ async function submitRegistration(page) {
 
 	const args = {
 		full_name: values.full_name.trim(),
-		dob: values.dob,
 		sex: values.sex,
 		session: cadSession.session_name,
 	};
+	if (values.dob) args.dob = values.dob;
+	if (hasAge) args.age = values.age;
 	if (values.mobile) args.mobile = values.mobile;
 	if (values.height_cm) args.height_cm = values.height_cm;
 	if (values.weight_kg) args.weight_kg = values.weight_kg;
+	if (values.native_country) args.native_country = values.native_country;
 	if (values.native_state) args.native_state = values.native_state;
 	if (values.native_district) args.native_district = values.native_district;
 	if (values.occupation) args.occupation = values.occupation;
+	if (values.specify_sector) args.specify_sector = values.specify_sector;
 	if (values.company_name) args.company_name = values.company_name;
 	if (values.abha_id) args.abha_id = values.abha_id;
 
@@ -626,9 +824,10 @@ async function submitRegistration(page) {
 	if (!patient) return;
 
 	await addPatientToQueue(page, patient, () => {
-		page.main.find(".cad-register-form").hide();
-		page.main.find(".cad-field").val("");
-		page.main.find(".sex-btn").removeClass("btn-primary active").addClass("btn-default");
+		// Re-rendering, rather than clearing values in place, is what restores India as the
+		// default country tab and hides every group's revealed picker/detail field for the
+		// next patient.
+		page.main.find(".cad-register-form").hide().html(renderRegisterForm());
 		focus_scan_input(page);
 	});
 
@@ -688,69 +887,44 @@ function renderQueueTable(page, rows) {
 				format_stage_badge(row.current_stage) +
 				"</td>" +
 				'<td class="queue-row-actions">' +
-				'<span class="queue-more" data-patient="' +
-				frappe.utils.escape_html(row.patient || "") +
-				'" data-encounter="' +
-				frappe.utils.escape_html(row.encounter || "") +
-				'" data-patient-name="' +
-				frappe.utils.escape_html(row.patient_name || "") +
-				'" data-can-cancel="' +
-				(row.encounter && !QUEUE_TERMINAL_STAGES.has(row.current_stage) ? "1" : "") +
-				'"></span>' +
+				renderRowMenu(row) +
 				"</td>" +
 				"</tr>"
 		)
 		.join("");
 
 	body.html(html);
-	attachRowMenus(page, body);
 }
 
 // Every row carries the menu, including finished ones, so the actions column keeps a single
 // shape down the table. Print Card lives in it rather than beside it: the queue is the screen
 // the front desk reads, and a button on every row competed with the patient names for it.
-let queueRowMenus = [];
-
-function attachRowMenus(page, body) {
-	queueRowMenus.forEach((menu) => menu.destroy());
-	queueRowMenus = [];
-
-	body.find(".queue-more").each(function () {
-		const patient = $(this).data("patient");
-		const encounter = $(this).data("encounter");
-		const patient_name = $(this).data("patient-name");
-
-		const options = [
-			{
-				label: __("Print Card"),
-				icon: "printer",
-				onclick: () => print_patient_card(patient),
-			},
-		];
-		if ($(this).data("can-cancel")) {
-			options.push({
-				label: __("Cancel Visit"),
-				icon: "ban",
-				theme: "red",
-				onclick: () => cancel_queued_visit(page, encounter, patient_name),
-			});
-		}
-
-		const $trigger = frappe.ui.dropdown({
-			// label "" is what makes frappe.ui.button render icon-only; Dropdown otherwise
-			// defaults the trigger to a labelled "Options" button.
-			button: {
-				label: "",
-				icon: "ellipsis",
-				variant: "ghost",
-				tooltip: __("More actions"),
-			},
-			align: "end",
-			options,
-		});
-		$(this).replaceWith($trigger);
-		queueRowMenus.push($trigger.data("es-dropdown"));
-	});
+function renderRowMenu(row) {
+	const canCancel = row.encounter && !QUEUE_TERMINAL_STAGES.has(row.current_stage);
+	return (
+		'<div class="dropdown queue-more">' +
+		'<button type="button" class="btn btn-sm btn-default queue-more-btn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="' +
+		frappe.utils.escape_html(__("More actions")) +
+		'">' +
+		frappe.utils.icon("ellipsis", "sm", "", "", "current-color") +
+		"</button>" +
+		'<ul class="dropdown-menu dropdown-menu-right" role="menu">' +
+		'<li><a class="dropdown-item queue-print-card" data-patient="' +
+		frappe.utils.escape_html(row.patient || "") +
+		'">' +
+		__("Print Card") +
+		"</a></li>" +
+		(canCancel
+			? '<li><a class="dropdown-item text-danger queue-cancel-visit" data-encounter="' +
+			  frappe.utils.escape_html(row.encounter || "") +
+			  '" data-patient-name="' +
+			  frappe.utils.escape_html(row.patient_name || "") +
+			  '">' +
+			  __("Cancel Visit") +
+			  "</a></li>"
+			: "") +
+		"</ul></div>"
+	);
 }
 
 // Status was a second column that only ever restated the stage (Completed reads Done, every
