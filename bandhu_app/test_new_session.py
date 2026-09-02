@@ -5,6 +5,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import today
 
+from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.page.new_session.new_session import (
 	as_session_draft,
 	check_clashes,
@@ -38,13 +39,12 @@ class IntegrationTestNewSession(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
 		cls.project = frappe.db.get_value("Clinic", cls.clinic, "project")
-		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
-		cls.unit = frappe.get_all("Unit", limit=1, pluck="name")[0]
-		cls.doctor = frappe.get_all(
-			"Healthcare Practitioner", filters={"custom_role": "Doctor"}, limit=1, pluck="name"
-		)[0]
+		cls.site = baseline["site"]
+		cls.unit = baseline["unit"]
+		cls.doctor = baseline["doctor"]
 
 	def session_values(self, **overrides):
 		values = {

@@ -421,7 +421,9 @@ function openCompleteDialog(page, encounter) {
 				past_history: values.past_history,
 				allergy_history: values.allergy_history,
 				referred_to: values.refer_patient ? values.referred_to : null,
-				referred_to_practitioner: values.refer_patient ? values.referred_to_practitioner : null,
+				referred_to_practitioner: values.refer_patient
+					? values.referred_to_practitioner
+					: null,
 				referral_reason: values.refer_patient ? values.referral_reason : null,
 				referral_priority: values.refer_patient ? values.referral_priority : null,
 			});

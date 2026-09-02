@@ -185,8 +185,16 @@ frappe.provide("bandhu.session_ui");
 	// registration, and what the nurse measured this visit. The visit's own reading is what is
 	// clinically true right now, so it wins whenever the nurse has recorded one.
 	function format_vitals_details(patient, encounter) {
-		const height = encounter.custom_height ? encounter.custom_height + " cm" : patient.custom_height_m ? patient.custom_height_m + " m" : "";
-		const weight = encounter.custom_weight ? encounter.custom_weight + " kg" : patient.custom_weight_kg ? patient.custom_weight_kg + " kg" : "";
+		const height = encounter.custom_height
+			? encounter.custom_height + " cm"
+			: patient.custom_height_m
+			? patient.custom_height_m + " m"
+			: "";
+		const weight = encounter.custom_weight
+			? encounter.custom_weight + " kg"
+			: patient.custom_weight_kg
+			? patient.custom_weight_kg + " kg"
+			: "";
 		const bmi = encounter.custom_bmi || patient.custom_bmi;
 		const temperature = encounter.custom_temperature || patient.custom_temperature;
 
@@ -362,24 +370,24 @@ frappe.provide("bandhu.session_ui");
 				__("Chief Complaint"),
 				encounter.custom_chief_complaints
 					? '<div class="text-sm text-ink-gray-8">' +
-					  frappe.utils.escape_html(encounter.custom_chief_complaints) +
-					  "</div>"
+							frappe.utils.escape_html(encounter.custom_chief_complaints) +
+							"</div>"
 					: ""
 			) +
 			format_section(
 				__("Past History"),
 				encounter.custom_past_history
 					? '<div class="text-sm text-ink-gray-8">' +
-					  frappe.utils.escape_html(encounter.custom_past_history) +
-					  "</div>"
+							frappe.utils.escape_html(encounter.custom_past_history) +
+							"</div>"
 					: ""
 			) +
 			format_section(
 				__("Allergy History"),
 				encounter.custom_allergy_history
 					? '<div class="text-sm text-ink-gray-8">' +
-					  frappe.utils.escape_html(encounter.custom_allergy_history) +
-					  "</div>"
+							frappe.utils.escape_html(encounter.custom_allergy_history) +
+							"</div>"
 					: ""
 			) +
 			format_section(

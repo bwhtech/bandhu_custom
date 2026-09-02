@@ -5,6 +5,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, flt, nowtime, today
 
+from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.page.nurse_form.nurse_form import (
 	dispense_medicine,
 	end_session,
@@ -17,18 +18,18 @@ from bandhu_app.bandhu_app.page.nurse_form.nurse_form import (
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
 
-TEST_ITEM = "_Test Stock Item"
-
 
 class IntegrationTestNurseForm(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
 
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
-		cls.project = frappe.get_all("Bandhu Projects", limit=1, pluck="name")[0]
-		cls.appointment_type = frappe.get_all("Appointment Type", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.site = baseline["site"]
+		cls.project = baseline["project"]
+		cls.appointment_type = baseline["appointment_type"]
+		cls.item = baseline["item"]
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
 		cls.nurse_practitioner = cls._make_practitioner("Test Nurse Alpha", "Nurse")
@@ -216,7 +217,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 		encounter = self._make_encounter(
 			self.session,
 			"Awaiting Medicine",
-			prescriptions=[{"medicines": TEST_ITEM, "dosage_frequency": "OD", "quantity": 5}],
+			prescriptions=[{"medicines": self.item, "dosage_frequency": "OD", "quantity": 5}],
 		)
 		row_name = encounter.custom_bandhu_prescription[0].name
 
@@ -242,8 +243,8 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 			self.session,
 			"Awaiting Medicine",
 			prescriptions=[
-				{"medicines": TEST_ITEM, "dosage_frequency": "OD", "quantity": 5},
-				{"medicines": TEST_ITEM, "dosage_frequency": "BD", "quantity": 3},
+				{"medicines": self.item, "dosage_frequency": "OD", "quantity": 5},
+				{"medicines": self.item, "dosage_frequency": "BD", "quantity": 3},
 			],
 		)
 		dispensed_row = encounter.custom_bandhu_prescription[0].name
@@ -261,7 +262,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 	def test_unprivileged_user_is_blocked(self):
 		test_encounter = self._make_encounter(self.session, "Awaiting Test", tests=[{"test_name": "Hb"}])
 		medicine_encounter = self._make_encounter(
-			self.session, "Awaiting Medicine", prescriptions=[{"medicines": TEST_ITEM}]
+			self.session, "Awaiting Medicine", prescriptions=[{"medicines": self.item}]
 		)
 
 		frappe.set_user(self.no_role_user)

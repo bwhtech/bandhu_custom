@@ -96,6 +96,8 @@ after_install = "bandhu_app.install.after_install"
 after_migrate = [
 	"bandhu_app.bandhu_app.utils.desk_visibility.sync_bandhu_desktop_icons",
 	"bandhu_app.bandhu_app.utils.desk_visibility.restrict_other_app_desktop_icons",
+	"bandhu_app.bandhu_app.page.staff_onboarding.staff_onboarding.seed_default_genders",
+	"bandhu_app.bandhu_app.utils.patient_encounter.seed_default_appointment_type",
 ]
 
 # Uninstallation

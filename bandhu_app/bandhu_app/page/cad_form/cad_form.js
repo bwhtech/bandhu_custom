@@ -9,7 +9,13 @@ let formOptions = { major_states: [], other_states: [], major_sectors: [], other
 // India and Nepal are always offered as quick taps; a full Country master backs "Other".
 const QUICK_COUNTRIES = ["India", "Nepal"];
 
-const NAME_FIELD = { name: "full_name", label: __("Full Name"), type: "text", wide: true, required: true };
+const NAME_FIELD = {
+	name: "full_name",
+	label: __("Full Name"),
+	type: "text",
+	wide: true,
+	required: true,
+};
 
 // CMID asked for age to sit right after Sex, with DOB alongside it: a field CAD can fill
 // straight from what the patient tells them, without having to work out a birth date first.
@@ -291,7 +297,11 @@ function renderFields(fields) {
 // Age and DOB aren't each individually required (register_patient accepts either), so a
 // plain asterisk on one or both would overstate it -- this says the actual either/or rule.
 function renderFieldNote(text) {
-	return '<div class="form-group field-wide field-note">' + frappe.utils.escape_html(text) + "</div>";
+	return (
+		'<div class="form-group field-wide field-note">' +
+		frappe.utils.escape_html(text) +
+		"</div>"
+	);
 }
 
 // A plain select, same as the Country/State "Other" picker -- populated once the state
@@ -400,7 +410,10 @@ function renderCountryGroup() {
 		options: QUICK_COUNTRIES.concat(["Other"]),
 		mode: "picker",
 		defaultValue: "India",
-		otherPickerHtml: renderOtherPicker(formOptions.other_countries || [], __("-- Select Country --")),
+		otherPickerHtml: renderOtherPicker(
+			formOptions.other_countries || [],
+			__("-- Select Country --")
+		),
 	});
 }
 
@@ -410,7 +423,10 @@ function renderStateGroup() {
 		label: __("Native State"),
 		options: (formOptions.major_states || []).concat(["Other"]),
 		mode: "picker",
-		otherPickerHtml: renderOtherPicker(formOptions.other_states || [], __("-- Select State --")),
+		otherPickerHtml: renderOtherPicker(
+			formOptions.other_states || [],
+			__("-- Select State --")
+		),
 	});
 }
 
@@ -483,10 +499,12 @@ function bindSearchEvents(page) {
 		print_patient_card($(this).data("patient"));
 	});
 
-	page.main.off("click", ".queue-cancel-visit").on("click", ".queue-cancel-visit", function (event) {
-		event.preventDefault();
-		cancel_queued_visit(page, $(this).data("encounter"), $(this).data("patient-name"));
-	});
+	page.main
+		.off("click", ".queue-cancel-visit")
+		.on("click", ".queue-cancel-visit", function (event) {
+			event.preventDefault();
+			cancel_queued_visit(page, $(this).data("encounter"), $(this).data("patient-name"));
+		});
 }
 
 function confirm_add_to_queue(page, patient) {
@@ -684,7 +702,8 @@ function bindRegisterEvents(page) {
 		}
 		wrap.find(".detail-field").prop("hidden", !isOther).val("");
 
-		if (hiddenField.data("field") === "native_state") loadDistrictSuggestions(page, hiddenField.val());
+		if (hiddenField.data("field") === "native_state")
+			loadDistrictSuggestions(page, hiddenField.val());
 	});
 
 	// A picker's own change is what actually resolves the group's real value once "Other"
@@ -694,7 +713,8 @@ function bindRegisterEvents(page) {
 		const hiddenField = wrap.find("input.cad-field");
 		hiddenField.val($(this).val());
 
-		if (hiddenField.data("field") === "native_state") loadDistrictSuggestions(page, hiddenField.val());
+		if (hiddenField.data("field") === "native_state")
+			loadDistrictSuggestions(page, hiddenField.val());
 	});
 
 	page.main
@@ -710,7 +730,9 @@ async function loadDistrictSuggestions(page, state) {
 	select
 		.empty()
 		.append(
-			'<option value="">' + frappe.utils.escape_html(__("-- Select District --")) + "</option>"
+			'<option value="">' +
+				frappe.utils.escape_html(__("-- Select District --")) +
+				"</option>"
 		)
 		.prop("disabled", true);
 	if (!state) return;
@@ -894,12 +916,12 @@ function renderRowMenu(row) {
 		"</a></li>" +
 		(canCancel
 			? '<li><a class="dropdown-item text-danger queue-cancel-visit" data-encounter="' +
-				frappe.utils.escape_html(row.encounter || "") +
-				'" data-patient-name="' +
-				frappe.utils.escape_html(row.patient_name || "") +
-				'">' +
-				__("Cancel Visit") +
-				"</a></li>"
+			  frappe.utils.escape_html(row.encounter || "") +
+			  '" data-patient-name="' +
+			  frappe.utils.escape_html(row.patient_name || "") +
+			  '">' +
+			  __("Cancel Visit") +
+			  "</a></li>"
 			: "") +
 		"</ul></div>"
 	);

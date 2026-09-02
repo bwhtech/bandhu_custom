@@ -20,6 +20,7 @@ from frappe.handler import execute_cmd
 from frappe.tests import IntegrationTestCase
 from frappe.utils import set_request, today
 
+from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.page.cad_form import cad_form
 
 CAD = "bandhu_app.bandhu_app.page.cad_form.cad_form"
@@ -64,9 +65,10 @@ class TestApiBoundary(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
-		cls.project = frappe.get_all("Bandhu Projects", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.site = baseline["site"]
+		cls.project = baseline["project"]
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
 	def setUp(self):

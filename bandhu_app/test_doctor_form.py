@@ -4,6 +4,7 @@
 import frappe
 from frappe.tests import IntegrationTestCase
 
+from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.page.doctor_form.doctor_form import (
 	complete_encounter,
 	get_patient_registration_details,
@@ -17,25 +18,16 @@ from bandhu_app.bandhu_app.utils.clinic_test import seed_default_tests
 from bandhu_app.bandhu_app.utils.patient_details import get_clinical_details_by_encounter
 
 
-def first_of(doctype: str) -> str | None:
-	"""Resolve a master by lookup rather than by name.
-
-	Hardcoded fixture names only exist on the site they were written against, so the suite
-	failed in setUp everywhere else before it reached a single assertion.
-	"""
-	names = frappe.get_all(doctype, limit=1, pluck="name")
-	return names[0] if names else None
-
-
 class TestDoctorForm(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls.appointment_type = first_of("Appointment Type")
-		cls.project = first_of("Bandhu Projects")
-		cls.site = first_of("Site")
-		cls.clinic = first_of("Clinic")
-		cls.item = first_of("Item")
+		baseline = ensure_baseline_fixtures()
+		cls.appointment_type = baseline["appointment_type"]
+		cls.project = baseline["project"]
+		cls.site = baseline["site"]
+		cls.clinic = baseline["clinic"]
+		cls.item = baseline["item"]
 
 	def setUp(self):
 		self.today = frappe.utils.today()
@@ -280,9 +272,7 @@ class TestDoctorForm(IntegrationTestCase):
 
 	def test_complete_encounter_records_past_and_allergy_history(self):
 		frappe.set_user(self.doctor_user_1)
-		complete_encounter(
-			self.encounter.name, past_history="Asthma", allergy_history="Dust"
-		)
+		complete_encounter(self.encounter.name, past_history="Asthma", allergy_history="Dust")
 
 		self.encounter.reload()
 		self.assertEqual(self.encounter.custom_past_history, "Asthma")
@@ -366,9 +356,7 @@ class TestDoctorForm(IntegrationTestCase):
 
 		self.encounter.reload()
 		self.assertFalse(self.encounter.custom_has_referral)
-		self.assertEqual(
-			frappe.db.count("Referral", {"patient_encounter": self.encounter.name}), 0
-		)
+		self.assertEqual(frappe.db.count("Referral", {"patient_encounter": self.encounter.name}), 0)
 
 	def test_referral_letter_renders_for_a_referred_patient(self):
 		frappe.set_user(self.doctor_user_1)
@@ -392,8 +380,8 @@ class TestDoctorForm(IntegrationTestCase):
 		frappe.set_user(self.doctor_user_1)
 		complete_encounter(
 			self.encounter.name,
-			referred_to='<img src=x onerror=alert(1)>',
-			referral_reason='<script>alert(1)</script>',
+			referred_to="<img src=x onerror=alert(1)>",
+			referral_reason="<script>alert(1)</script>",
 		)
 
 		html = get_referral_letter_html(self.encounter.name)

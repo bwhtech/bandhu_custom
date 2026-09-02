@@ -68,9 +68,7 @@ def sync_bandhu_desktop_icons():
 	hit that dead end. Deleting that tile here cleans up the leftover row from before this fix.
 	"""
 	app_title = frappe.get_hooks("app_title", app_name="bandhu_app")[0]
-	stale_app_tile = frappe.db.get_value(
-		"Desktop Icon", {"label": app_title, "icon_type": "App"}, "name"
-	)
+	stale_app_tile = frappe.db.get_value("Desktop Icon", {"label": app_title, "icon_type": "App"}, "name")
 	if stale_app_tile:
 		frappe.delete_doc("Desktop Icon", stale_app_tile, ignore_permissions=True)
 

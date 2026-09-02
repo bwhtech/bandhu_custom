@@ -5,6 +5,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import today
 
+from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.utils.session import find_active_session
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
@@ -15,9 +16,10 @@ class IntegrationTestBandhuClinicSession(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
-		cls.project = frappe.get_all("Bandhu Projects", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.site = baseline["site"]
+		cls.project = baseline["project"]
 
 		cls.doctor = cls._make_practitioner("Role Test Doctor", "Doctor")
 		cls.nurse = cls._make_practitioner("Role Test Nurse", "Nurse")
