@@ -47,8 +47,6 @@ class IntegrationTestMedicineUtilisationReport(IntegrationTestCase):
 		)
 
 	def setUp(self):
-		# Rows created by one test stay visible to the next, so every test reads only its own
-		# districts; a shared one would make the quantities cumulative.
 		self.district = f"Medicine Report District {frappe.generate_hash(length=6)}"
 		self.other_district = f"Medicine Report District {frappe.generate_hash(length=6)}"
 		self.site = self.make_site(self.district)

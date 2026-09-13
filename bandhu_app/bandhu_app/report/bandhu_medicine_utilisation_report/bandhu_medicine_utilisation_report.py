@@ -8,7 +8,6 @@ from bandhu_app.bandhu_app.utils.session import fetch_map
 
 MAX_REPORT_DAYS = 366
 
-# Beyond this many bars the medicine names on the axis overlap and nothing is readable.
 CHART_MEDICINE_LIMIT = 10
 
 
@@ -51,7 +50,6 @@ def fetch_usage(filters) -> list:
 		.on(encounter.name == prescription.parent)
 		.inner_join(session)
 		.on(session.name == encounter.custom_clinic_session)
-		# A session's site may have no location yet; its medicines still count, under no district.
 		.left_join(site)
 		.on(site.name == session.site)
 		.left_join(location)
