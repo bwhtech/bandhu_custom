@@ -35,7 +35,6 @@ class TestEncounterConcurrency(IntegrationTestCase):
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
 	def setUp(self):
-		# Rollback is per class: a shared session would let each test count the previous test's
 		# encounters.
 		self.suffix = frappe.generate_hash(length=8)
 		self.driver = self.make_practitioner("Clinic Assistant cum Driver")

@@ -185,7 +185,6 @@ def get_patient_history(patient: str):
 
 @frappe.whitelist()
 def get_patient_histories(patients: list | str) -> dict:
-	"""Return the encounter history for a whole queue in one call."""
 	require_doctor_access()
 	patients = frappe.parse_json(patients)
 
@@ -246,7 +245,6 @@ def get_test_options() -> list[dict]:
 
 
 def apply_clinical_notes(doc, chief_complaint, past_history, allergy_history) -> None:
-	"""An empty string clears a note; None leaves it alone."""
 	if chief_complaint is not None:
 		doc.custom_chief_complaints = chief_complaint
 	if past_history is not None:
@@ -429,7 +427,6 @@ def get_patient_card_html(encounter: str) -> str:
 
 @frappe.whitelist()
 def get_referral_letter_html(encounter: str) -> str:
-	"""Referral is System Manager only; load_owned_encounter is the access check here."""
 	require_doctor_access()
 	doc = load_owned_encounter(encounter)
 

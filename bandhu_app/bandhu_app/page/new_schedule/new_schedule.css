@@ -108,7 +108,6 @@
 	grid-template-columns: 1fr;
 }
 
-/* Let the grid column shrink so the wide table scrolls inside its wrapper, not the page. */
 .sched-wizard .panels > * {
 	min-width: 0;
 }

@@ -36,12 +36,6 @@ def count_encounters(session_names: list) -> dict:
 
 
 def count_new_patients(session_names: list) -> dict:
-	"""A patient is new when this session holds their first encounter anywhere in the system.
-
-	First is decided on the clinical date, never on row-insert order: January's paper
-	records back-entered in June must still make January the first visit and June's session
-	the repeat one.
-	"""
 	if not session_names:
 		return {}
 
@@ -82,7 +76,6 @@ def find_session_patients(session_names: list) -> set:
 
 
 def find_first_encounter_sessions(patients: set) -> dict:
-	"""The session holding each patient's earliest encounter, over their whole history."""
 	encounter = frappe.qb.DocType("Patient Encounter")
 
 	first_by_patient = {}
