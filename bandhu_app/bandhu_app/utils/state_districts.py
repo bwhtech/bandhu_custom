@@ -2,7 +2,6 @@ import frappe
 
 from bandhu_app.bandhu_app.page.cad_form.cad_form import require_cad_access
 
-# Only the first 6 states are verified; check the rest against the Census before relying on them.
 STATE_DISTRICTS: dict[str, list[str]] = {
 	"Bihar": [
 		"Araria",

@@ -8,10 +8,8 @@ let formOptions = { major_states: [], other_states: [], major_sectors: [] };
 
 const QUICK_COUNTRIES = ["India", "Nepal"];
 
-// Matches MAX_PLAUSIBLE_AGE in cad_form.py.
 const MAX_PLAUSIBLE_AGE = 120;
 
-// Matches MIN_SEARCH_LENGTH in cad_form.py.
 const MIN_SEARCH_LENGTH = 2;
 
 const NAME_FIELD = {
@@ -800,7 +798,6 @@ async function loadDistrictSuggestions(page, state) {
 }
 
 function years_since(date_string) {
-	// Parse the parts: Date() reads yyyy-mm-dd as UTC and shifts the day in IST.
 	const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date_string || "");
 	if (!parts) return null;
 
@@ -825,7 +822,6 @@ async function submitRegistration(page) {
 		frappe.msgprint(__("Full name is required."));
 		return;
 	}
-	// 0 is a valid age for a newborn, so check presence, not truthiness.
 	const hasAge = values.age !== undefined && values.age !== "";
 	if (!values.dob && !hasAge) {
 		frappe.msgprint(__("Enter the date of birth, or an approximate age if it isn't known."));
@@ -1054,7 +1050,6 @@ function renderRowMenu(row) {
 function format_time_in_session(row) {
 	if (!row.queued_at || QUEUE_TERMINAL_STAGES.has(row.current_stage)) return "";
 
-	// comment_when returns markup, so it is not escaped.
 	return frappe.datetime.comment_when(row.queued_at, true);
 }
 
@@ -1102,7 +1097,6 @@ async function refreshBoard() {
 	bandhu.session_ui.add_refresh_icon(cadPage, refreshBoard);
 	const load = cadPage.main.find(".cad-queue-body").length ? loadQueue : loadDashboard;
 	await bandhu.session_ui.refresh_page(cadPage, load);
-	// Join the session room only after the load says which session this is.
 	bandhu.session_ui.subscribe_to_board_updates(
 		"cad-form",
 		() => (cadSession ? cadSession.session_name : null),

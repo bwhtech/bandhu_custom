@@ -176,7 +176,6 @@ function render(page, clashes) {
 }
 
 function bind(page) {
-	// page.main outlives every render, so a stale delegated handler would fire twice.
 	page.main.off("change").off("input");
 
 	page.main.on("change", ".new-session-field", function () {
@@ -307,7 +306,6 @@ frappe.pages["new-session"].on_page_load = function (wrapper) {
 		render(page);
 	});
 
-	// No on_page_show reload: it would wipe a half-filled form.
 	(async () => {
 		await frappe.require(SESSION_UI_ASSET);
 		await bandhu.session_ui.refresh_page(page, loadOptions);
