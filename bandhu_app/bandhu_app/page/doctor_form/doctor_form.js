@@ -531,9 +531,6 @@ function renderOverflowMenu(encounter) {
 	);
 }
 
-// Referral is System Manager only in DocType permissions, same reason cad_form.js cannot use
-// /printview for the patient card — the letter comes back through this page's own gated
-// endpoint instead.
 async function printReferralLetter(encounter) {
 	if (!encounter) return;
 

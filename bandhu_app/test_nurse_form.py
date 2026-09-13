@@ -192,7 +192,6 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 		self.assertEqual(flt(encounter.custom_weight), 68)
 		self.assertEqual(encounter.custom_blood_pressure, "120/80")
 		self.assertEqual(flt(encounter.custom_bmi), 23.53)
-		# The workflow state is untouched: recording vitals is not a queue transition.
 		self.assertEqual(encounter.custom_workflow_state, "Awaiting Test")
 
 	def test_record_vitals_rejects_empty_call(self):

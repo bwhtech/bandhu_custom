@@ -202,15 +202,10 @@
 	color: var(--text-muted);
 }
 
-/* Full Name, Native District and ABHA ID each render alone in a row of this 2-column grid
-   -- left at the default single cell, they leave the other column empty next to them. */
 .cad-dash .register-grid .field-wide {
 	grid-column: 1 / -1;
 }
 
-/* Sex, Country, Native State and Occupation/Sector all render as one of these — a row of
-   quick-tap tabs. Full width across the 2-column grid, since a 6-7 tab group (state, sector)
-   needs more room than a single grid cell gives it. */
 .cad-dash .tab-group-wrap {
 	grid-column: 1 / -1;
 }
@@ -231,9 +226,6 @@
 	margin-top: 8px;
 }
 
-/* Bootstrap's `.form-control { display: block }` has the same specificity as the browser's
-   own `[hidden] { display: none }` rule and loads after it, so the `hidden` attribute alone
-   does not hide a `.form-control` — this makes sure it actually does. */
 .cad-dash .form-control[hidden] {
 	display: none !important;
 }

@@ -155,8 +155,6 @@ class IntegrationTestCadForm(IntegrationTestCase):
 			frappe.set_user("Administrator")
 
 		doc = frappe.get_doc("Patient", patient_name)
-		# Jan 1 of the birth year, not today's month/day minus 40 years — a migrant worker who
-		# only knows their age didn't just have a birthday today, so that would be a fake date.
 		self.assertEqual(str(doc.dob), f"{getdate().year - 40}-01-01")
 
 	def test_register_patient_prefers_explicit_dob_over_age(self):

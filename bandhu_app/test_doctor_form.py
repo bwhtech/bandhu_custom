@@ -371,12 +371,6 @@ class TestDoctorForm(IntegrationTestCase):
 		self.assertIn("Suspected fracture", html)
 
 	def test_referral_letter_escapes_injected_referral_fields(self):
-		"""Jinja's print-format environment has autoescape off app-wide, so a field that reaches
-		the template unescaped is a stored-XSS hole for whoever prints the letter next. Frappe's
-		own base_document._sanitize_content already strips <script> and the onerror attribute on
-		save, so this checks the property that actually matters — no live script or event
-		handler reaches the output — rather than which layer (ORM sanitization or the template's
-		own `| e`) is the one that caught it."""
 		frappe.set_user(self.doctor_user_1)
 		complete_encounter(
 			self.encounter.name,

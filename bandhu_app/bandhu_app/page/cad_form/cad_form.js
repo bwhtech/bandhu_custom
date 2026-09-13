@@ -6,7 +6,6 @@ let cadSession = null;
 let cadPage = null;
 let formOptions = { major_states: [], other_states: [], major_sectors: [], other_countries: [] };
 
-// India and Nepal are always offered as quick taps; a full Country master backs "Other".
 const QUICK_COUNTRIES = ["India", "Nepal"];
 
 const NAME_FIELD = {
@@ -17,8 +16,6 @@ const NAME_FIELD = {
 	required: true,
 };
 
-// CMID asked for age to sit right after Sex, with DOB alongside it: a field CAD can fill
-// straight from what the patient tells them, without having to work out a birth date first.
 const AGE_AND_DOB_FIELDS = [
 	{
 		name: "age",
@@ -261,9 +258,6 @@ function renderRegisterSection() {
 	);
 }
 
-// Shared by every field label on this form — a plain field.required or config.required
-// flag, matching what register_patient (cad_form.py) actually enforces server-side, so the
-// mark is never a promise the backend doesn't keep.
 function requiredMark(required) {
 	return required ? ' <span class="required-mark">*</span>' : "";
 }
@@ -294,8 +288,6 @@ function renderFields(fields) {
 	return fields.map(renderField).join("");
 }
 
-// Age and DOB aren't each individually required (register_patient accepts either), so a
-// plain asterisk on one or both would overstate it -- this says the actual either/or rule.
 function renderFieldNote(text) {
 	return (
 		'<div class="form-group field-wide field-note">' +
@@ -304,10 +296,6 @@ function renderFieldNote(text) {
 	);
 }
 
-// A plain select, same as the Country/State "Other" picker -- populated once the state
-// above resolves a district list (loadDistrictSuggestions), disabled until then. A native
-// <datalist> used to back this field; the browser positions that popup itself with no CSS
-// hook, and CAD staff saw it land away from the field it belonged to.
 function renderDistrictField() {
 	return (
 		'<div class="form-group field-wide">' +
@@ -323,10 +311,6 @@ function renderDistrictField() {
 	);
 }
 
-// A picker select, hidden until its group's "Other" tab is tapped. Its own value flows into
-// the group's hidden field via the delegated change handler in bindRegisterEvents — the
-// select itself never carries the `cad-field` class, so submitRegistration never reads it
-// directly, only the value it forwarded.
 function renderOtherPicker(options, placeholderLabel) {
 	const optionHtml = options
 		.map(
@@ -348,14 +332,6 @@ function renderOtherPicker(options, placeholderLabel) {
 	);
 }
 
-// A row of quick-tap tab buttons backed by one hidden `cad-field` input, shared by Sex,
-// Country, Native State and Sector so the tab/reveal wiring exists exactly once.
-//
-// mode "direct": tapping a tab stores its own value straight into the hidden field — used
-// where every tab (including "Other") is itself a real, storable value.
-// mode "picker": tapping "Other" leaves the hidden field blank and reveals `otherPickerHtml`
-// instead, so the CAD chooses the real value from a full list rather than storing the
-// literal string "Other" — used where "Other" only means "not one of the common ones".
 function renderTabGroup(config) {
 	const buttons = config.options
 		.map((option) => {
@@ -683,8 +659,6 @@ function bindRegisterEvents(page) {
 			page.main.find(".cad-register-form").toggle();
 		});
 
-	// One handler for all four tab groups (Sex, Country, Native State, Occupation/Sector):
-	// see renderTabGroup's comment for what "direct" vs "picker" mode means.
 	page.main.off("click", ".tab-btn").on("click", ".tab-btn", function () {
 		const wrap = $(this).closest(".tab-group-wrap");
 		wrap.find(".tab-btn").removeClass("btn-primary active").addClass("btn-default");
@@ -706,8 +680,6 @@ function bindRegisterEvents(page) {
 			loadDistrictSuggestions(page, hiddenField.val());
 	});
 
-	// A picker's own change is what actually resolves the group's real value once "Other"
-	// revealed it — see renderOtherPicker.
 	page.main.off("change", ".other-picker").on("change", ".other-picker", function () {
 		const wrap = $(this).closest(".tab-group-wrap");
 		const hiddenField = wrap.find("input.cad-field");
@@ -722,9 +694,6 @@ function bindRegisterEvents(page) {
 		.on("click", ".cad-register-submit", () => submitRegistration(page));
 }
 
-// Every one of the 36 real states/UTs has a district list now (state_districts.py), so the
-// select just needs repopulating each time the state above changes -- no free-text fallback
-// path to keep in sync with it.
 async function loadDistrictSuggestions(page, state) {
 	const select = page.main.find(".district-select");
 	select
@@ -767,8 +736,6 @@ async function submitRegistration(page) {
 		frappe.msgprint(__("Full name is required."));
 		return;
 	}
-	// "" is falsy but a real age (0 for a newborn) is a legitimate way to skip DOB, so this
-	// checks presence rather than truthiness.
 	const hasAge = values.age !== undefined && values.age !== "";
 	if (!values.dob && !hasAge) {
 		frappe.msgprint(__("Enter the date of birth, or an approximate age if it isn't known."));
@@ -824,9 +791,6 @@ async function submitRegistration(page) {
 	if (!patient) return;
 
 	await addPatientToQueue(page, patient, () => {
-		// Re-rendering, rather than clearing values in place, is what restores India as the
-		// default country tab and hides every group's revealed picker/detail field for the
-		// next patient.
 		page.main.find(".cad-register-form").hide().html(renderRegisterForm());
 		focus_scan_input(page);
 	});

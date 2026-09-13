@@ -65,9 +65,6 @@ def get_session_status() -> dict:
 	}
 
 
-# India and Nepal are the two source countries CMID actually registers patients from; the
-# form shows them as fixed quick-tap tabs rather than reading them from the Country master,
-# which holds all 250 countries and has no "is common" flag of its own.
 QUICK_COUNTRIES = ["India", "Nepal"]
 
 
@@ -237,10 +234,6 @@ def register_patient(
 		frappe.throw(_("Sex is required."))
 
 	if not dob:
-		# Field registration often can't get an exact birth date out of a migrant worker who
-		# knows their age but not their birthday. Jan 1 of the birth year marks the DOB as an
-		# estimate rather than today's month/day, which would read as a real recorded birthday
-		# it isn't. An explicit DOB always wins over a derived one.
 		if age is None:
 			frappe.throw(_("Date of birth or age is required."))
 		if flt(age) < 0 or flt(age) > MAX_PLAUSIBLE_AGE:

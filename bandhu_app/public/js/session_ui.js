@@ -180,10 +180,6 @@ frappe.provide("bandhu.session_ui");
 	// One field labelled "Vitals" inside a section headed "Vitals" said the word twice and then
 	// crammed three separate measurements into a single middot-joined cell. Each reading is its
 	// own field, so each gets its own column and a nurse can find one without parsing a string.
-	//
-	// Height/weight/BMI/temperature can come from two places: what the patient carried in from
-	// registration, and what the nurse measured this visit. The visit's own reading is what is
-	// clinically true right now, so it wins whenever the nurse has recorded one.
 	function format_vitals_details(patient, encounter) {
 		const height = encounter.custom_height
 			? encounter.custom_height + " cm"

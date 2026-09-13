@@ -6,8 +6,6 @@ from frappe.utils import validate_email_address, validate_phone_number
 
 PROVISIONABLE_ROLES = ["Doctor", "Nurse", "Clinic Assistant cum Driver"]
 
-# Gender only ships pre-seeded via the setup wizard, which a `bench new-site` +
-# `install-app` site never runs — seed_default_genders() covers that.
 OFFERED_GENDERS = ["Male", "Female", "Other"]
 
 

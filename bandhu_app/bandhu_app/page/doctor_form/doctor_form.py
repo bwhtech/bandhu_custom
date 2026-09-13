@@ -370,12 +370,6 @@ def complete_encounter(
 
 @frappe.whitelist()
 def get_referral_letter_html(encounter: str) -> str:
-	"""Render the printable referral letter for one encounter.
-
-	Referral is System Manager only in DocType permissions, so this crosses that boundary the
-	same way get_patient_card_html does on the CAD page: load_owned_encounter already proves
-	the caller may see this patient, and the print render carries only what that grants.
-	"""
 	doc = load_owned_encounter(encounter)
 
 	referral = frappe.db.get_value("Referral", {"patient_encounter": doc.name}, "name")
