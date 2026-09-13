@@ -104,6 +104,5 @@ def create_schedule(values: str) -> dict:
 	draft.flags.clashes_already_shown = True
 	draft.insert()
 
-	# Sessions are built by a background job, so count the pattern, not rows.
 	scheduled = occurrence_dates(draft, today(), add_days(today(), horizon_days()))
 	return {"name": draft.name, "scheduled": len(scheduled)}

@@ -7,7 +7,6 @@ PATIENT_CARD_PRINT_FORMAT = "Bandhu Patient Card"
 
 
 def render_patient_card(patient: str, access_method: str) -> str:
-	"""Callers must check access first: this renders with print permissions ignored."""
 	patient = (patient or "").strip()
 	if not frappe.db.exists("Patient", patient):
 		frappe.throw(_("Patient not found."), frappe.DoesNotExistError)

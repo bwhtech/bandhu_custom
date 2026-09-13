@@ -2,7 +2,6 @@ import frappe
 
 
 def execute():
-	"""fetch_from only fires on save, so fill site_name on existing sessions."""
 	sessions = frappe.get_all(
 		"Bandhu Clinic Session", filters={"site": ["is", "set"]}, fields=["name", "site"]
 	)

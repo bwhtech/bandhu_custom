@@ -58,7 +58,6 @@ def practitioners_by_role(custom_role: str) -> list:
 
 
 def association_maps() -> dict:
-	"""Pairings from past sessions. An empty entry means no history, not nothing allowed."""
 	combos = frappe.get_all("Bandhu Clinic Session", fields=["project", "site", "clinic", "unit"])
 
 	project_sites = defaultdict(set)
@@ -80,7 +79,6 @@ def association_maps() -> dict:
 
 
 def clock_value(value, fallback: str) -> str:
-	"""Zero-pad a Time: <input type="time"> renders blank for 9:30:00."""
 	if value in (None, ""):
 		return fallback
 	hours, minutes, seconds = [*str(value).split(":"), "00", "00"][:3]
@@ -310,7 +308,6 @@ CLASH_CHECK_DATES = 10
 
 
 def find_assignment_clashes(schedule, dates: list) -> list:
-	"""Staff or a vehicle already booked on these dates. Reported, never blocked."""
 	if not dates:
 		return []
 
@@ -417,8 +414,6 @@ def preview_occurrences(schedule: str) -> list:
 
 
 def remove_unused_future_sessions(schedule: str) -> list:
-	"""Drop the schedule's future sessions that nobody has used yet, so the current pattern
-	can rebuild them. A session carrying clinical data is never destroyed."""
 	candidates = frappe.get_all(
 		"Bandhu Clinic Session",
 		filters={"session_schedule": schedule, "status": "Planned", "date": [">", today()]},
