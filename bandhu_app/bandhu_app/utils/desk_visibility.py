@@ -1,10 +1,7 @@
 import frappe
 
-# Other apps re-sync their desk icons on every migrate, so after_migrate restricts them again.
-# Administrator, not System Manager, because CMID's own admins hold System Manager.
 ALLOWED_ROLES = ["Administrator"]
 
-# Desktop Icon.icon_image renders an <img>; Workspace.icon only takes sprite names.
 DESK_ICON_IMAGE_BY_WORKSPACE = {
 	"CAD": "/assets/bandhu_app/images/desk_icons/cad.svg",
 	"Doctor": "/assets/bandhu_app/images/desk_icons/doctor.svg",
@@ -14,7 +11,6 @@ DESK_ICON_IMAGE_BY_WORKSPACE = {
 
 
 def restrict_other_app_desktop_icons():
-	# Desktop Icon.app is blank on our own icons, so match on link_to instead.
 	bandhu_workspaces = frappe.get_all("Workspace", filters={"module": "Bandhu App"}, pluck="name")
 	foreign_icons = frappe.get_all(
 		"Desktop Icon",
@@ -42,13 +38,11 @@ def restrict_other_app_desktop_icons():
 
 
 def sync_bandhu_desktop_icons():
-	"""Copy each Bandhu workspace's roles and icon onto its Desktop Icon, which Frappe seeds only once."""
 	app_title = frappe.get_hooks("app_title", app_name="bandhu_app")[0]
 	stale_app_tile = frappe.db.get_value("Desktop Icon", {"label": app_title, "icon_type": "App"}, "name")
 	if stale_app_tile:
 		frappe.delete_doc("Desktop Icon", stale_app_tile, ignore_permissions=True)
 
-	# Workspace.app is unreliable on hand-made records; module comes from the fixture.
 	workspaces = frappe.get_all(
 		"Workspace", filters={"module": "Bandhu App", "public": 1}, fields=["name", "icon"]
 	)
@@ -77,5 +71,4 @@ def sync_bandhu_desktop_icons():
 		any_icon_changed = True
 
 	if any_icon_changed:
-		# Desktop Icon.on_update clears the shared cache only for standard icons.
 		frappe.cache.delete_key("desktop_icons")

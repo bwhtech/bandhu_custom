@@ -1,15 +1,6 @@
 # Copyright (c) 2026, CMID and Contributors
 # See license.txt
 
-"""The HTTP boundary of the clinic endpoints.
-
-Every test here goes through `frappe.handler.execute_cmd` with a form_dict, which is the
-path a browser's `frappe.call` actually takes: whitelist check, HTTP-method check, argument
-coercion against the type annotations, then the in-function role gate. Calling the Python
-function directly — what the rest of the suite does — hands the code arguments that are
-already the right type and skips all four, and that is exactly how the blank-number-input
-crash of 2026-08-10 reached a live session.
-"""
 
 from contextlib import contextmanager
 from unittest.mock import patch
@@ -73,7 +64,6 @@ class TestApiBoundary(IntegrationTestCase):
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
 	def setUp(self):
-		# Rollback is per class, so each test builds its own session.
 		self.suffix = frappe.generate_hash(length=8)
 		self.driver = self.make_practitioner("Clinic Assistant cum Driver")
 		self.doctor = self.make_practitioner("Doctor")

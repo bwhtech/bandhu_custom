@@ -9,7 +9,6 @@
 frappe.provide("bandhu.session_ui");
 
 (function () {
-	// frappe.call rejects on network failure; unhandled, the page stays blank.
 	async function refresh_page(page, load) {
 		try {
 			await load(page);
@@ -37,7 +36,6 @@ frappe.provide("bandhu.session_ui");
 		if (!background_refresh_depth) frappe.dom.unfreeze();
 	}
 
-	// Called on every render so the board can switch session rooms.
 	function join_session_room(route, session) {
 		if (subscribed_rooms.get(route) === session) return;
 
@@ -59,7 +57,6 @@ frappe.provide("bandhu.session_ui");
 
 		async function apply() {
 			timer = null;
-			// Re-rendering underneath an open dialog throws away whatever is half-entered in it.
 			if (frappe.get_route_str() !== route || $(".modal:visible").length) {
 				deferred = true;
 				return;
@@ -120,7 +117,6 @@ frappe.provide("bandhu.session_ui");
 		);
 	}
 
-	// A labelled badge, not a dot, so status does not rely on colour alone.
 	const SESSION_STATUS_BADGES = {
 		"In Progress": { theme: "green", variant: "subtle" },
 		Planned: { theme: "blue", variant: "subtle" },
@@ -244,7 +240,6 @@ frappe.provide("bandhu.session_ui");
 		);
 	}
 
-	// The nurse's reading from this visit wins over the registration value.
 	function format_vitals_details(patient, encounter) {
 		const height = encounter.custom_height
 			? encounter.custom_height + " cm"
@@ -289,7 +284,6 @@ frappe.provide("bandhu.session_ui");
 		);
 	}
 
-	// No theme: .es-badge defaults to gray.
 	function format_badge(label, theme, variant) {
 		return (
 			'<span class="es-badge"' +

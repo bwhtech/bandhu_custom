@@ -6,17 +6,6 @@ PROPERTY = "show_title_field_in_link"
 
 
 def execute():
-	"""Every Link to a practitioner rendered the id (`HLC-PRAC-2026-00004`) instead of the name.
-
-	`Healthcare Practitioner` is autonamed from a naming series and declares
-	`title_field: practitioner_name`, but the healthcare app never sets
-	`show_title_field_in_link`, so Desk falls back to the id in link inputs, list
-	columns and the link title cache. A scheduler assigning a doctor to a session has
-	nothing to verify against.
-
-	Fixed with a Property Setter rather than by editing the healthcare app's JSON:
-	files in other apps are overwritten on every `bench update`.
-	"""
 	if frappe.get_meta(DOCTYPE).get(PROPERTY):
 		return
 

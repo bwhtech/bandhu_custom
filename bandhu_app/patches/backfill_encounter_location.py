@@ -44,7 +44,6 @@ def execute():
 		if not details:
 			continue
 
-		# db.set_value, not save, so completed visits do not re-run workflow hooks.
 		frappe.db.set_value(
 			"Patient Encounter",
 			row.name,
