@@ -19,7 +19,6 @@ def ensure_baseline_fixtures() -> dict[str, str]:
 	nurse = _get_or_create_practitioner("Nurse")
 	driver = _get_or_create_practitioner("Clinic Assistant cum Driver")
 	item = _get_or_create_item()
-	# Needed so this survives a caller's own per-test frappe.db.rollback().
 	frappe.db.commit()  # nosemgrep: frappe-manual-commit
 
 	return {
