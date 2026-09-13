@@ -1,7 +1,6 @@
 import frappe
 from frappe.permissions import add_permission, update_permission_property
 
-# Number Cards need `report` permission, not just `read`.
 SESSION_REPORT_ROLES = ("Director", "Programme Manager")
 
 

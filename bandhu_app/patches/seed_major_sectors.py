@@ -1,6 +1,5 @@
 import frappe
 
-# rename_doc, not delete and recreate, so linked patients follow.
 MAJOR_SECTORS = ["Construction", "Plywood", "Fish processing", "Waste collection", "Manufacturing"]
 RENAMES = {
 	"Seafood Processing": "Fish processing",

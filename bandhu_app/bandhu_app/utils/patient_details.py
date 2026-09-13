@@ -112,7 +112,6 @@ def shared_test_note(tests: list) -> str | None:
 
 
 def get_clinical_details_by_encounter(encounter_names: list) -> dict:
-	"""Tests, prescriptions and diagnosis for a whole queue in one query per child table."""
 	if not encounter_names:
 		return {}
 
