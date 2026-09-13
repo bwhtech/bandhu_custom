@@ -46,13 +46,16 @@ def find_patient(clinic_id) -> frappe._dict:
 	if not typed:
 		frappe.throw(_("Enter the patient's Clinic ID."))
 
-	patient = frappe.db.get_value(
-		"Patient", {"custom_bandhu_id": typed}, PATIENT_FIELDS, as_dict=True
-	) or frappe.db.get_value("Patient", typed, PATIENT_FIELDS, as_dict=True)
+	matches = frappe.qb.get_query(
+		"Patient",
+		fields=PATIENT_FIELDS,
+		filters=[["custom_bandhu_id", "=", typed], "or", ["name", "=", typed]],
+		limit=2,
+	).run(as_dict=True)
 
-	if not patient:
+	if not matches:
 		frappe.throw(_("No patient has Clinic ID {0}.").format(escape_html(typed)))
-	return patient
+	return next((patient for patient in matches if patient.custom_bandhu_id == typed), matches[0])
 
 
 def find_visit(patient: str, visit_name) -> frappe._dict:
