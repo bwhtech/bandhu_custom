@@ -69,7 +69,6 @@ def as_session_draft(values) -> "frappe.model.document.Document":
 	values = frappe.parse_json(values) or {}
 
 	draft = frappe.new_doc("Bandhu Clinic Session")
-	# Copy only form fields so a caller cannot set name, owner or docstatus.
 	draft.update({field: values[field] for field in ACCEPTED_FIELDS if values.get(field) not in (None, "")})
 	return draft
 

@@ -93,7 +93,6 @@ def get_upcoming_sessions() -> list:
 
 def load_session_for_status_change(session_name: str) -> dict:
 	require_session_access(session_name)
-	# for_update makes a second open or close request wait and read the committed status.
 	session_doc = frappe.db.get_value(
 		"Bandhu Clinic Session",
 		session_name,
@@ -176,7 +175,6 @@ SESSION_PROGRESS_STATES = {
 def get_session_progress(session_name: str) -> dict:
 	require_session_access(session_name)
 
-	# v16 rejects an aggregate string in `fields`, so use the query builder.
 	encounter = frappe.qb.DocType("Patient Encounter")
 	counts = (
 		frappe.qb.from_(encounter)

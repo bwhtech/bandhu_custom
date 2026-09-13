@@ -1,7 +1,6 @@
 import frappe
 from frappe import _
 
-# A Property Setter defaults appointment_type to this, so encounter inserts need it.
 DEFAULT_APPOINTMENT_TYPE = "Walk-In"
 
 

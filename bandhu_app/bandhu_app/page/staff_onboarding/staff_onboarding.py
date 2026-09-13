@@ -6,7 +6,6 @@ from frappe.utils import validate_email_address, validate_phone_number
 
 PROVISIONABLE_ROLES = ["Doctor", "Nurse", "Clinic Assistant cum Driver"]
 
-# Gender records come from the setup wizard, which a bench-created site never runs.
 OFFERED_GENDERS = ["Male", "Female", "Other"]
 
 

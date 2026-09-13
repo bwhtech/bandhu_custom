@@ -565,7 +565,6 @@ async function printPatientCard(encounter) {
 	);
 }
 
-// Referral is System Manager only, so the letter comes from a gated endpoint, not /printview.
 async function printReferralLetter(encounter) {
 	await printThroughEndpoint(
 		"get_referral_letter_html",
@@ -998,7 +997,6 @@ async function refreshDashboard() {
 	await frappe.require(SESSION_UI_ASSET);
 	bandhu.session_ui.add_refresh_icon(doctorPage, refreshDashboard);
 	await bandhu.session_ui.refresh_page(doctorPage, loadDashboard);
-	// Join the session room only after the load says which session this is.
 	bandhu.session_ui.subscribe_to_board_updates(
 		"doctor-form",
 		() => (doctorSession ? doctorSession.session_name : null),
