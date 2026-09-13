@@ -344,7 +344,6 @@ function openDispenseDialog(page, encounter) {
 						label: __("Instructions"),
 						read_only: 1,
 					},
-					// Unticked by default: this records what was actually handed over.
 					{
 						fieldtype: "Check",
 						fieldname: "dispensed",
@@ -625,7 +624,6 @@ async function refreshDashboard() {
 	await frappe.require(SESSION_UI_ASSET);
 	bandhu.session_ui.add_refresh_icon(nursePage, refreshDashboard);
 	await bandhu.session_ui.refresh_page(nursePage, loadDashboard);
-	// Join the session room only after the load says which session this is.
 	bandhu.session_ui.subscribe_to_board_updates(
 		"nurse-form",
 		() => (nurseSession ? nurseSession.session_name : null),

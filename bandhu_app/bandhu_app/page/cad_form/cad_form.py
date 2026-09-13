@@ -119,7 +119,6 @@ def search_patient(query: str) -> dict:
 			["dob", "like", like],
 		],
 		fields=["name", "patient_name", "custom_bandhu_id", "sex", "dob"],
-		# One extra row tells the front desk the list was cut.
 		limit=SEARCH_LIMIT + 1,
 	)
 	capped = len(results) > SEARCH_LIMIT
@@ -201,7 +200,6 @@ MAX_PLAUSIBLE_AGE = 120
 
 
 def resolve_dob(dob: str | None, age: float | None) -> str:
-	"""An age-only registration gets Jan 1 of the birth year, marking the date as an estimate."""
 	dob = (dob or "").strip()
 	if dob:
 		return dob
@@ -214,7 +212,6 @@ def resolve_dob(dob: str | None, age: float | None) -> str:
 	return f"{getdate().year - int(flt(age))}-01-01"
 
 
-# A warning, not a block: family members often share one mobile number.
 @frappe.whitelist()
 def find_possible_duplicate(
 	full_name: str,
@@ -401,7 +398,6 @@ def create_encounter(patient: str, session: str) -> str:
 def get_today_queue(session: str) -> list:
 	require_session_access(session)
 
-	# Patient Queue keeps one row per patient across visits, so read the encounters.
 	rows = frappe.get_all(
 		"Patient Encounter",
 		filters={"custom_clinic_session": session, "docstatus": ["<", 2]},
