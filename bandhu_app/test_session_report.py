@@ -162,6 +162,30 @@ class IntegrationTestSessionReport(IntegrationTestCase):
 		self.assertEqual(row["medicines_prescribed"], 2)
 		self.assertEqual(row["medicines_dispensed"], 1)
 
+	def test_cancelled_visits_are_not_counted_as_patients(self):
+		session = self._make_session(today())
+		self._make_encounter(session)
+		self._make_encounter(session, state="Cancelled")
+
+		row = self._row_for(self._run(), session)
+		self.assertEqual(row["patients"], 1)
+		self.assertEqual(row["new_patients"], 1)
+		self.assertEqual(row["repeat_patients"], 0)
+
+	def test_not_done_tests_are_not_counted_as_done(self):
+		session = self._make_session(today())
+		self._make_encounter(
+			session,
+			tests=[
+				{"test_name": "Malaria", "result_type": "Not Done"},
+				{"test_name": "Dengue", "result_type": "Negative"},
+			],
+		)
+
+		row = self._row_for(self._run(), session)
+		self.assertEqual(row["tests_ordered"], 2)
+		self.assertEqual(row["tests_done"], 1)
+
 	def test_date_filter_excludes_sessions_outside_the_period(self):
 		inside = self._make_session(today())
 		outside = self._make_session(add_days(today(), 30))

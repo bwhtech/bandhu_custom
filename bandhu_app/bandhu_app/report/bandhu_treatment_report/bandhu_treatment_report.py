@@ -2,6 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, cstr, escape_html, formatdate
 
+from bandhu_app.bandhu_app.page.doctor_form.doctor_form import verify_patient_linked_to_my_session
 from bandhu_app.bandhu_app.utils.patient import compact_age
 from bandhu_app.bandhu_app.utils.session import fetch_map
 
@@ -37,6 +38,7 @@ def execute(filters=None):
 	filters = frappe._dict(filters or {})
 
 	patient = find_patient(filters.get("clinic_id"))
+	verify_patient_linked_to_my_session(patient.name)
 	visit = find_visit(patient.name, filters.get("visit"))
 	return get_columns(), build_rows(visit.name), describe_visit(patient, visit)
 

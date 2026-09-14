@@ -4,6 +4,8 @@ from frappe.query_builder import Case
 from frappe.query_builder.functions import Coalesce, Count, Sum
 from frappe.utils import cint, cstr, escape_html, getdate
 
+from bandhu_app.bandhu_app.page.doctor_form.doctor_form import verify_patient_linked_to_my_session
+from bandhu_app.bandhu_app.utils.clinic_stats import TEST_NOT_DONE
 from bandhu_app.bandhu_app.utils.patient import compact_age
 from bandhu_app.bandhu_app.utils.session import fetch_map
 
@@ -16,6 +18,7 @@ def execute(filters=None):
 	validate_filters(filters)
 
 	patient = find_patient(filters.clinic_id)
+	verify_patient_linked_to_my_session(patient.name)
 	rows = build_rows(fetch_visits(patient.name, filters), filters)
 	return get_columns(), rows, describe_patient(patient), None, build_summary(rows)
 
@@ -129,7 +132,7 @@ def matches_filters(place, filters) -> bool:
 
 def count_tests_by_visit(encounter_names: list) -> dict:
 	test = frappe.qb.DocType("Test Instructions")
-	done = Case().when(Coalesce(test.result_type, "") != "", 1).else_(0)
+	done = Case().when(Coalesce(test.result_type, "").notin(["", TEST_NOT_DONE]), 1).else_(0)
 
 	rows = (
 		frappe.qb.from_(test)

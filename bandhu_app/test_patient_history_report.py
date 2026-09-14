@@ -80,7 +80,7 @@ class IntegrationTestPatientHistoryReport(IntegrationTestCase):
 			.name
 		)
 
-	def make_session(self, date=None, site=None):
+	def make_session(self, date=None, site=None, doctor=None, status="Completed"):
 		return (
 			frappe.get_doc(
 				{
@@ -90,8 +90,8 @@ class IntegrationTestPatientHistoryReport(IntegrationTestCase):
 					"site": site or self.site,
 					"unit": self.unit,
 					"project": self.project,
-					"assigned_doctor": self.doctor,
-					"status": "Completed",
+					"assigned_doctor": doctor or self.doctor,
+					"status": status,
 				}
 			)
 			.insert(ignore_permissions=True)
@@ -185,3 +185,57 @@ class IntegrationTestPatientHistoryReport(IntegrationTestCase):
 
 	def test_refuses_an_unknown_clinic_id(self):
 		self.assertRaises(frappe.ValidationError, execute, {"clinic_id": "99 9 99 99999"})
+
+	def test_not_done_tests_are_not_counted_as_done(self):
+		self.make_encounter(
+			self.make_session(),
+			custom_test_instructions=[{"test_name": "Malaria", "result_type": "Not Done"}],
+		)
+
+		row = self.run_report()[0]
+		self.assertEqual(row["tests_ordered"], 1)
+		self.assertEqual(row["tests_done"], 0)
+
+	def test_doctor_only_opens_patients_from_their_own_session(self):
+		user = self.make_user("Doctor")
+		own_session = self.make_session(doctor=self.make_practitioner(user), status="In Progress")
+		self.make_encounter(own_session)
+		stranger = self.make_patient()
+		self.make_encounter(self.make_session(), patient=stranger)
+		stranger_clinic_id = frappe.db.get_value("Patient", stranger, "custom_bandhu_id")
+
+		with self.set_user(user):
+			self.assertEqual(len(self.run_report()), 1)
+			self.assertRaises(frappe.PermissionError, self.run_report, clinic_id=stranger_clinic_id)
+
+	def test_system_manager_opens_any_patient(self):
+		self.make_encounter(self.make_session())
+
+		with self.set_user(self.make_user("System Manager")):
+			self.assertEqual(len(self.run_report()), 1)
+
+	def make_user(self, role):
+		user = frappe.get_doc(
+			{
+				"doctype": "User",
+				"email": f"history-report-{frappe.generate_hash(length=8)}@example.com",
+				"first_name": "History Report User",
+				"send_welcome_email": 0,
+			}
+		).insert(ignore_permissions=True)
+		user.add_roles(role)
+		return user.name
+
+	def make_practitioner(self, user):
+		return (
+			frappe.get_doc(
+				{
+					"doctype": "Healthcare Practitioner",
+					"first_name": "History Report Session Doctor",
+					"user_id": user,
+					"custom_role": "Doctor",
+				}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
