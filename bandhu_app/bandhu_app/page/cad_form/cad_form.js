@@ -440,7 +440,7 @@ function renderRegisterForm() {
 		renderFields(CONTACT_FIELDS) +
 		"</div>" +
 		'<div class="register-actions">' +
-		'<button class="btn btn-primary btn-lg cad-register-submit">' +
+		'<button class="btn btn-primary cad-register-submit">' +
 		__("Register & Add to Queue") +
 		"</button>" +
 		"</div>"
