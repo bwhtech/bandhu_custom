@@ -21,3 +21,4 @@ bandhu_app.patches.remove_duplicate_clinic_id_field
 bandhu_app.patches.backfill_encounter_location
 bandhu_app.patches.grant_staff_document_access
 bandhu_app.patches.stop_linking_customer_to_patient
+bandhu_app.patches.grant_encounter_report_permission
