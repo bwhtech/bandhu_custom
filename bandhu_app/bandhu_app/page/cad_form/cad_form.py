@@ -11,7 +11,7 @@ from bandhu_app.bandhu_app.utils.patient_encounter import (
 	ENCOUNTER_TO_QUEUE_STAGE,
 	TERMINAL_WORKFLOW_STATES,
 )
-from bandhu_app.bandhu_app.utils.session import find_active_session
+from bandhu_app.bandhu_app.utils.session import find_active_session, require_running_session
 
 
 def require_cad_access() -> None:
@@ -142,27 +142,6 @@ def search_patient(query: str) -> dict:
 def get_patient_card_html(patient: str) -> str:
 	require_cad_access()
 	return render_patient_card(patient, "CAD Patient Card")
-
-
-def require_running_session(session_name: str) -> dict:
-	session_doc = frappe.db.get_value(
-		"Bandhu Clinic Session",
-		session_name,
-		["status", "assigned_doctor", "site"],
-		as_dict=True,
-	)
-	if not session_doc:
-		frappe.throw(_("Clinic session not found."))
-	if session_doc.status == "Cancelled":
-		frappe.throw(_("This clinic session was cancelled."))
-	if session_doc.status == "Completed":
-		frappe.throw(_("This clinic session is already completed."))
-	if session_doc.status != "In Progress":
-		frappe.throw(
-			_("This clinic session hasn't started yet. Ask the nurse to start the session first."),
-		)
-
-	return session_doc
 
 
 def resolve_registration_origin(session: str) -> tuple[str | None, str | None]:
