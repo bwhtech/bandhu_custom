@@ -1,9 +1,6 @@
 from bandhu_app.bandhu_app.page.staff_onboarding.staff_onboarding import seed_default_genders
 from bandhu_app.bandhu_app.utils.clinic_test import seed_default_tests
 from bandhu_app.bandhu_app.utils.patient_encounter import seed_default_appointment_type
-from bandhu_app.patches.grant_encounter_report_permission import (
-	execute as grant_encounter_report_permission,
-)
 from bandhu_app.patches.seed_indian_states import execute as seed_indian_states
 from bandhu_app.patches.seed_major_sectors import execute as seed_major_sectors
 from bandhu_app.patches.stop_linking_customer_to_patient import (
@@ -18,4 +15,3 @@ def after_install() -> None:
 	seed_indian_states()
 	seed_major_sectors()
 	stop_linking_customer_to_patient()
-	grant_encounter_report_permission()
