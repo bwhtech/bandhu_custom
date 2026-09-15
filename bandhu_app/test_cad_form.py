@@ -722,3 +722,44 @@ class IntegrationTestCadForm(IntegrationTestCase):
 			frappe.set_user("Administrator")
 
 		self.assertFalse(frappe.db.exists("Access Log", {"reference_document": patient.name}))
+
+	def test_duplicate_check_match_is_recorded_against_the_patient(self):
+		frappe.set_user(self.cad_user)
+		try:
+			existing = register_patient(
+				full_name="Zdupe Audited Patient",
+				sex=self.gender,
+				dob="1991-02-03",
+				mobile="9876500097",
+				session=self.session,
+			)
+			find_possible_duplicate(full_name="Someone Else Entirely", dob="1970-01-01", mobile="9876500097")
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertTrue(
+			frappe.db.exists(
+				"Access Log",
+				{
+					"user": self.cad_user,
+					"export_from": "Patient",
+					"method": "CAD Duplicate Check",
+					"reference_document": existing,
+				},
+			)
+		)
+
+	def test_duplicate_check_with_no_match_leaves_no_access_log_row(self):
+		log_filters = {"user": self.cad_user, "method": "CAD Duplicate Check"}
+		rows_before = frappe.db.count("Access Log", log_filters)
+
+		frappe.set_user(self.cad_user)
+		try:
+			match = find_possible_duplicate(
+				full_name="Znobody Audited Patient", dob="1966-06-06", mobile="9876500096"
+			)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertIsNone(match)
+		self.assertEqual(frappe.db.count("Access Log", log_filters), rows_before)

@@ -3,6 +3,7 @@ import re
 import frappe
 from frappe import _
 from frappe.core.doctype.access_log.access_log import make_access_log
+from frappe.rate_limiter import rate_limit
 from frappe.utils import flt, getdate, validate_phone_number
 
 from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
@@ -198,6 +199,9 @@ def resolve_registration_origin(session: str) -> tuple[str | None, str | None]:
 
 MAX_PLAUSIBLE_AGE = 120
 
+DUPLICATE_CHECK_LIMIT = 200
+DUPLICATE_CHECK_WINDOW_SECONDS = 60 * 60
+
 
 def resolve_dob(dob: str | None, age: float | None) -> str:
 	dob = (dob or "").strip()
@@ -213,6 +217,7 @@ def resolve_dob(dob: str | None, age: float | None) -> str:
 
 
 @frappe.whitelist()
+@rate_limit(limit=DUPLICATE_CHECK_LIMIT, seconds=DUPLICATE_CHECK_WINDOW_SECONDS)
 def find_possible_duplicate(
 	full_name: str,
 	dob: str | None = None,
@@ -246,6 +251,7 @@ def find_possible_duplicate(
 		)
 		if match:
 			row = match[0]
+			make_access_log(doctype="Patient", document=row.name, method="CAD Duplicate Check")
 			return {
 				"name": row.name,
 				"patient_name": row.patient_name,
