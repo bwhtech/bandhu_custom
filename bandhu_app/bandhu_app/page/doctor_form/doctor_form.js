@@ -8,15 +8,15 @@ let testOptions = null;
 let doctorSession = null;
 let doctorPage = null;
 
-function chiefComplaintOf(encounter) {
+function chief_complaint_of(encounter) {
 	return (encountersByName[encounter] || {}).custom_chief_complaints || "";
 }
 
-function pastHistoryOf(encounter) {
+function past_history_of(encounter) {
 	return (encountersByName[encounter] || {}).custom_past_history || "";
 }
 
-function allergyHistoryOf(encounter) {
+function allergy_history_of(encounter) {
 	return (encountersByName[encounter] || {}).custom_allergy_history || "";
 }
 
@@ -108,7 +108,7 @@ async function loadQueues(page) {
 	renderDashboard(page, active, completed);
 }
 
-function splitQueues(active) {
+function split_queues(active) {
 	const inRoom = active
 		.filter((encounter) => encounter.custom_called_at)
 		.sort((one, other) => (one.custom_called_at < other.custom_called_at ? -1 : 1));
@@ -123,31 +123,31 @@ function splitQueues(active) {
 }
 
 function renderDashboard(page, active, completed) {
-	const { inRoom, waiting } = splitQueues(active);
+	const { inRoom, waiting } = split_queues(active);
 
 	page.main.html(
 		'<div class="doctor-dash">' +
 			bandhu.session_ui.format_welcome() +
 			(doctorSession ? bandhu.session_ui.format_session_info(doctorSession) : "") +
-			renderFilterBar(active.length + completed.length) +
-			renderRoomSection(inRoom, waiting) +
-			renderWaitingSection(waiting) +
-			renderDoneSection(completed) +
+			render_filter_bar(active.length + completed.length) +
+			render_room_section(inRoom, waiting) +
+			render_waiting_section(waiting) +
+			render_done_section(completed) +
 			"</div>"
 	);
 
 	page.main.off("click");
 
-	page.main.on("input", ".queue-filter-input", () => applyQueueFilter(page));
+	page.main.on("input", ".queue-filter-input", () => apply_queue_filter(page));
 
 	page.main.on("click", ".call-patient", function (event) {
 		event.stopPropagation();
-		callPatient(page, $(this).data("encounter"));
+		call_patient(page, $(this).data("encounter"));
 	});
 
 	page.main.on("click", ".release-patient", function (event) {
 		event.stopPropagation();
-		releasePatient(page, $(this).data("encounter"));
+		release_patient(page, $(this).data("encounter"));
 	});
 
 	page.main.on("click", ".visit-tag.repeat", function (event) {
@@ -166,12 +166,12 @@ function renderDashboard(page, active, completed) {
 
 	page.main.on("click", ".rail-more .print-referral", function (event) {
 		event.stopPropagation();
-		printReferralLetter($(this).data("name"));
+		print_referral_letter($(this).data("name"));
 	});
 
 	page.main.on("click", ".rail-more .print-card", function (event) {
 		event.stopPropagation();
-		printPatientCard($(this).data("name"));
+		print_patient_card($(this).data("name"));
 	});
 
 	page.main.on("click", ".history-list a", function (event) {
@@ -187,11 +187,11 @@ function renderDashboard(page, active, completed) {
 	});
 }
 
-async function callPatient(page, encounter) {
+async function call_patient(page, encounter) {
 	await submitDoctorAction(page, "call_patient", { encounter }, "");
 }
 
-async function releasePatient(page, encounter) {
+async function release_patient(page, encounter) {
 	await submitDoctorAction(page, "release_patient", { encounter }, "");
 }
 
@@ -232,32 +232,32 @@ async function getTestOptions() {
 	return testOptions;
 }
 
-function historyFields(encounter) {
+function history_fields(encounter) {
 	return [
 		{ fieldtype: "Section Break", label: __("History"), collapsible: 1 },
 		{
 			fieldtype: "Small Text",
 			fieldname: "chief_complaint",
 			label: __("Patient Complaints"),
-			default: chiefComplaintOf(encounter),
+			default: chief_complaint_of(encounter),
 		},
 		{
 			fieldtype: "Small Text",
 			fieldname: "past_history",
 			label: __("Past History"),
-			default: pastHistoryOf(encounter),
+			default: past_history_of(encounter),
 		},
 		{
 			fieldtype: "Small Text",
 			fieldname: "allergy_history",
 			label: __("Allergy History"),
-			default: allergyHistoryOf(encounter),
+			default: allergy_history_of(encounter),
 		},
 	];
 }
 
-function allergyWarningFields(encounter) {
-	const allergy = allergyHistoryOf(encounter);
+function allergy_warning_fields(encounter) {
+	const allergy = allergy_history_of(encounter);
 	if (!allergy) return [];
 
 	return [
@@ -296,7 +296,7 @@ async function openOrderTestDialog(page, encounter) {
 				columns: 2,
 			},
 			{ fieldtype: "Small Text", fieldname: "notes", label: __("Instructions for Nurse") },
-			...historyFields(encounter),
+			...history_fields(encounter),
 		],
 		primary_action_label: __("Order Tests"),
 		primary_action: async (values) => {
@@ -323,7 +323,7 @@ function openPrescribeDialog(page, encounter) {
 		title: __("Prescribe Medicine"),
 		size: "large",
 		fields: [
-			...allergyWarningFields(encounter),
+			...allergy_warning_fields(encounter),
 			{
 				fieldtype: "Table",
 				fieldname: "prescriptions",
@@ -363,7 +363,7 @@ function openPrescribeDialog(page, encounter) {
 				],
 				data: [{}],
 			},
-			...historyFields(encounter),
+			...history_fields(encounter),
 		],
 		primary_action_label: __("Prescribe"),
 		primary_action: async (values) => {
@@ -426,7 +426,7 @@ function openCompleteDialog(page, encounter) {
 				depends_on: "eval:doc.refer_patient",
 				mandatory_depends_on: "eval:doc.refer_patient",
 			},
-			...historyFields(encounter),
+			...history_fields(encounter),
 		],
 		primary_action_label: __("Mark Complete"),
 		primary_action: async (values) => {
@@ -484,7 +484,7 @@ const WAITING_NOTES = {
 	"Awaiting Doctor Review": __("back from nurse"),
 };
 
-function renderRoomActions(encounter) {
+function render_room_actions(encounter) {
 	const buttons = [];
 
 	if (encounter.custom_workflow_state === "Waiting for Doctor") {
@@ -557,23 +557,23 @@ function renderOverflowMenu(encounter) {
 	);
 }
 
-async function printPatientCard(encounter) {
-	await printThroughEndpoint(
+async function print_patient_card(encounter) {
+	await print_through_endpoint(
 		"get_patient_card_html",
 		encounter,
 		__("Allow pop-ups for this site to print the patient card.")
 	);
 }
 
-async function printReferralLetter(encounter) {
-	await printThroughEndpoint(
+async function print_referral_letter(encounter) {
+	await print_through_endpoint(
 		"get_referral_letter_html",
 		encounter,
 		__("Allow pop-ups for this site to print the referral letter.")
 	);
 }
 
-async function printThroughEndpoint(method, encounter, popup_blocked_message) {
+async function print_through_endpoint(method, encounter, popup_blocked_message) {
 	if (!encounter) return;
 
 	frappe.dom.freeze();
@@ -699,7 +699,7 @@ function renderHistoryList(encounter) {
 
 const FILTER_BAR_MIN_PATIENTS = 8;
 
-function renderFilterBar(patientCount) {
+function render_filter_bar(patientCount) {
 	if (patientCount < FILTER_BAR_MIN_PATIENTS) return "";
 
 	return (
@@ -712,7 +712,7 @@ function renderFilterBar(patientCount) {
 	);
 }
 
-function applyQueueFilter(page) {
+function apply_queue_filter(page) {
 	const term = (page.main.find(".queue-filter-input").val() || "").trim().toLowerCase();
 
 	page.main.find(".queue-section").each(function () {
@@ -734,7 +734,7 @@ function applyQueueFilter(page) {
 	});
 }
 
-function renderSectionHead(title, count, trailing) {
+function render_section_head(title, count, trailing) {
 	return (
 		'<h4 class="section-head">' +
 		frappe.utils.escape_html(title) +
@@ -744,11 +744,11 @@ function renderSectionHead(title, count, trailing) {
 	);
 }
 
-function searchKey(encounter) {
+function search_key(encounter) {
 	return [encounter.patient_name, encounter.clinic_id].filter(Boolean).join(" ").toLowerCase();
 }
 
-function renderIdentity(encounter) {
+function render_identity(encounter) {
 	return [encounter.patient_age, encounter.patient_sex]
 		.filter(Boolean)
 		.map(frappe.utils.escape_html)
@@ -764,20 +764,20 @@ function renderIdentity(encounter) {
 		.join(" &middot; ");
 }
 
-function renderRoomSection(inRoom, waiting) {
+function render_room_section(inRoom, waiting) {
 	return (
 		'<div class="queue-section">' +
-		renderSectionHead(__("With you"), inRoom.length || undefined) +
+		render_section_head(__("With you"), inRoom.length || undefined) +
 		(inRoom.length
-			? '<div class="room-cards">' + inRoom.map(renderRoomCard).join("") + "</div>"
+			? '<div class="room-cards">' + inRoom.map(render_room_card).join("") + "</div>"
 			: "") +
-		renderCallStrip(inRoom, waiting) +
+		render_call_strip(inRoom, waiting) +
 		"</div>"
 	);
 }
 
-function renderCallStrip(inRoom, waiting) {
-	const callable = waiting.filter(isCallable);
+function render_call_strip(inRoom, waiting) {
+	const callable = waiting.filter(is_callable);
 	const full = inRoom.length >= MAX_PATIENTS_WITH_DOCTOR;
 
 	if (!callable.length && inRoom.length) return "";
@@ -808,7 +808,7 @@ function renderCallStrip(inRoom, waiting) {
 	);
 }
 
-function renderRoomCard(encounter) {
+function render_room_card(encounter) {
 	return (
 		'<article class="room-card" data-name="' +
 		frappe.utils.escape_html(encounter.name) +
@@ -818,7 +818,7 @@ function renderRoomCard(encounter) {
 		frappe.utils.escape_html(encounter.patient_name || "") +
 		"</span>" +
 		'<span class="room-identity">' +
-		renderIdentity(encounter) +
+		render_identity(encounter) +
 		"</span>" +
 		renderVisitTag(encounter) +
 		'<button type="button" class="btn btn-sm btn-default release-patient" title="' +
@@ -835,16 +835,16 @@ function renderRoomCard(encounter) {
 		'<div class="room-clinical">' +
 		renderClinicalSummary(encounter) +
 		"</div>" +
-		renderAllergy(encounter) +
-		renderComplaint(encounter) +
+		render_allergy(encounter) +
+		render_complaint(encounter) +
 		renderHistoryList(encounter) +
 		"</div>" +
-		renderRoomActions(encounter) +
+		render_room_actions(encounter) +
 		"</article>"
 	);
 }
 
-function renderAllergy(encounter) {
+function render_allergy(encounter) {
 	if (!encounter.custom_allergy_history) return "";
 
 	return (
@@ -858,7 +858,7 @@ function renderAllergy(encounter) {
 	);
 }
 
-function renderComplaint(encounter) {
+function render_complaint(encounter) {
 	if (!encounter.custom_chief_complaints) return "";
 
 	return (
@@ -871,28 +871,28 @@ function renderComplaint(encounter) {
 	);
 }
 
-function isCallable(encounter) {
+function is_callable(encounter) {
 	return (
 		encounter.custom_workflow_state === "Waiting for Doctor" ||
 		encounter.custom_workflow_state === "Awaiting Doctor Review"
 	);
 }
 
-function renderWaitingSection(encounters) {
+function render_waiting_section(encounters) {
 	return (
 		'<div class="queue-section">' +
-		renderSectionHead(__("Waiting"), encounters.length) +
+		render_section_head(__("Waiting"), encounters.length) +
 		(encounters.length
-			? '<div class="queue-rows">' + encounters.map(renderWaitingRow).join("") + "</div>"
-			: renderEmptyList(__("Nobody is waiting."))) +
+			? '<div class="queue-rows">' + encounters.map(render_waiting_row).join("") + "</div>"
+			: render_empty_list(__("Nobody is waiting."))) +
 		"</div>"
 	);
 }
 
-function renderWaitingRow(encounter) {
+function render_waiting_row(encounter) {
 	const note =
 		WAITING_NOTES[encounter.custom_workflow_state] ||
-		(isCallable(encounter) ? "" : encounter.custom_workflow_state || __("no state"));
+		(is_callable(encounter) ? "" : encounter.custom_workflow_state || __("no state"));
 	const back = encounter.custom_workflow_state === "Awaiting Doctor Review";
 
 	return (
@@ -901,7 +901,7 @@ function renderWaitingRow(encounter) {
 		'" data-name="' +
 		frappe.utils.escape_html(encounter.name) +
 		'" data-search="' +
-		frappe.utils.escape_html(searchKey(encounter)) +
+		frappe.utils.escape_html(search_key(encounter)) +
 		'">' +
 		'<span class="row-name">' +
 		'<span class="row-head">' +
@@ -909,7 +909,7 @@ function renderWaitingRow(encounter) {
 		frappe.utils.escape_html(encounter.patient_name || "") +
 		"</span>" +
 		'<span class="row-identity">' +
-		renderIdentity(encounter) +
+		render_identity(encounter) +
 		"</span></span>" +
 		'<span class="row-clinical">' +
 		renderClinicalSummary(encounter) +
@@ -926,7 +926,7 @@ function renderWaitingRow(encounter) {
 		'<span class="row-waited">' +
 		__("waiting {0}", [frappe.datetime.comment_when(encounter.creation, true)]) +
 		"</span>" +
-		(isCallable(encounter)
+		(is_callable(encounter)
 			? '<button type="button" class="btn btn-sm btn-default call-patient" data-encounter="' +
 			  frappe.utils.escape_html(encounter.name) +
 			  '">' +
@@ -937,23 +937,23 @@ function renderWaitingRow(encounter) {
 	);
 }
 
-function renderDoneSection(encounters) {
+function render_done_section(encounters) {
 	return (
 		'<div class="queue-section is-done">' +
-		renderSectionHead(__("Done today"), encounters.length) +
+		render_section_head(__("Done today"), encounters.length) +
 		(encounters.length
-			? '<div class="queue-rows">' + encounters.map(renderDoneRow).join("") + "</div>"
-			: renderEmptyList(__("Nobody finished yet."))) +
+			? '<div class="queue-rows">' + encounters.map(render_done_row).join("") + "</div>"
+			: render_empty_list(__("Nobody finished yet."))) +
 		"</div>"
 	);
 }
 
-function renderDoneRow(encounter) {
+function render_done_row(encounter) {
 	return (
 		'<div class="queue-row" data-name="' +
 		frappe.utils.escape_html(encounter.name) +
 		'" data-search="' +
-		frappe.utils.escape_html(searchKey(encounter)) +
+		frappe.utils.escape_html(search_key(encounter)) +
 		'">' +
 		'<span class="row-name">' +
 		'<span class="row-head">' +
@@ -961,7 +961,7 @@ function renderDoneRow(encounter) {
 		frappe.utils.escape_html(encounter.patient_name || "") +
 		"</span>" +
 		'<span class="row-identity">' +
-		renderIdentity(encounter) +
+		render_identity(encounter) +
 		"</span></span>" +
 		'<span class="row-clinical">' +
 		renderClinicalSummary(encounter) +
@@ -973,7 +973,7 @@ function renderDoneRow(encounter) {
 	);
 }
 
-function renderEmptyList(message) {
+function render_empty_list(message) {
 	return '<div class="queue-empty">' + frappe.utils.escape_html(message) + "</div>";
 }
 
