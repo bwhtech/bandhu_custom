@@ -16,7 +16,6 @@ bandhu_app.patches.backfill_session_site_name
 bandhu_app.patches.show_practitioner_name_in_links
 bandhu_app.patches.seed_major_sectors
 bandhu_app.patches.seed_indian_states
-bandhu_app.patches.grant_camp_report_permission
 bandhu_app.patches.remove_duplicate_clinic_id_field
 bandhu_app.patches.backfill_encounter_location
 bandhu_app.patches.stop_linking_customer_to_patient
