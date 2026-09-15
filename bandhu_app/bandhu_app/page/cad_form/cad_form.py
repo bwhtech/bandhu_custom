@@ -267,9 +267,9 @@ def find_possible_duplicate(
 def register_patient(
 	full_name: str,
 	sex: str,
+	session: str,
 	dob: str | None = None,
 	age: float | None = None,
-	session: str | None = None,
 	mobile: str | None = None,
 	height_cm: float | None = None,
 	weight_kg: float | None = None,
@@ -284,12 +284,12 @@ def register_patient(
 ) -> str:
 	# Gate on the session rather than the role alone: the session decides which LSG and
 	# unit codes end up in the patient's permanent Clinic ID.
-	session = (session or "").strip() or None
-	if session:
-		require_session_access(session)
-		require_running_session(session)
-	else:
+	session = (session or "").strip()
+	if not session:
 		require_cad_access()
+		frappe.throw(_("Open a running clinic session before registering a patient."))
+	require_session_access(session)
+	require_running_session(session)
 
 	full_name = (full_name or "").strip()
 	dob = (dob or "").strip()
@@ -321,7 +321,7 @@ def register_patient(
 	first_name = name_parts[0]
 	last_name = name_parts[1] if len(name_parts) > 1 else None
 
-	registered_lsg, registered_unit = resolve_registration_origin(session) if session else (None, None)
+	registered_lsg, registered_unit = resolve_registration_origin(session)
 
 	patient_fields = {
 		"doctype": "Patient",

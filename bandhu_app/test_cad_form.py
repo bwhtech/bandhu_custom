@@ -132,6 +132,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 				native_district="Ernakulam",
 				company_name="Acme Textiles",
 				abha_id="ABHA-TEST-001",
+				session=self.session,
 			)
 		finally:
 			frappe.set_user("Administrator")
@@ -155,6 +156,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 				full_name="Test Age Only Patient",
 				sex=self.gender,
 				age=40,
+				session=self.session,
 			)
 		finally:
 			frappe.set_user("Administrator")
@@ -170,6 +172,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 				dob="1990-05-15",
 				sex=self.gender,
 				age=40,
+				session=self.session,
 			)
 		finally:
 			frappe.set_user("Administrator")
@@ -181,7 +184,9 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		frappe.set_user(self.cad_user)
 		try:
 			with self.assertRaises(frappe.ValidationError):
-				register_patient(full_name="Test No Dob No Age Patient", sex=self.gender)
+				register_patient(
+					full_name="Test No Dob No Age Patient", sex=self.gender, session=self.session
+				)
 		finally:
 			frappe.set_user("Administrator")
 
@@ -189,7 +194,9 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		frappe.set_user(self.cad_user)
 		try:
 			with self.assertRaises(frappe.ValidationError):
-				register_patient(full_name="Test Implausible Age Patient", sex=self.gender, age=200)
+				register_patient(
+					full_name="Test Implausible Age Patient", sex=self.gender, age=200, session=self.session
+				)
 		finally:
 			frappe.set_user("Administrator")
 
@@ -203,6 +210,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 				native_country="Nepal",
 				occupation="Other",
 				specify_sector="Street vendor",
+				session=self.session,
 			)
 		finally:
 			frappe.set_user("Administrator")
@@ -220,6 +228,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 				dob="1990-05-15",
 				sex=self.gender,
 				specify_native_country="Bangladesh",
+				session=self.session,
 			)
 		finally:
 			frappe.set_user("Administrator")
@@ -237,6 +246,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 					dob="1990-05-15",
 					sex=self.gender,
 					height_cm=-170,
+					session=self.session,
 				)
 		finally:
 			frappe.set_user("Administrator")
@@ -250,6 +260,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 					dob="1990-05-15",
 					sex=self.gender,
 					weight_kg=-68,
+					session=self.session,
 				)
 		finally:
 			frappe.set_user("Administrator")
@@ -263,6 +274,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 					dob="1990-05-15",
 					sex=self.gender,
 					mobile="12345",
+					session=self.session,
 				)
 		finally:
 			frappe.set_user("Administrator")
@@ -290,6 +302,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 					dob="1990-05-15",
 					sex=self.gender,
 					native_state="Not A Real State",
+					session=self.session,
 				)
 		finally:
 			frappe.set_user("Administrator")
@@ -437,6 +450,18 @@ class IntegrationTestCadForm(IntegrationTestCase):
 			self.assertRaises(frappe.DoesNotExistError, get_patient_card_html, "No Such Patient")
 		finally:
 			frappe.set_user("Administrator")
+
+	def test_register_patient_refuses_a_call_with_no_session(self):
+		frappe.set_user(self.cad_user)
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				register_patient(
+					full_name="Znosession Patient", sex=self.gender, dob="1990-01-01", session=""
+				)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertFalse(frappe.db.exists("Patient", {"patient_name": "Znosession Patient"}))
 
 	def test_register_patient_rejects_a_cancelled_session(self):
 		cancelled_session = self._make_session(
@@ -662,6 +687,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 				full_name="Blocked Patient",
 				dob="1990-01-01",
 				sex=self.gender,
+				session=self.session,
 			)
 			self.assertRaises(frappe.PermissionError, create_encounter, patient.name, self.session)
 			self.assertRaises(frappe.PermissionError, get_today_queue, self.session)
