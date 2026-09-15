@@ -192,6 +192,17 @@ class IntegrationTestSessionReport(IntegrationTestCase):
 		self.assertEqual(row["medicines_prescribed"], 1)
 		self.assertEqual(row["medicines_dispensed"], 1)
 
+	def test_average_per_session_keeps_two_decimal_places(self):
+		site = self._make_site(f"Report Average Worksite {frappe.generate_hash(length=6)}", self.location)
+		for patients in (1, 1, 2):
+			session = self._make_session(today(), site=site)
+			for _unused in range(patients):
+				self._make_encounter(session)
+
+		summary = execute({"from_date": today(), "to_date": today(), "site": site})[4]
+		average = next(item for item in summary if item["label"] == "Avg Patients per Session")
+		self.assertEqual(average["value"], 1.33)
+
 	def test_not_done_tests_are_not_counted_as_done(self):
 		session = self._make_session(today())
 		self._make_encounter(

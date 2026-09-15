@@ -152,6 +152,18 @@ class IntegrationTestClinicReport(IntegrationTestCase):
 		average = next(item for item in summary if item["label"] == "Avg Patients per Session")
 		self.assertEqual(average["value"], 2)
 
+	def test_average_per_session_keeps_two_decimal_places(self):
+		for patients in (1, 1, 2):
+			session = self._make_session()
+			for _unused in range(patients):
+				self._make_encounter(session)
+
+		summary = execute(
+			{"from_date": today(), "to_date": today(), "group_by": "Clinic", "site": self.site}
+		)[4]
+		average = next(item for item in summary if item["label"] == "Avg Patients per Session")
+		self.assertEqual(average["value"], 1.33)
+
 	def test_rejects_an_unknown_grouping(self):
 		self.assertRaises(
 			frappe.ValidationError,

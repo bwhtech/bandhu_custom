@@ -158,7 +158,7 @@ def build_summary(rows: list) -> list:
 		{"label": _("Patients Seen"), "value": patients, "datatype": "Int"},
 		{
 			"label": _("Avg Patients per Session"),
-			"value": flt(patients / sessions_held, 1) if sessions_held else 0,
+			"value": flt(patients / sessions_held, 2) if sessions_held else 0,
 			"datatype": "Float",
 		},
 	]
