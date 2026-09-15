@@ -1,4 +1,5 @@
 import frappe
+from frappe import _
 from frappe.utils import add_days, cint, today
 
 _ACTIVE_STATUS_PRIORITY = ["In Progress", "Planned"]
@@ -160,3 +161,24 @@ def find_active_session(practitioner_field: str, practitioner: str) -> dict | No
 		if status in by_status:
 			return label_sites([by_status[status]])[0]
 	return None
+
+
+def require_running_session(session_name: str) -> dict:
+	session_doc = frappe.db.get_value(
+		"Bandhu Clinic Session",
+		session_name,
+		["status", "assigned_doctor", "site"],
+		as_dict=True,
+	)
+	if not session_doc:
+		frappe.throw(_("Clinic session not found."))
+	if session_doc.status == "Cancelled":
+		frappe.throw(_("This clinic session was cancelled."))
+	if session_doc.status == "Completed":
+		frappe.throw(_("This clinic session is already completed."))
+	if session_doc.status != "In Progress":
+		frappe.throw(
+			_("This clinic session hasn't started yet. Ask the nurse to start the session first."),
+		)
+
+	return session_doc

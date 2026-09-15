@@ -4,7 +4,6 @@
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.page.doctor_form.doctor_form import (
 	call_patient,
 	complete_encounter,
@@ -19,6 +18,7 @@ from bandhu_app.bandhu_app.page.doctor_form.doctor_form import (
 )
 from bandhu_app.bandhu_app.utils.clinic_test import seed_default_tests
 from bandhu_app.bandhu_app.utils.patient_details import get_clinical_details_by_encounter
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 
 class TestDoctorForm(IntegrationTestCase):

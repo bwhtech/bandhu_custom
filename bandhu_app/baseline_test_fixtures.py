@@ -8,18 +8,17 @@ from bandhu_app.bandhu_app.utils.patient_encounter import (
 
 
 def ensure_baseline_fixtures() -> dict[str, str]:
-	state = _get_or_create_state()
-	location = _get_or_create_location(state)
-	project = _get_or_create_project()
-	clinic = _get_or_create_clinic(project)
-	site = _get_or_create_site(location)
-	unit = _get_or_create_unit()
-	appointment_type = _get_or_create_appointment_type()
-	doctor = _get_or_create_practitioner("Doctor")
-	nurse = _get_or_create_practitioner("Nurse")
-	driver = _get_or_create_practitioner("Clinic Assistant cum Driver")
-	item = _get_or_create_item()
-	frappe.db.commit()  # nosemgrep: frappe-manual-commit
+	state = get_or_create_state()
+	location = get_or_create_location(state)
+	project = get_or_create_project()
+	clinic = get_or_create_clinic(project)
+	site = get_or_create_site(location)
+	unit = get_or_create_unit()
+	appointment_type = get_or_create_appointment_type()
+	doctor = get_or_create_practitioner("Doctor")
+	nurse = get_or_create_practitioner("Nurse")
+	driver = get_or_create_practitioner("Clinic Assistant cum Driver")
+	item = get_or_create_item()
 
 	return {
 		"state": state,
@@ -36,14 +35,14 @@ def ensure_baseline_fixtures() -> dict[str, str]:
 	}
 
 
-def _first_or_none(doctype: str) -> str | None:
+def first_or_none(doctype: str) -> str | None:
 	existing = frappe.get_all(doctype, limit=1, pluck="name")
 	return existing[0] if existing else None
 
 
-def _get_or_create_state() -> str:
+def get_or_create_state() -> str:
 	return (
-		_first_or_none("State")
+		first_or_none("State")
 		or frappe.get_doc(
 			{"doctype": "State", "state_name": "Test Baseline State", "country": "India", "is_major_state": 1}
 		)
@@ -52,8 +51,8 @@ def _get_or_create_state() -> str:
 	)
 
 
-def _get_or_create_location(state: str) -> str:
-	existing = _first_or_none("Bandhu Location")
+def get_or_create_location(state: str) -> str:
+	existing = first_or_none("Bandhu Location")
 	if existing:
 		return existing
 	return (
@@ -72,8 +71,8 @@ def _get_or_create_location(state: str) -> str:
 	)
 
 
-def _get_or_create_project() -> str:
-	existing = _first_or_none("Bandhu Projects")
+def get_or_create_project() -> str:
+	existing = first_or_none("Bandhu Projects")
 	if existing:
 		return existing
 	return (
@@ -91,8 +90,8 @@ def _get_or_create_project() -> str:
 	)
 
 
-def _get_or_create_clinic(project: str) -> str:
-	existing = _first_or_none("Clinic")
+def get_or_create_clinic(project: str) -> str:
+	existing = first_or_none("Clinic")
 	if existing:
 		return existing
 	return (
@@ -102,8 +101,8 @@ def _get_or_create_clinic(project: str) -> str:
 	)
 
 
-def _get_or_create_site(location: str) -> str:
-	existing = _first_or_none("Site")
+def get_or_create_site(location: str) -> str:
+	existing = first_or_none("Site")
 	if existing:
 		return existing
 	return (
@@ -113,8 +112,8 @@ def _get_or_create_site(location: str) -> str:
 	)
 
 
-def _get_or_create_unit() -> str:
-	existing = _first_or_none("Unit")
+def get_or_create_unit() -> str:
+	existing = first_or_none("Unit")
 	if existing:
 		return existing
 	return (
@@ -124,18 +123,18 @@ def _get_or_create_unit() -> str:
 	)
 
 
-def _get_or_create_appointment_type() -> str:
+def get_or_create_appointment_type() -> str:
 	seed_default_appointment_type()
 	return DEFAULT_APPOINTMENT_TYPE
 
 
-def _get_or_create_item() -> str:
-	existing = _first_or_none("Item")
+def get_or_create_item() -> str:
+	existing = first_or_none("Item")
 	if existing:
 		return existing
 
 	item_group = (
-		_first_or_none("Item Group")
+		first_or_none("Item Group")
 		or frappe.get_doc(
 			{"doctype": "Item Group", "item_group_name": "Test Baseline Item Group", "is_group": 0}
 		)
@@ -144,7 +143,7 @@ def _get_or_create_item() -> str:
 	)
 
 	uom = (
-		_first_or_none("UOM")
+		first_or_none("UOM")
 		or frappe.get_doc({"doctype": "UOM", "uom_name": "Test Baseline Unit Of Measure"})
 		.insert(ignore_permissions=True)
 		.name
@@ -164,7 +163,7 @@ def _get_or_create_item() -> str:
 	)
 
 
-def _get_or_create_practitioner(custom_role: str) -> str:
+def get_or_create_practitioner(custom_role: str) -> str:
 	existing = frappe.get_all(
 		"Healthcare Practitioner", filters={"custom_role": custom_role}, limit=1, pluck="name"
 	)

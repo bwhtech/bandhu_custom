@@ -147,7 +147,7 @@ async function loadQueues(page) {
 		'<div class="nurse-dash">' +
 			bandhu.session_ui.format_welcome() +
 			bandhu.session_ui.format_session_info(nurseSession) +
-			renderSessionProgress(progress) +
+			render_session_progress(progress) +
 			renderEndSessionButton() +
 			renderQueueSection(__("Patients for Tests"), testRows, "test") +
 			renderQueueSection(__("Patients for Medicines"), medicineRows, "medicine") +
@@ -187,12 +187,12 @@ function dispatchNurseAction(page, encounter, action) {
 			openDispenseDialog(page, encounter);
 			break;
 		case "vitals":
-			openVitalsDialog(page, encounter);
+			open_vitals_dialog(page, encounter);
 			break;
 	}
 }
 
-function renderSessionProgress(progress) {
+function render_session_progress(progress) {
 	const stages = [
 		[__("with doctor"), (progress.registered || 0) + (progress.with_doctor || 0)],
 		[__("for tests"), progress.for_tests || 0],
@@ -384,7 +384,7 @@ function openDispenseDialog(page, encounter) {
 	dialog.show();
 }
 
-function openVitalsDialog(page, encounter) {
+function open_vitals_dialog(page, encounter) {
 	const row = encountersByName[encounter] || {};
 	const [bpSystolic, bpDiastolic] = (row.custom_blood_pressure || "").split("/");
 
@@ -515,7 +515,7 @@ function renderQueueActionButtons(encounter, action) {
 	return '<div class="nurse-action-btns">' + buttons.join("") + "</div>";
 }
 
-function renderQueueOrder(encounter, action) {
+function render_queue_order(encounter, action) {
 	const items =
 		action === "test"
 			? (encounter.tests || []).map((test) => test.test_name)
@@ -526,7 +526,7 @@ function renderQueueOrder(encounter, action) {
 	return '<span class="queue-order">' + frappe.utils.escape_html(named.join(", ")) + "</span>";
 }
 
-function renderTimeInSession(encounter) {
+function render_time_in_session(encounter) {
 	if (!encounter.creation) return "";
 
 	return frappe.datetime.comment_when(encounter.creation, true);
@@ -556,7 +556,7 @@ function renderQueueSection(title, encounters, action) {
 				'">' +
 				'<td class="patient-cell">' +
 				frappe.utils.escape_html(encounter.patient_name || "") +
-				renderQueueOrder(encounter, action) +
+				render_queue_order(encounter, action) +
 				"</td>" +
 				'<td class="age-cell">' +
 				frappe.utils.escape_html(encounter.patient_age || "") +
@@ -565,7 +565,7 @@ function renderQueueSection(title, encounters, action) {
 				frappe.utils.escape_html(encounter.patient_sex || "") +
 				"</td>" +
 				(action
-					? '<td class="waited-cell">' + renderTimeInSession(encounter) + "</td>"
+					? '<td class="waited-cell">' + render_time_in_session(encounter) + "</td>"
 					: "") +
 				'<td class="action-cell">' +
 				renderQueueActionButtons(encounter, action) +

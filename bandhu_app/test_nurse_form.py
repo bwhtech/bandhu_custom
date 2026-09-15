@@ -5,7 +5,6 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, flt, nowtime, today
 
-from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.page.nurse_form.nurse_form import (
 	dispense_medicine,
 	end_session,
@@ -15,6 +14,7 @@ from bandhu_app.bandhu_app.page.nurse_form.nurse_form import (
 	start_session,
 	submit_test_results,
 )
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -488,3 +488,36 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 			frappe.set_user("Administrator")
 
 		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Completed")
+
+	def test_writes_are_refused_once_the_session_is_completed(self):
+		session = self._make_session_with("In Progress", today())
+		awaiting_test = self._make_encounter(session, "Awaiting Test", tests=[{"test_name": "Malaria"}])
+		awaiting_medicine = self._make_encounter(
+			session, "Awaiting Medicine", prescriptions=[{"medicines": self.item, "quantity": 1}]
+		)
+		frappe.db.set_value("Bandhu Clinic Session", session, "status", "Completed")
+		test_row = awaiting_test.custom_test_instructions[0].name
+		prescription_row = awaiting_medicine.custom_bandhu_prescription[0].name
+
+		frappe.set_user(self.nurse_user)
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				submit_test_results(
+					awaiting_test.name, [{"name": test_row, "result_type": "Negative", "result_value": ""}]
+				)
+			with self.assertRaises(frappe.ValidationError):
+				record_vitals(awaiting_medicine.name, pulse_rate=72)
+			with self.assertRaises(frappe.ValidationError):
+				dispense_medicine(awaiting_medicine.name, [prescription_row])
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(
+			frappe.db.get_value("Patient Encounter", awaiting_test.name, "custom_workflow_state"),
+			"Awaiting Test",
+		)
+		self.assertEqual(
+			frappe.db.get_value("Patient Encounter", awaiting_medicine.name, "custom_workflow_state"),
+			"Awaiting Medicine",
+		)
+		self.assertFalse(frappe.db.get_value("Prescription", prescription_row, "dispensed"))

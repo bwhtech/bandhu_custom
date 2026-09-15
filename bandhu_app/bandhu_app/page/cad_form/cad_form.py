@@ -3,6 +3,7 @@ import re
 import frappe
 from frappe import _
 from frappe.core.doctype.access_log.access_log import make_access_log
+from frappe.rate_limiter import rate_limit
 from frappe.utils import flt, getdate, validate_phone_number
 
 from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
@@ -10,7 +11,7 @@ from bandhu_app.bandhu_app.utils.patient_encounter import (
 	ENCOUNTER_TO_QUEUE_STAGE,
 	TERMINAL_WORKFLOW_STATES,
 )
-from bandhu_app.bandhu_app.utils.session import find_active_session
+from bandhu_app.bandhu_app.utils.session import find_active_session, require_running_session
 
 
 def require_cad_access() -> None:
@@ -143,27 +144,6 @@ def get_patient_card_html(patient: str) -> str:
 	return render_patient_card(patient, "CAD Patient Card")
 
 
-def require_running_session(session_name: str) -> dict:
-	session_doc = frappe.db.get_value(
-		"Bandhu Clinic Session",
-		session_name,
-		["status", "assigned_doctor", "site"],
-		as_dict=True,
-	)
-	if not session_doc:
-		frappe.throw(_("Clinic session not found."))
-	if session_doc.status == "Cancelled":
-		frappe.throw(_("This clinic session was cancelled."))
-	if session_doc.status == "Completed":
-		frappe.throw(_("This clinic session is already completed."))
-	if session_doc.status != "In Progress":
-		frappe.throw(
-			_("This clinic session hasn't started yet. Ask the nurse to start the session first."),
-		)
-
-	return session_doc
-
-
 def resolve_registration_origin(session: str) -> tuple[str | None, str | None]:
 	session_site, unit = frappe.db.get_value("Bandhu Clinic Session", session, ["site", "unit"])
 	location = frappe.db.get_value("Site", session_site, "location") if session_site else None
@@ -198,6 +178,9 @@ def resolve_registration_origin(session: str) -> tuple[str | None, str | None]:
 
 MAX_PLAUSIBLE_AGE = 120
 
+DUPLICATE_CHECK_LIMIT = 200
+DUPLICATE_CHECK_WINDOW_SECONDS = 60 * 60
+
 
 def resolve_dob(dob: str | None, age: float | None) -> str:
 	dob = (dob or "").strip()
@@ -213,6 +196,7 @@ def resolve_dob(dob: str | None, age: float | None) -> str:
 
 
 @frappe.whitelist()
+@rate_limit(limit=DUPLICATE_CHECK_LIMIT, seconds=DUPLICATE_CHECK_WINDOW_SECONDS)
 def find_possible_duplicate(
 	full_name: str,
 	dob: str | None = None,
@@ -246,6 +230,7 @@ def find_possible_duplicate(
 		)
 		if match:
 			row = match[0]
+			make_access_log(doctype="Patient", document=row.name, method="CAD Duplicate Check")
 			return {
 				"name": row.name,
 				"patient_name": row.patient_name,
@@ -261,9 +246,9 @@ def find_possible_duplicate(
 def register_patient(
 	full_name: str,
 	sex: str,
+	session: str,
 	dob: str | None = None,
 	age: float | None = None,
-	session: str | None = None,
 	mobile: str | None = None,
 	height_cm: float | None = None,
 	weight_kg: float | None = None,
@@ -278,12 +263,12 @@ def register_patient(
 ) -> str:
 	# Gate on the session rather than the role alone: the session decides which LSG and
 	# unit codes end up in the patient's permanent Clinic ID.
-	session = (session or "").strip() or None
-	if session:
-		require_session_access(session)
-		require_running_session(session)
-	else:
+	session = (session or "").strip()
+	if not session:
 		require_cad_access()
+		frappe.throw(_("Open a running clinic session before registering a patient."))
+	require_session_access(session)
+	require_running_session(session)
 
 	full_name = (full_name or "").strip()
 	dob = (dob or "").strip()
@@ -315,7 +300,7 @@ def register_patient(
 	first_name = name_parts[0]
 	last_name = name_parts[1] if len(name_parts) > 1 else None
 
-	registered_lsg, registered_unit = resolve_registration_origin(session) if session else (None, None)
+	registered_lsg, registered_unit = resolve_registration_origin(session)
 
 	patient_fields = {
 		"doctype": "Patient",

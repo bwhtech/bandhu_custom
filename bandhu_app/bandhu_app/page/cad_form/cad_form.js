@@ -264,11 +264,11 @@ function renderRegisterSection() {
 	);
 }
 
-function requiredMark(required) {
+function required_mark(required) {
 	return required ? ' <span class="required-mark">*</span>' : "";
 }
 
-function renderField(field) {
+function render_field(field) {
 	const input =
 		'<input type="' +
 		field.type +
@@ -283,18 +283,18 @@ function renderField(field) {
 		'">' +
 		"<label>" +
 		frappe.utils.escape_html(field.label) +
-		requiredMark(field.required) +
+		required_mark(field.required) +
 		"</label>" +
 		input +
 		"</div>"
 	);
 }
 
-function renderFields(fields) {
-	return fields.map(renderField).join("");
+function render_fields(fields) {
+	return fields.map(render_field).join("");
 }
 
-function renderFieldNote(text) {
+function render_field_note(text) {
 	return (
 		'<div class="form-group field-wide field-note">' +
 		frappe.utils.escape_html(text) +
@@ -302,7 +302,7 @@ function renderFieldNote(text) {
 	);
 }
 
-function renderDistrictField() {
+function render_district_field() {
 	return (
 		'<div class="form-group field-wide">' +
 		"<label>" +
@@ -317,7 +317,7 @@ function renderDistrictField() {
 	);
 }
 
-function renderOtherPicker(options, placeholderLabel) {
+function render_other_picker(options, placeholderLabel) {
 	const optionHtml = options
 		.map(
 			(option) =>
@@ -338,7 +338,7 @@ function renderOtherPicker(options, placeholderLabel) {
 	);
 }
 
-function renderTabGroup(config) {
+function render_tab_group(config) {
 	const buttons = config.options
 		.map((option) => {
 			const isDefault = option === config.defaultValue;
@@ -359,7 +359,7 @@ function renderTabGroup(config) {
 		'">' +
 		"<label>" +
 		frappe.utils.escape_html(config.label) +
-		requiredMark(config.required) +
+		required_mark(config.required) +
 		"</label>" +
 		'<input type="hidden" class="cad-field" data-field="' +
 		config.field +
@@ -375,8 +375,8 @@ function renderTabGroup(config) {
 	);
 }
 
-function renderSexGroup() {
-	return renderTabGroup({
+function render_sex_group() {
+	return render_tab_group({
 		field: "sex",
 		label: __("Sex"),
 		options: ["Male", "Female", "Other"],
@@ -385,8 +385,8 @@ function renderSexGroup() {
 	});
 }
 
-function renderCountryGroup() {
-	return renderTabGroup({
+function render_country_group() {
+	return render_tab_group({
 		field: "native_country",
 		label: __("Country"),
 		options: QUICK_COUNTRIES.concat(["Other"]),
@@ -399,21 +399,21 @@ function renderCountryGroup() {
 	});
 }
 
-function renderStateGroup() {
-	return renderTabGroup({
+function render_state_group() {
+	return render_tab_group({
 		field: "native_state",
 		label: __("Native State"),
 		options: (formOptions.major_states || []).concat(["Other"]),
 		mode: "picker",
-		otherPickerHtml: renderOtherPicker(
+		otherPickerHtml: render_other_picker(
 			formOptions.other_states || [],
 			__("-- Select State --")
 		),
 	});
 }
 
-function renderSectorGroup() {
-	return renderTabGroup({
+function render_sector_group() {
+	return render_tab_group({
 		field: "occupation",
 		label: __("Sector of Employment"),
 		options: (formOptions.major_sectors || []).concat(["Other"]),
@@ -428,16 +428,16 @@ function renderSectorGroup() {
 function renderRegisterForm() {
 	return (
 		'<div class="register-grid">' +
-		renderField(NAME_FIELD) +
-		renderSexGroup() +
-		renderFields(AGE_AND_DOB_FIELDS) +
-		renderFieldNote(__("Age or Date of Birth is required.")) +
-		renderFields(MEASUREMENT_FIELDS) +
-		renderCountryGroup() +
-		renderStateGroup() +
-		renderDistrictField() +
-		renderSectorGroup() +
-		renderFields(CONTACT_FIELDS) +
+		render_field(NAME_FIELD) +
+		render_sex_group() +
+		render_fields(AGE_AND_DOB_FIELDS) +
+		render_field_note(__("Age or Date of Birth is required.")) +
+		render_fields(MEASUREMENT_FIELDS) +
+		render_country_group() +
+		render_state_group() +
+		render_district_field() +
+		render_sector_group() +
+		render_fields(CONTACT_FIELDS) +
 		"</div>" +
 		'<div class="register-actions">' +
 		'<button class="btn btn-primary cad-register-submit">' +
@@ -477,7 +477,7 @@ function bindSearchEvents(page) {
 	});
 
 	page.main.off("click", ".cad-search-clear").on("click", ".cad-search-clear", function () {
-		clearSearchResults(page);
+		clear_search_results(page);
 	});
 
 	page.main.off("click", ".queue-print-card").on("click", ".queue-print-card", function (event) {
@@ -496,7 +496,7 @@ function bindSearchEvents(page) {
 function confirm_add_to_queue(page, patient) {
 	frappe.confirm(__("Add this patient to today's queue?"), async () => {
 		await addPatientToQueue(page, patient, () => {
-			clearSearchResults(page);
+			clear_search_results(page);
 		});
 	});
 }
@@ -580,7 +580,7 @@ async function searchPatients(page) {
 	renderSearchResults(page, results, found.capped);
 }
 
-function clearSearchResults(page) {
+function clear_search_results(page) {
 	page.main.find(".cad-search-results").empty();
 	page.main.find(".cad-search-input").val("");
 	focus_scan_input(page);
@@ -612,7 +612,7 @@ function queue_scanned_patient(page, patient) {
 		]),
 		async () => {
 			await addPatientToQueue(page, patient.name, () => {
-				clearSearchResults(page);
+				clear_search_results(page);
 			});
 		},
 		() => {
@@ -863,8 +863,8 @@ async function submitRegistration(page) {
 	if (values.company_name) args.company_name = values.company_name;
 	if (values.abha_id) args.abha_id = values.abha_id;
 
-	const existing = await findPossibleDuplicate(args);
-	if (existing && !(await confirmRegisterAnyway(page, existing))) return;
+	const existing = await find_possible_duplicate(args);
+	if (existing && !(await confirm_register_anyway(page, existing))) return;
 
 	frappe.dom.freeze();
 	let patient;
@@ -891,7 +891,7 @@ async function submitRegistration(page) {
 	frappe.show_alert({ message: __("Patient registered."), indicator: "green" });
 }
 
-async function findPossibleDuplicate(args) {
+async function find_possible_duplicate(args) {
 	const response = await frappe.call({
 		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.find_possible_duplicate",
 		args: {
@@ -905,7 +905,7 @@ async function findPossibleDuplicate(args) {
 	return response.message;
 }
 
-function confirmRegisterAnyway(page, existing) {
+function confirm_register_anyway(page, existing) {
 	return new Promise((resolve) => {
 		const label = [
 			existing.patient_name,
@@ -1007,7 +1007,7 @@ function renderQueueTable(page, rows) {
 				format_time_in_session(row) +
 				"</td>" +
 				'<td class="queue-row-actions">' +
-				renderRowMenu(row) +
+				render_row_menu(row) +
 				"</td>" +
 				"</tr>"
 		)
@@ -1019,7 +1019,7 @@ function renderQueueTable(page, rows) {
 // Every row carries the menu, including finished ones, so the actions column keeps a single
 // shape down the table. Print Card lives in it rather than beside it: the queue is the screen
 // the front desk reads, and a button on every row competed with the patient names for it.
-function renderRowMenu(row) {
+function render_row_menu(row) {
 	const canCancel = row.encounter && !QUEUE_TERMINAL_STAGES.has(row.current_stage);
 	return (
 		'<div class="dropdown queue-more">' +
@@ -1092,16 +1092,16 @@ frappe.pages["cad-form"].on_page_load = function (wrapper) {
 // Desk keeps this page's DOM and module state alive across route changes, so the queue would
 // otherwise still show the state it had when the CAD left the page. Only the queue is reloaded
 // when the front desk is already up -- a full re-render would wipe a half-typed registration.
-async function refreshBoard() {
+async function refresh_board() {
 	await frappe.require(SESSION_UI_ASSET);
-	bandhu.session_ui.add_refresh_icon(cadPage, refreshBoard);
+	bandhu.session_ui.add_refresh_icon(cadPage, refresh_board);
 	const load = cadPage.main.find(".cad-queue-body").length ? loadQueue : loadDashboard;
 	await bandhu.session_ui.refresh_page(cadPage, load);
 	bandhu.session_ui.subscribe_to_board_updates(
 		"cad-form",
 		() => (cadSession ? cadSession.session_name : null),
-		refreshBoard
+		refresh_board
 	);
 }
 
-frappe.pages["cad-form"].on_page_show = refreshBoard;
+frappe.pages["cad-form"].on_page_show = refresh_board;

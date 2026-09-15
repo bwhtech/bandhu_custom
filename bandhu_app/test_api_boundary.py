@@ -11,8 +11,8 @@ from frappe.handler import execute_cmd
 from frappe.tests import IntegrationTestCase
 from frappe.utils import set_request, today
 
-from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.page.cad_form import cad_form
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 CAD = "bandhu_app.bandhu_app.page.cad_form.cad_form"
 DOCTOR = "bandhu_app.bandhu_app.page.doctor_form.doctor_form"

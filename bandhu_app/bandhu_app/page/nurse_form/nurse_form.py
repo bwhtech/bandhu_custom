@@ -5,7 +5,11 @@ from frappe.utils import flt
 
 from bandhu_app.bandhu_app.utils.patient_details import get_patient_details, get_session_encounters
 from bandhu_app.bandhu_app.utils.realtime import publish_board_update
-from bandhu_app.bandhu_app.utils.session import find_active_session, find_upcoming_sessions
+from bandhu_app.bandhu_app.utils.session import (
+	find_active_session,
+	find_upcoming_sessions,
+	require_running_session,
+)
 
 
 def require_session_access(session_name: str) -> None:
@@ -196,6 +200,7 @@ def get_patient_registration_details(encounter: str) -> dict:
 @frappe.whitelist(methods=["POST"])
 def submit_test_results(encounter: str, results: list | str) -> None:
 	doc = load_session_encounter(encounter)
+	require_running_session(doc.custom_clinic_session)
 	if doc.custom_workflow_state != "Awaiting Test":
 		frappe.throw(_("This patient is not awaiting a test."))
 
@@ -232,6 +237,7 @@ def record_vitals(
 	bp_diastolic: int | None = None,
 ) -> None:
 	doc = load_session_encounter(encounter)
+	require_running_session(doc.custom_clinic_session)
 	if doc.custom_workflow_state not in ("Awaiting Test", "Awaiting Medicine"):
 		frappe.throw(_("Vitals can only be recorded while the patient is with the nurse."))
 
@@ -285,6 +291,7 @@ def record_vitals(
 @frappe.whitelist(methods=["POST"])
 def dispense_medicine(encounter: str, dispensed_rows: list | str | None = None) -> None:
 	doc = load_session_encounter(encounter)
+	require_running_session(doc.custom_clinic_session)
 	if doc.custom_workflow_state != "Awaiting Medicine":
 		frappe.throw(_("This patient is not awaiting medicine."))
 

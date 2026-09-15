@@ -103,38 +103,3 @@ def provision_staff_member(
 		email_sent = False
 
 	return {"user": user.name, "practitioner": practitioner.name, "email_sent": email_sent}
-
-
-@frappe.whitelist(methods=["POST"])
-def save_staff_documents(user: str, documents: list | str) -> int:
-	require_system_manager()
-
-	if not frappe.db.exists("User", user):
-		frappe.throw(_("Staff member not found."))
-
-	documents = frappe.parse_json(documents) or []
-
-	doc = frappe.get_doc("User", user)
-	doc.set("custom_staff_documents", [])
-	for row in documents:
-		doc.append(
-			"custom_staff_documents",
-			{
-				"document_name": (row.get("document_name") or "").strip(),
-				"document_file": row.get("document_file"),
-			},
-		)
-	doc.save(ignore_permissions=True)
-
-	return len(doc.custom_staff_documents)
-
-
-@frappe.whitelist()
-def get_staff_documents(user: str) -> list:
-	require_system_manager()
-	return frappe.get_all(
-		"Bandhu Staff Document",
-		filters={"parent": user, "parenttype": "User"},
-		fields=["name", "document_name", "document_file"],
-		order_by="idx asc",
-	)

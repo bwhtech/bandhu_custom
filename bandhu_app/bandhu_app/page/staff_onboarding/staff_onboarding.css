@@ -2,7 +2,7 @@
 	--max-w: var(--page-max-width, 700px);
 	max-width: var(--max-w);
 	margin: 0 auto;
-	padding: 0 var(--padding-md) var(--padding-2xl);
+	padding: var(--padding-md) var(--padding-md) var(--padding-2xl);
 }
 
 .staff-onboarding-dash .onboarding-form {
@@ -45,7 +45,7 @@
 
 @media (max-width: 768px) {
 	.staff-onboarding-dash {
-		padding: 0 var(--padding-sm);
+		padding: var(--padding-md) var(--padding-sm) var(--padding-2xl);
 	}
 
 	.staff-onboarding-dash .onboarding-grid {
@@ -101,18 +101,26 @@
 	display: flex;
 	align-items: center;
 	gap: var(--padding-sm);
-	margin-bottom: var(--margin-xs);
-}
-
-.staff-onboarding-dash .onboarding-document-name {
-	flex: 1 1 auto;
+	margin-bottom: var(--margin-sm);
+	padding: var(--padding-xs) var(--padding-xs) var(--padding-xs) var(--padding-sm);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
 }
 
 .staff-onboarding-dash .onboarding-document-file {
-	flex: 0 1 40%;
+	flex: 1 1 auto;
 	font-size: var(--text-sm);
-	color: var(--text-muted);
 	overflow-wrap: anywhere;
+}
+
+.staff-onboarding-dash .onboarding-remove-document {
+	flex-shrink: 0;
+	width: var(--btn-height);
+	height: var(--btn-height);
+}
+
+.staff-onboarding-dash .onboarding-add-document {
+	margin-top: var(--margin-xs);
 }
 
 .staff-onboarding-dash .onboarding-created {
@@ -127,7 +135,7 @@
 
 .staff-onboarding-dash .onboarding-created-icon {
 	flex-shrink: 0;
-	margin-top: 2px;
+	margin: 2px 0 0;
 	color: var(--green-500, #16794a);
 }
 
@@ -143,9 +151,4 @@
 	flex-wrap: wrap;
 	gap: var(--padding-sm);
 	margin-top: var(--margin-lg);
-}
-
-.staff-onboarding-dash .onboarding-saved-note {
-	font-size: var(--text-sm);
-	color: var(--text-muted);
 }

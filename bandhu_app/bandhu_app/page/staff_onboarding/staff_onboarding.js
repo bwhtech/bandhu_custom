@@ -91,27 +91,12 @@ function renderForm(page) {
 	page.main
 		.off("click", ".onboarding-remove-document")
 		.on("click", ".onboarding-remove-document", function () {
-			pendingDocuments.splice($(this).closest(".onboarding-document-row").data("index"), 1);
-			markDocumentsChanged(page);
+			remove_document(page, $(this).closest(".onboarding-document-row").attr("data-file"));
 		});
 
 	page.main
-		.off("change", ".onboarding-document-name")
-		.on("change", ".onboarding-document-name", function () {
-			const row =
-				pendingDocuments[$(this).closest(".onboarding-document-row").data("index")];
-			if (!row) return;
-			row.document_name = $(this).val();
-			markDocumentsChanged(page);
-		});
-
-	page.main
-		.off("click", ".onboarding-save-documents")
-		.on("click", ".onboarding-save-documents", () => saveDocuments(page));
-
-	page.main
-		.off("click", ".onboarding-restart")
-		.on("click", ".onboarding-restart", () => renderForm(page));
+		.off("click", ".onboarding-finish")
+		.on("click", ".onboarding-finish", () => finish_onboarding(page));
 }
 
 function readFormValues(page) {
@@ -168,14 +153,10 @@ async function submitOnboarding(page) {
 	renderCreated(page, result, values);
 }
 
-const MAX_STAFF_DOCUMENTS = 10;
-
-let pendingDocuments = [];
-let documentsSaved = true;
+let uploaded_documents = [];
 
 function renderCreated(page, result, values) {
-	pendingDocuments = [];
-	documentsSaved = true;
+	uploaded_documents = [];
 
 	const fullName = [values.first_name, values.last_name]
 		.map((part) => (part || "").trim())
@@ -209,11 +190,18 @@ function renderCreated(page, result, values) {
 				emailLine +
 				"</div></div></div>" +
 				'<div class="onboarding-documents"></div>' +
-				'<div class="onboarding-done-actions"></div>'
+				'<div class="onboarding-done-actions">' +
+				'<button type="button" class="btn btn-primary onboarding-finish">' +
+				__("Done") +
+				"</button></div>"
 		);
 
 	renderDocumentsPanel(page);
-	renderDoneActions(page);
+}
+
+function finish_onboarding(page) {
+	renderForm(page);
+	frappe.show_alert({ message: __("Onboarding complete"), indicator: "green" });
 }
 
 function renderDocumentsPanel(page) {
@@ -224,15 +212,12 @@ function renderDocumentsPanel(page) {
 				__("Documents") +
 				"</h4>" +
 				'<p class="onboarding-documents-note">' +
-				__(
-					"Optional. Up to {0} files. Name each one so anyone reading the record knows what it is.",
-					[MAX_STAFF_DOCUMENTS]
-				) +
+				__("Optional. Files are attached to their user record and kept private.") +
 				"</p>" +
 				'<div class="onboarding-document-rows"></div>' +
 				'<button type="button" class="btn btn-default onboarding-add-document">' +
 				frappe.utils.icon("upload", "xs", "", "", "current-color") +
-				__("Add a document") +
+				'<span class="onboarding-add-document-label"></span>' +
 				"</button>"
 		);
 
@@ -240,21 +225,19 @@ function renderDocumentsPanel(page) {
 }
 
 function renderDocumentRows(page) {
-	const rows = pendingDocuments
+	const rows = uploaded_documents
 		.map(
-			(entry, index) =>
-				'<div class="onboarding-document-row" data-index="' +
-				index +
-				'">' +
-				'<input type="text" class="form-control onboarding-document-name" placeholder="' +
-				frappe.utils.escape_html(__("What is this file?")) +
-				'" value="' +
-				frappe.utils.escape_html(entry.document_name || "") +
+			(file) =>
+				'<div class="onboarding-document-row" data-file="' +
+				frappe.utils.escape_html(file.name) +
 				'">' +
 				'<span class="onboarding-document-file">' +
-				frappe.utils.escape_html(entry.file_label) +
+				frappe.utils.escape_html(file.file_name) +
 				"</span>" +
-				'<button type="button" class="btn btn-sm btn-default onboarding-remove-document" aria-label="' +
+				'<span class="es-badge" data-variant="subtle" data-theme="green">' +
+				__("Saved") +
+				"</span>" +
+				'<button type="button" class="btn btn-default onboarding-remove-document" aria-label="' +
 				frappe.utils.escape_html(__("Remove")) +
 				'">' +
 				frappe.utils.icon("close", "xs", "", "", "current-color") +
@@ -264,10 +247,8 @@ function renderDocumentRows(page) {
 
 	page.main.find(".onboarding-document-rows").html(rows);
 	page.main
-		.find(".onboarding-add-document")
-		.text(pendingDocuments.length ? __("Add another document") : __("Add a document"))
-		.prop("disabled", false)
-		.toggle(pendingDocuments.length < MAX_STAFF_DOCUMENTS);
+		.find(".onboarding-add-document-label")
+		.text(uploaded_documents.length ? __("Add another document") : __("Add a document"));
 }
 
 function pickDocument(page) {
@@ -278,77 +259,27 @@ function pickDocument(page) {
 		docname: staffUser,
 		disable_file_browser: true,
 		allow_multiple: false,
+		allow_toggle_private: false,
 		restrictions: { max_file_size: 5 * 1024 * 1024 },
 		on_success: (file) => {
-			pendingDocuments.push({
-				document_name: file.file_name || "",
-				document_file: file.file_url,
-				file_label: file.file_name || file.file_url,
+			uploaded_documents.push({ name: file.name, file_name: file.file_name });
+			renderDocumentRows(page);
+			frappe.show_alert({
+				message: __("{0} saved", [frappe.utils.escape_html(file.file_name)]),
+				indicator: "green",
 			});
-			markDocumentsChanged(page);
 		},
 	});
 }
 
-function markDocumentsChanged(page) {
-	documentsSaved = false;
+async function remove_document(page, file_id) {
+	await frappe.call({
+		method: "frappe.desk.form.utils.remove_attach",
+		args: { fid: file_id },
+	});
+
+	uploaded_documents = uploaded_documents.filter((file) => file.name !== file_id);
 	renderDocumentRows(page);
-	renderDoneActions(page);
-}
-
-function renderDoneActions(page) {
-	const save = documentsSaved
-		? ""
-		: '<button type="button" class="btn btn-primary onboarding-save-documents">' +
-		  __("Save documents") +
-		  "</button>";
-	const restart =
-		'<button type="button" class="btn ' +
-		(documentsSaved ? "btn-primary" : "btn-default") +
-		' onboarding-restart">' +
-		__("Onboard another staff member") +
-		"</button>";
-	const saved =
-		documentsSaved && pendingDocuments.length
-			? '<span class="onboarding-saved-note">' +
-			  (pendingDocuments.length === 1
-					? __("1 document saved.")
-					: __("{0} documents saved.", [pendingDocuments.length])) +
-			  "</span>"
-			: "";
-
-	page.main.find(".onboarding-done-actions").html(save + restart + saved);
-}
-
-async function saveDocuments(page) {
-	const staffUser = page.main.find(".onboarding-done").data("staff-user");
-	const unnamed = pendingDocuments.find((entry) => !(entry.document_name || "").trim());
-	if (unnamed) {
-		frappe.msgprint(
-			__("Name every document before saving, so the record says what each file is.")
-		);
-		return;
-	}
-
-	frappe.dom.freeze();
-	try {
-		await frappe.call({
-			method: "bandhu_app.bandhu_app.page.staff_onboarding.staff_onboarding.save_staff_documents",
-			args: {
-				user: staffUser,
-				documents: pendingDocuments.map((entry) => ({
-					document_name: entry.document_name.trim(),
-					document_file: entry.document_file,
-				})),
-			},
-		});
-	} finally {
-		frappe.dom.unfreeze();
-	}
-
-	documentsSaved = true;
-	renderDoneActions(page);
-	frappe.show_alert({ message: __("Documents saved"), indicator: "green" });
 }
 
 async function loadDashboard(page) {
