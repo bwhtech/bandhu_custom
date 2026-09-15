@@ -16,9 +16,9 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import today
 
-from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.page.doctor_form import doctor_form
 from bandhu_app.bandhu_app.page.nurse_form import nurse_form
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.test_api_boundary import CAD, DOCTOR, NURSE, call_over_http
 
 

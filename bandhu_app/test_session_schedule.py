@@ -7,7 +7,6 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import getdate, today
 
-from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.doctype.bandhu_session_schedule.bandhu_session_schedule import (
 	regenerate_future_sessions,
 )
@@ -18,6 +17,7 @@ from bandhu_app.bandhu_app.utils.session_schedule import (
 	occurrence_dates,
 	preview_occurrences,
 )
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []

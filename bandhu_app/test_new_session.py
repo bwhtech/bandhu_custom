@@ -5,13 +5,13 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import today
 
-from bandhu_app.bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.bandhu_app.page.new_session.new_session import (
 	as_session_draft,
 	check_clashes,
 	create_session,
 	get_form_options,
 )
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
