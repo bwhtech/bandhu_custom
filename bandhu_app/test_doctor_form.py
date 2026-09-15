@@ -22,18 +22,14 @@ from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 
 class TestDoctorForm(IntegrationTestCase):
-	@classmethod
-	def setUpClass(cls):
-		super().setUpClass()
-		baseline = ensure_baseline_fixtures()
-		cls.appointment_type = baseline["appointment_type"]
-		cls.project = baseline["project"]
-		cls.site = baseline["site"]
-		cls.unit = baseline["unit"]
-		cls.clinic = baseline["clinic"]
-		cls.item = baseline["item"]
-
 	def setUp(self):
+		baseline = ensure_baseline_fixtures()
+		self.appointment_type = baseline["appointment_type"]
+		self.project = baseline["project"]
+		self.site = baseline["site"]
+		self.unit = baseline["unit"]
+		self.clinic = baseline["clinic"]
+		self.item = baseline["item"]
 		self.today = frappe.utils.today()
 
 		self.patient = self._make_patient("Doctor Form Test Patient")
