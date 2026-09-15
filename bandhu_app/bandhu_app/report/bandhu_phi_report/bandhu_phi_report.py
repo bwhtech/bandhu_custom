@@ -20,7 +20,17 @@ def execute(filters=None):
 		return get_columns(), []
 
 	rows = build_rows(sessions)
-	return get_columns(), rows, None, build_chart(rows), build_summary(rows)
+	chart = build_chart(rows)
+	summary = build_summary(rows)
+	return get_columns(), label_missing_locations(rows), None, chart, summary
+
+
+def label_missing_locations(rows: list) -> list:
+	not_set = _("Not set")
+	for row in rows:
+		for fieldname in LOCATION_FILTERS:
+			row[fieldname] = row[fieldname] or not_set
+	return rows
 
 
 def validate_filters(filters):

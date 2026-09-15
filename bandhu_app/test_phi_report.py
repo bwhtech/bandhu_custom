@@ -157,6 +157,28 @@ class IntegrationTestPHIReport(IntegrationTestCase):
 		rows = self.run_report(lsg="PHI Report Panchayat")
 		self.assertEqual([row["lsg"] for row in rows], ["PHI Report Panchayat"])
 
+	def test_a_site_with_no_location_reads_not_set_and_is_not_counted_as_covered(self):
+		session_date = add_days(today(), 200)
+		unplaced_site = (
+			frappe.get_doc(
+				{"doctype": "Site", "site_name": f"PHI Report Unplaced {frappe.generate_hash(length=6)}"}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
+		self.make_session(date=session_date, site=unplaced_site)
+
+		_columns, rows, _message, _chart, summary = execute(
+			{"from_date": session_date, "to_date": session_date}
+		)
+		self.assertEqual(
+			[(row["phcchc"], row["lsg"], row["district"]) for row in rows],
+			[("Not set", "Not set", "Not set")],
+		)
+		covered = {item["label"]: item["value"] for item in summary}
+		self.assertEqual(covered["PHC/CHCs Covered"], 0)
+		self.assertEqual(covered["LSGs Covered"], 0)
+
 	def test_rejects_a_period_longer_than_a_year(self):
 		self.assertRaises(
 			frappe.ValidationError,
