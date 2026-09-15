@@ -106,7 +106,7 @@ class IntegrationTestMedicineUtilisationReport(IntegrationTestCase):
 			.name
 		)
 
-	def make_encounter(self, session, prescriptions, patient=None):
+	def make_encounter(self, session, prescriptions, patient=None, state="Completed"):
 		return frappe.get_doc(
 			{
 				"doctype": "Patient Encounter",
@@ -116,7 +116,7 @@ class IntegrationTestMedicineUtilisationReport(IntegrationTestCase):
 				"encounter_time": nowtime(),
 				"appointment_type": self.appointment_type,
 				"custom_clinic_session": session,
-				"custom_workflow_state": "Completed",
+				"custom_workflow_state": state,
 				"custom_bandhu_prescription": prescriptions,
 			}
 		).insert(ignore_permissions=True)
@@ -157,6 +157,17 @@ class IntegrationTestMedicineUtilisationReport(IntegrationTestCase):
 		[row] = self.run_report()
 		self.assertEqual(row["times_dispensed"], 1)
 		self.assertEqual(row["quantity_dispensed"], 0)
+
+	def test_leaves_out_a_visit_cancelled_after_medicine_was_prescribed(self):
+		session = self.make_session()
+		self.make_encounter(session, [{"medicines": self.item, "quantity": 2, "dispensed": 1}])
+		self.make_encounter(session, [{"medicines": self.item, "quantity": 7}], state="Cancelled")
+
+		[row] = self.run_report()
+		self.assertEqual(row["patients"], 1)
+		self.assertEqual(row["times_prescribed"], 1)
+		self.assertEqual(row["quantity_prescribed"], 2)
+		self.assertEqual(row["quantity_not_dispensed"], 0)
 
 	def test_splits_the_same_medicine_by_unit(self):
 		self.make_encounter(self.make_session(), [{"medicines": self.item, "quantity": 3}])

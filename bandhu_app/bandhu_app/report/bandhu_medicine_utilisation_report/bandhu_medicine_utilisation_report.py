@@ -4,6 +4,7 @@ from frappe.query_builder import Case
 from frappe.query_builder.functions import Coalesce, Count, Sum
 from frappe.utils import cint, date_diff, getdate
 
+from bandhu_app.bandhu_app.utils.clinic_stats import CANCELLED_STATE
 from bandhu_app.bandhu_app.utils.session import fetch_map
 
 MAX_REPORT_DAYS = 366
@@ -69,6 +70,7 @@ def fetch_usage(filters) -> list:
 			(prescription.parenttype == "Patient Encounter")
 			& (prescription.parentfield == "custom_bandhu_prescription")
 			& (encounter.docstatus < 2)
+			& (Coalesce(encounter.custom_workflow_state, "") != CANCELLED_STATE)
 			& (session.date[filters.from_date : filters.to_date])
 			& (Coalesce(prescription.medicines, "") != "")
 		)

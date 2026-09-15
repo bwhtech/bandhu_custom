@@ -172,6 +172,26 @@ class IntegrationTestSessionReport(IntegrationTestCase):
 		self.assertEqual(row["new_patients"], 1)
 		self.assertEqual(row["repeat_patients"], 0)
 
+	def test_a_visit_cancelled_after_the_doctor_ordered_counts_nothing(self):
+		session = self._make_session(today())
+		self._make_encounter(
+			session,
+			tests=[{"test_name": "Malaria", "result_type": "Negative"}],
+			prescriptions=[{"medicines": self.item, "quantity": 1, "dispensed": 1}],
+		)
+		self._make_encounter(
+			session,
+			tests=[{"test_name": "Dengue"}],
+			prescriptions=[{"medicines": self.item, "quantity": 3}],
+			state="Cancelled",
+		)
+
+		row = self._row_for(self._run(), session)
+		self.assertEqual(row["patients"], 1)
+		self.assertEqual(row["tests_ordered"], 1)
+		self.assertEqual(row["medicines_prescribed"], 1)
+		self.assertEqual(row["medicines_dispensed"], 1)
+
 	def test_not_done_tests_are_not_counted_as_done(self):
 		session = self._make_session(today())
 		self._make_encounter(
