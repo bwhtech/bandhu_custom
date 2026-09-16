@@ -8,7 +8,9 @@
   "disable_auto_session_generation",
   "session_horizon_days",
   "patient_registration_section",
-  "quick_countries"
+  "quick_countries",
+  "gender_options_section",
+  "offered_genders"
  ],
  "fields": [
   {
@@ -41,12 +43,25 @@
    "fieldtype": "Table",
    "label": "Quick Pick Countries",
    "options": "Bandhu Quick Country"
+  },
+  {
+   "fieldname": "gender_options_section",
+   "fieldtype": "Section Break",
+   "label": "Gender Options"
+  },
+  {
+   "description": "Shown on the CAD registration and staff onboarding forms, in this order.",
+   "fieldname": "offered_genders",
+   "fieldtype": "Table",
+   "label": "Genders Offered",
+   "options": "Bandhu Gender Option",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-09-17 12:00:00.000000",
+ "modified": "2026-09-17 12:30:00.000000",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Bandhu Settings",

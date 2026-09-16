@@ -61,7 +61,7 @@ class TestApiBoundary(IntegrationTestCase):
 		cls.site = baseline["site"]
 		cls.unit = baseline["unit"]
 		cls.project = baseline["project"]
-		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
+		cls.gender = "Male"
 
 	def setUp(self):
 		self.suffix = frappe.generate_hash(length=8)
