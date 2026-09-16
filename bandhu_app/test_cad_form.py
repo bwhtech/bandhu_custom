@@ -18,6 +18,7 @@ from bandhu_app.bandhu_app.page.cad_form.cad_form import (
 	search_patient,
 )
 from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
+from bandhu_app.patches.seed_quick_countries import execute as seed_quick_countries
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -290,8 +291,39 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		self.assertIn("Bihar", options["major_states"])
 		self.assertNotIn("Kerala", options["major_states"])
 		self.assertIn("Construction", options["major_sectors"])
-		self.assertIn("India", options["quick_countries"])
-		self.assertIn("Nepal", options["quick_countries"])
+
+	def test_get_form_options_returns_quick_countries_in_settings_order(self):
+		self.set_quick_countries(["Nepal", "Bangladesh"])
+
+		with self.set_user(self.cad_user):
+			options = get_form_options()
+
+		self.assertEqual(options["quick_countries"], ["Nepal", "Bangladesh"])
+
+	def set_quick_countries(self, countries):
+		settings = frappe.get_single("Bandhu Settings")
+		settings.set("quick_countries", [{"country": country} for country in countries])
+		settings.save()
+
+	def saved_quick_countries(self):
+		return [row.country for row in frappe.get_single("Bandhu Settings").quick_countries]
+
+	def test_seed_quick_countries_fills_an_empty_list(self):
+		self.set_quick_countries([])
+
+		seed_quick_countries()
+
+		self.assertEqual(self.saved_quick_countries(), ["India", "Nepal"])
+
+	def test_seed_quick_countries_keeps_the_list_an_admin_set(self):
+		self.set_quick_countries(["Bangladesh"])
+
+		seed_quick_countries()
+
+		self.assertEqual(self.saved_quick_countries(), ["Bangladesh"])
+
+	def test_same_quick_country_twice_is_rejected(self):
+		self.assertRaises(frappe.ValidationError, self.set_quick_countries, ["Nepal", "Nepal"])
 
 	def test_register_patient_rejects_state_not_in_master(self):
 		frappe.set_user(self.cad_user)

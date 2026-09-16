@@ -70,9 +70,6 @@ def get_session_status() -> dict:
 	}
 
 
-QUICK_COUNTRIES = ["India", "Nepal"]
-
-
 @frappe.whitelist()
 def get_form_options() -> dict:
 	require_cad_access()
@@ -89,7 +86,7 @@ def get_form_options() -> dict:
 		"major_states": major_states,
 		"other_states": other_states,
 		"major_sectors": major_sectors,
-		"quick_countries": QUICK_COUNTRIES,
+		"quick_countries": [row.country for row in frappe.get_single("Bandhu Settings").quick_countries],
 	}
 
 

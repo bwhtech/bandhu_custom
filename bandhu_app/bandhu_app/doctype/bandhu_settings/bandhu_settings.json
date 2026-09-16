@@ -6,7 +6,9 @@
  "field_order": [
   "session_scheduling_section",
   "disable_auto_session_generation",
-  "session_horizon_days"
+  "session_horizon_days",
+  "patient_registration_section",
+  "quick_countries"
  ],
  "fields": [
   {
@@ -27,12 +29,24 @@
    "fieldtype": "Int",
    "label": "Generate Sessions Ahead (Days)",
    "non_negative": 1
+  },
+  {
+   "fieldname": "patient_registration_section",
+   "fieldtype": "Section Break",
+   "label": "Patient Registration"
+  },
+  {
+   "description": "Shown as buttons on the CAD registration form. The first country is selected by default.",
+   "fieldname": "quick_countries",
+   "fieldtype": "Table",
+   "label": "Quick Pick Countries",
+   "options": "Bandhu Quick Country"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-08-14 09:00:00.000000",
+ "modified": "2026-09-17 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Bandhu Settings",

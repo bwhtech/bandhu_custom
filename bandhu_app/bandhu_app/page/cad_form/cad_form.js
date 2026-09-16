@@ -6,8 +6,6 @@ let cadSession = null;
 let cadPage = null;
 let formOptions = { major_states: [], other_states: [], major_sectors: [] };
 
-const QUICK_COUNTRIES = ["India", "Nepal"];
-
 const MAX_PLAUSIBLE_AGE = 120;
 
 const MIN_SEARCH_LENGTH = 2;
@@ -93,6 +91,7 @@ async function loadDashboard(page) {
 		major_states: [],
 		other_states: [],
 		major_sectors: [],
+		quick_countries: [],
 	};
 
 	await renderFrontDesk(page, data);
@@ -386,12 +385,13 @@ function render_sex_group() {
 }
 
 function render_country_group() {
+	const quick_countries = formOptions.quick_countries || [];
 	return render_tab_group({
 		field: "native_country",
 		label: __("Country"),
-		options: QUICK_COUNTRIES.concat(["Other"]),
+		options: quick_countries.concat(["Other"]),
 		mode: "picker",
-		defaultValue: "India",
+		defaultValue: quick_countries[0],
 		detailFieldHtml:
 			'<input type="text" class="form-control cad-field detail-field" data-field="specify_native_country" placeholder="' +
 			frappe.utils.escape_html(__("Specify country")) +
