@@ -5,6 +5,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import getdate, today
 
+from bandhu_app.bandhu_app.doctype.bandhu_settings.test_bandhu_settings import set_offered_genders
 from bandhu_app.bandhu_app.page.cad_form import cad_form
 from bandhu_app.bandhu_app.page.cad_form.cad_form import (
 	cancel_visit,
@@ -33,7 +34,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		cls.site = baseline["site"]
 		cls.unit = baseline["unit"]
 		cls.project = baseline["project"]
-		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
+		cls.gender = "Male"
 
 		cls.cad_practitioner = cls._make_practitioner("Test CAD Alpha", "Clinic Assistant cum Driver")
 		cls.doctor_practitioner = cls._make_practitioner("Test Doctor For CAD", "Doctor")
@@ -292,6 +293,28 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		self.assertIn("Construction", options["major_sectors"])
 		self.assertIn("India", options["quick_countries"])
 		self.assertIn("Nepal", options["quick_countries"])
+
+	def test_get_form_options_returns_genders_in_settings_order(self):
+		set_offered_genders(self, ["Female", "Male"])
+
+		with self.set_user(self.cad_user):
+			options = get_form_options()
+
+		self.assertEqual(options["genders"], ["Female", "Male"])
+
+	def test_register_patient_rejects_a_gender_not_offered(self):
+		set_offered_genders(self, ["Female", "Male"])
+
+		with self.set_user(self.cad_user):
+			self.assertRaisesRegex(
+				frappe.ValidationError,
+				"not one of the genders offered",
+				register_patient,
+				full_name="Retired Gender Patient",
+				dob="1990-05-15",
+				sex="Other",
+				session=self.session,
+			)
 
 	def test_register_patient_rejects_state_not_in_master(self):
 		frappe.set_user(self.cad_user)

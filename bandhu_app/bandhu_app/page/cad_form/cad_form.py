@@ -6,6 +6,7 @@ from frappe.core.doctype.access_log.access_log import make_access_log
 from frappe.rate_limiter import rate_limit
 from frappe.utils import flt, getdate, validate_phone_number
 
+from bandhu_app.bandhu_app.doctype.bandhu_settings.bandhu_settings import get_offered_genders
 from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
 from bandhu_app.bandhu_app.utils.patient_encounter import (
 	ENCOUNTER_TO_QUEUE_STAGE,
@@ -90,6 +91,7 @@ def get_form_options() -> dict:
 		"other_states": other_states,
 		"major_sectors": major_sectors,
 		"quick_countries": QUICK_COUNTRIES,
+		"genders": get_offered_genders(),
 	}
 
 
@@ -278,6 +280,8 @@ def register_patient(
 		frappe.throw(_("Full name is required."))
 	if not sex:
 		frappe.throw(_("Sex is required."))
+	if sex not in get_offered_genders():
+		frappe.throw(_("{0} is not one of the genders offered in Bandhu Settings.").format(sex))
 
 	dob = resolve_dob(dob, age)
 

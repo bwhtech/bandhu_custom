@@ -1,6 +1,7 @@
 import frappe
 from frappe.tests import IntegrationTestCase
 
+from bandhu_app.bandhu_app.doctype.bandhu_settings.test_bandhu_settings import set_offered_genders
 from bandhu_app.bandhu_app.page.staff_onboarding.staff_onboarding import (
 	PROVISIONABLE_ROLES,
 	get_form_options,
@@ -60,8 +61,27 @@ class IntegrationTestStaffOnboarding(IntegrationTestCase):
 	def test_get_form_options_returns_real_masters(self):
 		options = self._as_system_manager(get_form_options)
 		self.assertEqual(set(options["roles"]), set(PROVISIONABLE_ROLES))
-		# The Gender master holds seven; the form offers the three the paper forms use.
-		self.assertEqual(options["genders"], ["Male", "Female", "Other"])
+
+	def test_get_form_options_returns_genders_offered_in_settings(self):
+		set_offered_genders(self, ["Other", "Female"])
+
+		options = self._as_system_manager(get_form_options)
+
+		self.assertEqual(options["genders"], ["Other", "Female"])
+
+	def test_provision_rejects_a_gender_not_offered(self):
+		set_offered_genders(self, ["Female", "Male"])
+
+		self.assertRaisesRegex(
+			frappe.ValidationError,
+			"not one of the genders offered",
+			self._as_system_manager,
+			provision_staff_member,
+			first_name="Retired",
+			email="test.onboard.retiredgender@bandhuapp.test",
+			role="Doctor",
+			gender="Other",
+		)
 
 	def test_provision_creates_linked_user_and_practitioner(self):
 		email = "test.onboard.newdoctor@bandhuapp.test"
