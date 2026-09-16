@@ -379,7 +379,7 @@ function render_sex_group() {
 	return render_tab_group({
 		field: "sex",
 		label: __("Sex"),
-		options: ["Male", "Female", "Other"],
+		options: formOptions.genders || [],
 		mode: "direct",
 		required: true,
 	});
