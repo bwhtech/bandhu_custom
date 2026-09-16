@@ -162,6 +162,61 @@ class IntegrationTestSessionReport(IntegrationTestCase):
 		self.assertEqual(row["medicines_prescribed"], 2)
 		self.assertEqual(row["medicines_dispensed"], 1)
 
+	def test_cancelled_visits_are_not_counted_as_patients(self):
+		session = self._make_session(today())
+		self._make_encounter(session)
+		self._make_encounter(session, state="Cancelled")
+
+		row = self._row_for(self._run(), session)
+		self.assertEqual(row["patients"], 1)
+		self.assertEqual(row["new_patients"], 1)
+		self.assertEqual(row["repeat_patients"], 0)
+
+	def test_a_visit_cancelled_after_the_doctor_ordered_counts_nothing(self):
+		session = self._make_session(today())
+		self._make_encounter(
+			session,
+			tests=[{"test_name": "Malaria", "result_type": "Negative"}],
+			prescriptions=[{"medicines": self.item, "quantity": 1, "dispensed": 1}],
+		)
+		self._make_encounter(
+			session,
+			tests=[{"test_name": "Dengue"}],
+			prescriptions=[{"medicines": self.item, "quantity": 3}],
+			state="Cancelled",
+		)
+
+		row = self._row_for(self._run(), session)
+		self.assertEqual(row["patients"], 1)
+		self.assertEqual(row["tests_ordered"], 1)
+		self.assertEqual(row["medicines_prescribed"], 1)
+		self.assertEqual(row["medicines_dispensed"], 1)
+
+	def test_average_per_session_keeps_two_decimal_places(self):
+		site = self._make_site(f"Report Average Worksite {frappe.generate_hash(length=6)}", self.location)
+		for patients in (1, 1, 2):
+			session = self._make_session(today(), site=site)
+			for _unused in range(patients):
+				self._make_encounter(session)
+
+		summary = execute({"from_date": today(), "to_date": today(), "site": site})[4]
+		average = next(item for item in summary if item["label"] == "Avg Patients per Session")
+		self.assertEqual(average["value"], 1.33)
+
+	def test_not_done_tests_are_not_counted_as_done(self):
+		session = self._make_session(today())
+		self._make_encounter(
+			session,
+			tests=[
+				{"test_name": "Malaria", "result_type": "Not Done"},
+				{"test_name": "Dengue", "result_type": "Negative"},
+			],
+		)
+
+		row = self._row_for(self._run(), session)
+		self.assertEqual(row["tests_ordered"], 2)
+		self.assertEqual(row["tests_done"], 1)
+
 	def test_date_filter_excludes_sessions_outside_the_period(self):
 		inside = self._make_session(today())
 		outside = self._make_session(add_days(today(), 30))

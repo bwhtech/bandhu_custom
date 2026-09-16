@@ -117,13 +117,7 @@ def build_rows(sessions: list, group_by: str) -> list:
 		row["tests_done"] += cint(tests.done)
 		row["medicines_dispensed"] += cint(medicines.dispensed)
 
-	rows = sorted(totals.values(), key=lambda row: row["patients"], reverse=True)
-	for row in rows:
-		row["patients_per_session"] = (
-			flt(row["patients"] / row["sessions_held"], 1) if row["sessions_held"] else 0
-		)
-
-	return rows
+	return sorted(totals.values(), key=lambda row: row["patients"], reverse=True)
 
 
 def group_key(session, group_by: str, sites: dict, locations: dict, units: dict) -> str:
@@ -164,7 +158,7 @@ def build_summary(rows: list) -> list:
 		{"label": _("Patients Seen"), "value": patients, "datatype": "Int"},
 		{
 			"label": _("Avg Patients per Session"),
-			"value": flt(patients / sessions_held, 1) if sessions_held else 0,
+			"value": flt(patients / sessions_held, 2) if sessions_held else 0,
 			"datatype": "Float",
 		},
 	]
@@ -184,14 +178,6 @@ def get_columns(filters) -> list:
 		{"fieldname": "patients", "label": _("Patients"), "fieldtype": "Int", "width": 100},
 		{"fieldname": "new_patients", "label": _("New"), "fieldtype": "Int", "width": 80},
 		{"fieldname": "repeat_patients", "label": _("Repeat"), "fieldtype": "Int", "width": 90},
-		{
-			"fieldname": "patients_per_session",
-			"label": _("Per Session"),
-			"fieldtype": "Float",
-			"width": 100,
-			# Summing an average across rows produces a number that means nothing.
-			"disable_total": True,
-		},
 		{"fieldname": "completed", "label": _("Completed"), "fieldtype": "Int", "width": 110},
 		{"fieldname": "tests_done", "label": _("Tests Done"), "fieldtype": "Int", "width": 110},
 		{

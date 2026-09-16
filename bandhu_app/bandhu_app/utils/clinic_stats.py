@@ -4,6 +4,8 @@ from frappe.query_builder.functions import Coalesce, Count, Sum
 from frappe.utils import create_batch, cstr
 
 COMPLETED_STATE = "Completed"
+CANCELLED_STATE = "Cancelled"
+TEST_NOT_DONE = "Not Done"
 
 # MariaDB and Postgres both choke on very long IN (...) lists, so every session or
 # patient list is fed to the database in slices.
@@ -26,7 +28,11 @@ def count_encounters(session_names: list) -> dict:
 				Count(encounter.patient).distinct().as_("patients"),
 				Sum(completed).as_("completed"),
 			)
-			.where((encounter.docstatus < 2) & (encounter.custom_clinic_session.isin(batch)))
+			.where(
+				(encounter.docstatus < 2)
+				& (encounter.custom_clinic_session.isin(batch))
+				& (Coalesce(encounter.custom_workflow_state, "") != CANCELLED_STATE)
+			)
 			.groupby(encounter.custom_clinic_session)
 			.run(as_dict=True)
 		)
@@ -67,6 +73,7 @@ def find_session_patients(session_names: list) -> set:
 				(encounter.docstatus < 2)
 				& (encounter.custom_clinic_session.isin(batch))
 				& (Coalesce(encounter.patient, "") != "")
+				& (Coalesce(encounter.custom_workflow_state, "") != CANCELLED_STATE)
 			)
 			.run(as_dict=True)
 		)
@@ -88,7 +95,11 @@ def find_first_encounter_sessions(patients: set) -> dict:
 				encounter.encounter_date,
 				encounter.custom_clinic_session.as_("session"),
 			)
-			.where((encounter.docstatus < 2) & (encounter.patient.isin(batch)))
+			.where(
+				(encounter.docstatus < 2)
+				& (encounter.patient.isin(batch))
+				& (Coalesce(encounter.custom_workflow_state, "") != CANCELLED_STATE)
+			)
 			.run(as_dict=True)
 		)
 
@@ -111,7 +122,7 @@ def count_tests(session_names: list) -> dict:
 
 	test = frappe.qb.DocType("Test Instructions")
 	encounter = frappe.qb.DocType("Patient Encounter")
-	done = Case().when(Coalesce(test.result_type, "") != "", 1).else_(0)
+	done = Case().when(Coalesce(test.result_type, "").notin(["", TEST_NOT_DONE]), 1).else_(0)
 
 	counts = {}
 	for batch in create_batch(session_names, BATCH_SIZE):
@@ -128,6 +139,7 @@ def count_tests(session_names: list) -> dict:
 				(test.parenttype == "Patient Encounter")
 				& (encounter.docstatus < 2)
 				& (encounter.custom_clinic_session.isin(batch))
+				& (Coalesce(encounter.custom_workflow_state, "") != CANCELLED_STATE)
 			)
 			.groupby(encounter.custom_clinic_session)
 			.run(as_dict=True)
@@ -160,6 +172,7 @@ def count_medicines(session_names: list) -> dict:
 				(prescription.parenttype == "Patient Encounter")
 				& (encounter.docstatus < 2)
 				& (encounter.custom_clinic_session.isin(batch))
+				& (Coalesce(encounter.custom_workflow_state, "") != CANCELLED_STATE)
 			)
 			.groupby(encounter.custom_clinic_session)
 			.run(as_dict=True)

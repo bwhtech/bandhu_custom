@@ -140,13 +140,29 @@ class IntegrationTestClinicReport(IntegrationTestCase):
 		self.assertEqual(row["sessions_held"], 1)
 		self.assertEqual(row["sessions_cancelled"], 1)
 
-	def test_patients_per_session_divides_by_sessions_held_not_scheduled(self):
+	def test_average_per_session_divides_by_sessions_held_not_scheduled(self):
 		session = self._make_session()
 		self._make_encounter(session)
 		self._make_encounter(session)
 		self._make_session(status="Planned")
 
-		self.assertEqual(self._run()[0]["patients_per_session"], 2)
+		summary = execute(
+			{"from_date": today(), "to_date": today(), "group_by": "Clinic", "site": self.site}
+		)[4]
+		average = next(item for item in summary if item["label"] == "Avg Patients per Session")
+		self.assertEqual(average["value"], 2)
+
+	def test_average_per_session_keeps_two_decimal_places(self):
+		for patients in (1, 1, 2):
+			session = self._make_session()
+			for _unused in range(patients):
+				self._make_encounter(session)
+
+		summary = execute(
+			{"from_date": today(), "to_date": today(), "group_by": "Clinic", "site": self.site}
+		)[4]
+		average = next(item for item in summary if item["label"] == "Avg Patients per Session")
+		self.assertEqual(average["value"], 1.33)
 
 	def test_rejects_an_unknown_grouping(self):
 		self.assertRaises(
