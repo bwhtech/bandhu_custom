@@ -1,7 +1,7 @@
 import frappe
 from frappe import _
 from frappe.query_builder.functions import Coalesce
-from frappe.utils import getdate
+from frappe.utils import date_diff, getdate
 
 from bandhu_app.bandhu_app.utils.patient import age_group
 from bandhu_app.bandhu_app.utils.session import fetch_map
@@ -23,12 +23,18 @@ def execute(filters=None):
 	return get_columns(), rows, None, build_chart(rows), build_summary(rows)
 
 
+MAX_REPORT_DAYS = 366
+
+
 def validate_filters(filters):
 	if not (filters.from_date and filters.to_date):
 		frappe.throw(_("From Date and To Date are required."))
 
 	if getdate(filters.from_date) > getdate(filters.to_date):
 		frappe.throw(_("From Date cannot be after To Date."))
+
+	if date_diff(filters.to_date, filters.from_date) > MAX_REPORT_DAYS:
+		frappe.throw(_("Choose a period of {0} days or less.").format(MAX_REPORT_DAYS))
 
 
 def fetch_tests(filters) -> list:
@@ -44,7 +50,7 @@ def fetch_tests(filters) -> list:
 		.on(session.name == encounter.custom_clinic_session)
 		.select(
 			session.date,
-			session.name.as_("camp"),
+			session.name.as_("session"),
 			session.site.as_("site_id"),
 			session.project,
 			session.unit.as_("unit_id"),
@@ -119,7 +125,7 @@ def build_rows(tests: list) -> list:
 		rows.append(
 			{
 				"date": test.date,
-				"camp": test.camp,
+				"session": test.session,
 				"site": site.site_name or test.site_id,
 				"lsg": location.lsg,
 				"district": location.district,
@@ -222,8 +228,8 @@ def get_columns() -> list:
 		{"fieldname": "unit", "label": _("Unit"), "fieldtype": "Data", "width": 110},
 		{"fieldname": "doctor", "label": _("Doctor"), "fieldtype": "Data", "width": 140},
 		{
-			"fieldname": "camp",
-			"label": _("Camp"),
+			"fieldname": "session",
+			"label": _("Session"),
 			"fieldtype": "Link",
 			"options": "Bandhu Clinic Session",
 			"width": 150,

@@ -3,20 +3,21 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import add_days, nowtime, today
+from frappe.utils import add_days, flt, nowtime, today
 
 from bandhu_app.bandhu_app.page.nurse_form.nurse_form import (
 	dispense_medicine,
 	end_session,
 	get_patient_registration_details,
+	get_session_progress,
+	record_vitals,
 	start_session,
 	submit_test_results,
 )
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
-
-TEST_ITEM = "_Test Stock Item"
 
 
 class IntegrationTestNurseForm(IntegrationTestCase):
@@ -24,10 +25,13 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
-		cls.project = frappe.get_all("Bandhu Projects", limit=1, pluck="name")[0]
-		cls.appointment_type = frappe.get_all("Appointment Type", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.site = baseline["site"]
+		cls.unit = baseline["unit"]
+		cls.project = baseline["project"]
+		cls.appointment_type = baseline["appointment_type"]
+		cls.item = baseline["item"]
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
 		cls.nurse_practitioner = cls._make_practitioner("Test Nurse Alpha", "Nurse")
@@ -84,6 +88,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 				"date": today(),
 				"clinic": cls.clinic,
 				"site": cls.site,
+				"unit": cls.unit,
 				"project": cls.project,
 				"assigned_nurse": assigned_nurse,
 				"status": "In Progress",
@@ -167,11 +172,150 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 			"Waiting for Doctor",
 		)
 
+	def test_submit_test_results_rejects_a_test_left_blank(self):
+		encounter = self._make_encounter(self.session, "Awaiting Test", tests=[{"test_name": "Malaria"}])
+		row_name = encounter.custom_test_instructions[0].name
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(
+				frappe.ValidationError,
+				submit_test_results,
+				encounter.name,
+				[{"name": row_name, "result_type": "", "result_value": ""}],
+			)
+		finally:
+			frappe.set_user("Administrator")
+
+		encounter.reload()
+		self.assertEqual(encounter.custom_workflow_state, "Awaiting Test")
+
+	def test_submit_test_results_accepts_not_done_as_an_answer(self):
+		encounter = self._make_encounter(self.session, "Awaiting Test", tests=[{"test_name": "Malaria"}])
+		row_name = encounter.custom_test_instructions[0].name
+
+		frappe.set_user(self.nurse_user)
+		try:
+			submit_test_results(encounter.name, [{"name": row_name, "result_type": "Not Done"}])
+		finally:
+			frappe.set_user("Administrator")
+
+		encounter.reload()
+		self.assertEqual(encounter.custom_workflow_state, "Awaiting Doctor Review")
+		self.assertEqual(encounter.custom_test_instructions[0].result_type, "Not Done")
+
+	def test_submit_test_results_rejects_a_value_test_with_no_reading(self):
+		encounter = self._make_encounter(self.session, "Awaiting Test", tests=[{"test_name": "Malaria"}])
+		row_name = encounter.custom_test_instructions[0].name
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(
+				frappe.ValidationError,
+				submit_test_results,
+				encounter.name,
+				[{"name": row_name, "result_type": "Value", "result_value": "  "}],
+			)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_record_vitals_rejects_an_impossible_reading(self):
+		encounter = self._make_encounter(self.session, "Awaiting Test")
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(frappe.ValidationError, record_vitals, encounter.name, spo2=150)
+			self.assertRaises(frappe.ValidationError, record_vitals, encounter.name, pulse_rate=9999)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_record_vitals_rejects_half_a_blood_pressure(self):
+		encounter = self._make_encounter(self.session, "Awaiting Test")
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(frappe.ValidationError, record_vitals, encounter.name, bp_systolic=120)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_record_vitals_rejects_a_diastolic_above_the_systolic(self):
+		encounter = self._make_encounter(self.session, "Awaiting Test")
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(
+				frappe.ValidationError,
+				record_vitals,
+				encounter.name,
+				bp_systolic=80,
+				bp_diastolic=120,
+			)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_session_progress_counts_every_stage_not_just_the_nurse_queues(self):
+		self._make_encounter(self.session, "Waiting for Doctor")
+		self._make_encounter(self.session, "Awaiting Test", tests=[{"test_name": "Malaria"}])
+		self._make_encounter(self.session, "Completed")
+
+		frappe.set_user(self.nurse_user)
+		try:
+			progress = get_session_progress(self.session)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertGreaterEqual(progress["registered"], 1)
+		self.assertGreaterEqual(progress["for_tests"], 1)
+		self.assertGreaterEqual(progress["completed"], 1)
+
+	def test_record_vitals_writes_fields_and_computes_bmi(self):
+		encounter = self._make_encounter(self.session, "Awaiting Test", tests=[{"test_name": "Malaria"}])
+
+		frappe.set_user(self.nurse_user)
+		try:
+			record_vitals(
+				encounter.name,
+				height_cm=170,
+				weight_kg=68,
+				temperature=98.6,
+				pulse_rate=76,
+				spo2=98,
+				bp_systolic=120,
+				bp_diastolic=80,
+			)
+		finally:
+			frappe.set_user("Administrator")
+
+		encounter.reload()
+		self.assertEqual(flt(encounter.custom_height), 170)
+		self.assertEqual(flt(encounter.custom_weight), 68)
+		self.assertEqual(encounter.custom_blood_pressure, "120/80")
+		self.assertEqual(flt(encounter.custom_bmi), 23.53)
+		self.assertEqual(encounter.custom_workflow_state, "Awaiting Test")
+
+	def test_record_vitals_rejects_empty_call(self):
+		encounter = self._make_encounter(self.session, "Awaiting Test", tests=[{"test_name": "Malaria"}])
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(frappe.ValidationError, record_vitals, encounter.name)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_record_vitals_rejects_a_patient_not_with_the_nurse(self):
+		encounter = self._make_encounter(self.session, "Waiting for Doctor")
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(frappe.ValidationError, record_vitals, encounter.name, weight_kg=68)
+		finally:
+			frappe.set_user("Administrator")
+
 	def test_dispense_medicine_marks_rows_and_completes(self):
 		encounter = self._make_encounter(
 			self.session,
 			"Awaiting Medicine",
-			prescriptions=[{"medicines": TEST_ITEM, "dosage_frequency": "OD", "quantity": 5}],
+			prescriptions=[{"medicines": self.item, "dosage_frequency": "OD", "quantity": 5}],
 		)
 		row_name = encounter.custom_bandhu_prescription[0].name
 
@@ -197,8 +341,8 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 			self.session,
 			"Awaiting Medicine",
 			prescriptions=[
-				{"medicines": TEST_ITEM, "dosage_frequency": "OD", "quantity": 5},
-				{"medicines": TEST_ITEM, "dosage_frequency": "BD", "quantity": 3},
+				{"medicines": self.item, "dosage_frequency": "OD", "quantity": 5},
+				{"medicines": self.item, "dosage_frequency": "BD", "quantity": 3},
 			],
 		)
 		dispensed_row = encounter.custom_bandhu_prescription[0].name
@@ -216,7 +360,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 	def test_unprivileged_user_is_blocked(self):
 		test_encounter = self._make_encounter(self.session, "Awaiting Test", tests=[{"test_name": "Hb"}])
 		medicine_encounter = self._make_encounter(
-			self.session, "Awaiting Medicine", prescriptions=[{"medicines": TEST_ITEM}]
+			self.session, "Awaiting Medicine", prescriptions=[{"medicines": self.item}]
 		)
 
 		frappe.set_user(self.no_role_user)
@@ -276,6 +420,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 				"date": date,
 				"clinic": self.clinic,
 				"site": self.site,
+				"unit": self.unit,
 				"project": self.project,
 				"assigned_nurse": self.nurse_practitioner,
 				"status": status,
@@ -283,7 +428,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 		).insert(ignore_permissions=True)
 		return doc.name
 
-	def test_closed_camp_cannot_be_reopened(self):
+	def test_closed_session_cannot_be_reopened(self):
 		session = self._make_session_with("Completed", today())
 
 		frappe.set_user(self.nurse_user)
@@ -295,7 +440,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 
 		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Completed")
 
-	def test_camp_cannot_be_opened_on_another_day(self):
+	def test_session_cannot_be_opened_on_another_day(self):
 		session = self._make_session_with("Planned", add_days(today(), 7))
 
 		frappe.set_user(self.nurse_user)
@@ -307,7 +452,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 
 		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Planned")
 
-	def test_cancelled_camp_cannot_be_opened_or_closed(self):
+	def test_cancelled_session_cannot_be_opened_or_closed(self):
 		session = self._make_session_with("Cancelled", today())
 
 		frappe.set_user(self.nurse_user)
@@ -319,7 +464,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 
 		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Cancelled")
 
-	def test_camp_that_is_not_open_cannot_be_closed(self):
+	def test_session_that_is_not_open_cannot_be_closed(self):
 		session = self._make_session_with("Planned", today())
 
 		frappe.set_user(self.nurse_user)
@@ -331,7 +476,7 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 
 		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Planned")
 
-	def test_todays_planned_camp_opens_and_closes(self):
+	def test_todays_planned_session_opens_and_closes(self):
 		session = self._make_session_with("Planned", today())
 
 		frappe.set_user(self.nurse_user)
@@ -343,3 +488,36 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 			frappe.set_user("Administrator")
 
 		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Completed")
+
+	def test_writes_are_refused_once_the_session_is_completed(self):
+		session = self._make_session_with("In Progress", today())
+		awaiting_test = self._make_encounter(session, "Awaiting Test", tests=[{"test_name": "Malaria"}])
+		awaiting_medicine = self._make_encounter(
+			session, "Awaiting Medicine", prescriptions=[{"medicines": self.item, "quantity": 1}]
+		)
+		frappe.db.set_value("Bandhu Clinic Session", session, "status", "Completed")
+		test_row = awaiting_test.custom_test_instructions[0].name
+		prescription_row = awaiting_medicine.custom_bandhu_prescription[0].name
+
+		frappe.set_user(self.nurse_user)
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				submit_test_results(
+					awaiting_test.name, [{"name": test_row, "result_type": "Negative", "result_value": ""}]
+				)
+			with self.assertRaises(frappe.ValidationError):
+				record_vitals(awaiting_medicine.name, pulse_rate=72)
+			with self.assertRaises(frappe.ValidationError):
+				dispense_medicine(awaiting_medicine.name, [prescription_row])
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(
+			frappe.db.get_value("Patient Encounter", awaiting_test.name, "custom_workflow_state"),
+			"Awaiting Test",
+		)
+		self.assertEqual(
+			frappe.db.get_value("Patient Encounter", awaiting_medicine.name, "custom_workflow_state"),
+			"Awaiting Medicine",
+		)
+		self.assertFalse(frappe.db.get_value("Prescription", prescription_row, "dispensed"))

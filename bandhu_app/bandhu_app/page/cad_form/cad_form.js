@@ -4,11 +4,33 @@ const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
 
 let cadSession = null;
 let cadPage = null;
-let formOptions = { states: [], sectors: [] };
+let formOptions = { major_states: [], other_states: [], major_sectors: [] };
 
-const REGISTER_FIELDS = [
-	{ name: "full_name", label: __("Full Name"), type: "text" },
+const QUICK_COUNTRIES = ["India", "Nepal"];
+
+const MAX_PLAUSIBLE_AGE = 120;
+
+const MIN_SEARCH_LENGTH = 2;
+
+const NAME_FIELD = {
+	name: "full_name",
+	label: __("Full Name"),
+	type: "text",
+	wide: true,
+	required: true,
+};
+
+const AGE_AND_DOB_FIELDS = [
+	{
+		name: "age",
+		label: __("Age (Years)"),
+		type: "number",
+		attrs: 'min="0" max="' + MAX_PLAUSIBLE_AGE + '" step="1" inputmode="numeric"',
+	},
 	{ name: "dob", label: __("Date of Birth"), type: "date" },
+];
+
+const MEASUREMENT_FIELDS = [
 	{
 		name: "height_cm",
 		label: __("Height (cm)"),
@@ -21,38 +43,28 @@ const REGISTER_FIELDS = [
 		type: "number",
 		attrs: 'min="0" step="0.1" inputmode="decimal"',
 	},
-	{ name: "native_state", label: __("Native State"), type: "select", optionsKey: "states" },
-	{
-		name: "native_district",
-		label: __("Native District"),
-		type: "text",
-		attrs: 'list="cad-district-list" autocomplete="off"',
-	},
-	{
-		name: "occupation",
-		label: __("Occupation / Sector"),
-		type: "select",
-		optionsKey: "sectors",
-	},
-	{ name: "company_name", label: __("Company Name"), type: "text" },
+];
+
+const CONTACT_FIELDS = [
+	{ name: "company_name", label: __("Name of Company"), type: "text" },
 	{
 		name: "mobile",
-		label: __("Mobile"),
+		label: __("Mobile Number"),
 		type: "tel",
 		attrs: 'inputmode="numeric" maxlength="10"',
 	},
-	{ name: "abha_id", label: __("ABHA ID"), type: "text" },
+	{ name: "abha_id", label: __("ABHA ID"), type: "text", wide: true },
 ];
 
 async function loadDashboard(page) {
-	frappe.dom.freeze();
+	bandhu.session_ui.freeze();
 	let statusResult;
 	try {
 		statusResult = await frappe.call({
 			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_session_status",
 		});
 	} finally {
-		frappe.dom.unfreeze();
+		bandhu.session_ui.unfreeze();
 	}
 
 	const data = statusResult.message || {};
@@ -77,7 +89,11 @@ async function loadDashboard(page) {
 	const optionsResult = await frappe.call({
 		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_form_options",
 	});
-	formOptions = optionsResult.message || { states: [], sectors: [] };
+	formOptions = optionsResult.message || {
+		major_states: [],
+		other_states: [],
+		major_sectors: [],
+	};
 
 	await renderFrontDesk(page, data);
 }
@@ -152,6 +168,9 @@ async function renderFrontDesk(page, data) {
 		"<th>" +
 		__("Stage") +
 		"</th>" +
+		"<th>" +
+		__("In session") +
+		"</th>" +
 		"<th></th>" +
 		"</tr></thead>" +
 		'<tbody class="cad-queue-body"></tbody>' +
@@ -216,13 +235,13 @@ function renderSearchSection() {
 			__("Scan the patient's card, or search by Clinic ID, ABHA ID, Mobile, Name or DOB")
 		) +
 		'"></div>' +
-		'<button class="btn btn-primary cad-search-btn">' +
+		'<button class="btn btn-default cad-search-btn">' +
 		__("Search") +
 		"</button>" +
 		'<button class="btn btn-default cad-scan-btn" title="' +
 		frappe.utils.escape_html(__("Scan the patient's card with the camera")) +
 		'">' +
-		frappe.utils.icon("camera", "sm", "", "", "current-color") +
+		frappe.utils.icon("camera", "xs", "", "", "current-color") +
 		__("Scan") +
 		"</button>" +
 		"</div>" +
@@ -234,8 +253,8 @@ function renderSearchSection() {
 function renderRegisterSection() {
 	return (
 		'<div class="cad-register-section">' +
-		'<button class="btn btn-default cad-register-toggle-btn">' +
-		frappe.utils.icon("user-plus", "sm", "", "", "current-color") +
+		'<button class="btn btn-primary cad-register-toggle-btn">' +
+		frappe.utils.icon("user-plus", "xs", "", "", "current-color") +
 		__("Register New Patient") +
 		"</button>" +
 		'<div class="cad-register-form">' +
@@ -245,8 +264,60 @@ function renderRegisterSection() {
 	);
 }
 
-function renderSelectField(field) {
-	const options = formOptions[field.optionsKey] || [];
+function required_mark(required) {
+	return required ? ' <span class="required-mark">*</span>' : "";
+}
+
+function render_field(field) {
+	const input =
+		'<input type="' +
+		field.type +
+		'" class="form-control cad-field" data-field="' +
+		field.name +
+		'" ' +
+		(field.attrs || "") +
+		">";
+	return (
+		'<div class="form-group' +
+		(field.wide ? " field-wide" : "") +
+		'">' +
+		"<label>" +
+		frappe.utils.escape_html(field.label) +
+		required_mark(field.required) +
+		"</label>" +
+		input +
+		"</div>"
+	);
+}
+
+function render_fields(fields) {
+	return fields.map(render_field).join("");
+}
+
+function render_field_note(text) {
+	return (
+		'<div class="form-group field-wide field-note">' +
+		frappe.utils.escape_html(text) +
+		"</div>"
+	);
+}
+
+function render_district_field() {
+	return (
+		'<div class="form-group field-wide">' +
+		"<label>" +
+		frappe.utils.escape_html(__("Native District")) +
+		"</label>" +
+		'<select class="form-control cad-field district-select" data-field="native_district" disabled>' +
+		'<option value="">' +
+		frappe.utils.escape_html(__("-- Select a native state first --")) +
+		"</option>" +
+		"</select>" +
+		"</div>"
+	);
+}
+
+function render_other_picker(options, placeholderLabel) {
 	const optionHtml = options
 		.map(
 			(option) =>
@@ -258,65 +329,118 @@ function renderSelectField(field) {
 		)
 		.join("");
 	return (
-		'<select class="form-control cad-field" data-field="' +
-		field.name +
-		'">' +
+		'<select class="form-control other-picker" hidden>' +
 		'<option value="">' +
-		__("-- Select --") +
+		frappe.utils.escape_html(placeholderLabel) +
 		"</option>" +
 		optionHtml +
 		"</select>"
 	);
 }
 
-function renderRegisterForm() {
-	const fields = REGISTER_FIELDS.map((field) => {
-		const input =
-			field.type === "select"
-				? renderSelectField(field)
-				: '<input type="' +
-				  field.type +
-				  '" class="form-control cad-field" data-field="' +
-				  field.name +
-				  '" ' +
-				  (field.attrs || "") +
-				  ">";
-		return (
-			'<div class="form-group">' +
-			"<label>" +
-			frappe.utils.escape_html(field.label) +
-			"</label>" +
-			input +
-			"</div>"
-		);
-	}).join("");
-
-	const sexGroup =
-		'<div class="form-group">' +
+function render_tab_group(config) {
+	const buttons = config.options
+		.map((option) => {
+			const isDefault = option === config.defaultValue;
+			return (
+				'<button type="button" class="btn btn-default tab-btn' +
+				(isDefault ? " is-selected" : "") +
+				'" data-value="' +
+				frappe.utils.escape_html(option) +
+				'">' +
+				frappe.utils.escape_html(__(option)) +
+				"</button>"
+			);
+		})
+		.join("");
+	return (
+		'<div class="form-group tab-group-wrap" data-mode="' +
+		config.mode +
+		'">' +
 		"<label>" +
-		__("Sex") +
+		frappe.utils.escape_html(config.label) +
+		required_mark(config.required) +
 		"</label>" +
-		'<div class="sex-btn-group" data-field="sex">' +
-		["Male", "Female", "Other"]
-			.map(
-				(sex) =>
-					'<button type="button" class="btn btn-default sex-btn" data-value="' +
-					sex +
-					'">' +
-					__(sex) +
-					"</button>"
-			)
-			.join("") +
-		"</div></div>";
+		'<input type="hidden" class="cad-field" data-field="' +
+		config.field +
+		'" value="' +
+		frappe.utils.escape_html(config.defaultValue || "") +
+		'">' +
+		'<div class="tab-btn-group">' +
+		buttons +
+		"</div>" +
+		(config.otherPickerHtml || "") +
+		(config.detailFieldHtml || "") +
+		"</div>"
+	);
+}
 
+function render_sex_group() {
+	return render_tab_group({
+		field: "sex",
+		label: __("Sex"),
+		options: ["Male", "Female", "Other"],
+		mode: "direct",
+		required: true,
+	});
+}
+
+function render_country_group() {
+	return render_tab_group({
+		field: "native_country",
+		label: __("Country"),
+		options: QUICK_COUNTRIES.concat(["Other"]),
+		mode: "picker",
+		defaultValue: "India",
+		detailFieldHtml:
+			'<input type="text" class="form-control cad-field detail-field" data-field="specify_native_country" placeholder="' +
+			frappe.utils.escape_html(__("Specify country")) +
+			'" hidden>',
+	});
+}
+
+function render_state_group() {
+	return render_tab_group({
+		field: "native_state",
+		label: __("Native State"),
+		options: (formOptions.major_states || []).concat(["Other"]),
+		mode: "picker",
+		otherPickerHtml: render_other_picker(
+			formOptions.other_states || [],
+			__("-- Select State --")
+		),
+	});
+}
+
+function render_sector_group() {
+	return render_tab_group({
+		field: "occupation",
+		label: __("Sector of Employment"),
+		options: (formOptions.major_sectors || []).concat(["Other"]),
+		mode: "direct",
+		detailFieldHtml:
+			'<input type="text" class="form-control cad-field detail-field" data-field="specify_sector" placeholder="' +
+			frappe.utils.escape_html(__("Specify sector")) +
+			'" hidden>',
+	});
+}
+
+function renderRegisterForm() {
 	return (
 		'<div class="register-grid">' +
-		fields +
-		sexGroup +
+		render_field(NAME_FIELD) +
+		render_sex_group() +
+		render_fields(AGE_AND_DOB_FIELDS) +
+		render_field_note(__("Age or Date of Birth is required.")) +
+		render_fields(MEASUREMENT_FIELDS) +
+		render_country_group() +
+		render_state_group() +
+		render_district_field() +
+		render_sector_group() +
+		render_fields(CONTACT_FIELDS) +
 		"</div>" +
-		'<datalist id="cad-district-list"></datalist>' +
 		'<div class="register-actions">' +
-		'<button class="btn btn-primary btn-lg cad-register-submit">' +
+		'<button class="btn btn-primary cad-register-submit">' +
 		__("Register & Add to Queue") +
 		"</button>" +
 		"</div>"
@@ -351,14 +475,28 @@ function bindSearchEvents(page) {
 	page.main.off("click", ".patient-result-row").on("click", ".patient-result-row", function () {
 		confirm_add_to_queue(page, $(this).data("patient"));
 	});
+
+	page.main.off("click", ".cad-search-clear").on("click", ".cad-search-clear", function () {
+		clear_search_results(page);
+	});
+
+	page.main.off("click", ".queue-print-card").on("click", ".queue-print-card", function (event) {
+		event.preventDefault();
+		print_patient_card($(this).data("patient"));
+	});
+
+	page.main
+		.off("click", ".queue-cancel-visit")
+		.on("click", ".queue-cancel-visit", function (event) {
+			event.preventDefault();
+			cancel_queued_visit(page, $(this).data("encounter"), $(this).data("patient-name"));
+		});
 }
 
 function confirm_add_to_queue(page, patient) {
 	frappe.confirm(__("Add this patient to today's queue?"), async () => {
 		await addPatientToQueue(page, patient, () => {
-			page.main.find(".cad-search-results").empty();
-			page.main.find(".cad-search-input").val("");
-			focus_scan_input(page);
+			clear_search_results(page);
 		});
 	});
 }
@@ -415,25 +553,37 @@ async function searchPatients(page) {
 	const query = (page.main.find(".cad-search-input").val() || "").trim();
 	if (!query) return;
 
-	let results;
+	if (query.length < MIN_SEARCH_LENGTH) {
+		frappe.msgprint(__("Type at least {0} characters to search.", [MIN_SEARCH_LENGTH]));
+		return;
+	}
+
+	let found;
 	frappe.dom.freeze();
 	try {
 		const response = await frappe.call({
 			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.search_patient",
 			args: { query },
 		});
-		results = response.message || [];
+		found = response.message || {};
 	} finally {
 		frappe.dom.unfreeze();
 	}
 
+	const results = found.results || [];
 	const scanned = match_scanned_card(query, results);
 	if (scanned) {
 		queue_scanned_patient(page, scanned);
 		return;
 	}
 
-	renderSearchResults(page, results);
+	renderSearchResults(page, results, found.capped);
+}
+
+function clear_search_results(page) {
+	page.main.find(".cad-search-results").empty();
+	page.main.find(".cad-search-input").val("");
+	focus_scan_input(page);
 }
 
 // Ten digits is the current Clinic ID; BMC-##### is the format issued before this one and
@@ -462,9 +612,7 @@ function queue_scanned_patient(page, patient) {
 		]),
 		async () => {
 			await addPatientToQueue(page, patient.name, () => {
-				page.main.find(".cad-search-results").empty();
-				page.main.find(".cad-search-input").val("");
-				focus_scan_input(page);
+				clear_search_results(page);
 			});
 		},
 		() => {
@@ -473,7 +621,7 @@ function queue_scanned_patient(page, patient) {
 	);
 }
 
-function renderSearchResults(page, results) {
+function renderSearchResults(page, results, capped) {
 	const container = page.main.find(".cad-search-results");
 	if (!results.length) {
 		container.html(
@@ -486,7 +634,11 @@ function renderSearchResults(page, results) {
 
 	const rows = results
 		.map((patient) => {
-			const meta = [patient.custom_bandhu_id, patient.sex, patient.dob]
+			const meta = [
+				bandhu.session_ui.group_clinic_id(patient.custom_bandhu_id),
+				patient.sex,
+				patient.age,
+			]
 				.filter(Boolean)
 				.map(frappe.utils.escape_html)
 				.join(" &bull; ");
@@ -508,7 +660,7 @@ function renderSearchResults(page, results) {
 				'">' +
 				__("Print Card") +
 				"</button>" +
-				'<button class="btn btn-xs btn-primary pr-queue-btn" data-patient="' +
+				'<button class="btn btn-xs btn-default pr-queue-btn" data-patient="' +
 				frappe.utils.escape_html(patient.name) +
 				'">' +
 				__("Add to Queue") +
@@ -519,37 +671,110 @@ function renderSearchResults(page, results) {
 		})
 		.join("");
 
-	container.html(rows);
+	const heading = capped
+		? __("First {0} matches. Narrow the search if the patient is not here.", [results.length])
+		: __("{0} matching patients", [results.length]);
+
+	container.html(
+		'<div class="pr-summary">' +
+			'<span class="pr-summary-text">' +
+			frappe.utils.escape_html(heading) +
+			"</span>" +
+			'<button type="button" class="btn btn-xs btn-default cad-search-clear">' +
+			__("Clear") +
+			"</button></div>" +
+			rows
+	);
 }
 
 function bindRegisterEvents(page) {
 	page.main
 		.off("click", ".cad-register-toggle-btn")
-		.on("click", ".cad-register-toggle-btn", () => {
-			page.main.find(".cad-register-form").toggle();
+		.on("click", ".cad-register-toggle-btn", function () {
+			const form = page.main.find(".cad-register-form").toggle();
+			$(this)
+				.toggleClass("btn-primary", !form.is(":visible"))
+				.toggleClass("btn-default", form.is(":visible"));
 		});
 
-	page.main.off("click", ".sex-btn").on("click", ".sex-btn", function () {
-		$(this).siblings(".sex-btn").removeClass("btn-primary active").addClass("btn-default");
-		$(this).addClass("btn-primary active").removeClass("btn-default");
+	page.main
+		.off("input", '.cad-field[data-field="age"]')
+		.on("input", '.cad-field[data-field="age"]', function () {
+			const dobField = page.main.find('.cad-field[data-field="dob"]');
+			const age = parseInt($(this).val(), 10);
+
+			if (!Number.isInteger(age) || age < 0 || age > MAX_PLAUSIBLE_AGE) {
+				if (dobField.val() && dobField.val() === dobField.data("derived")) {
+					dobField.val("").removeData("derived");
+				}
+				return;
+			}
+
+			const derived = new Date().getFullYear() - age + "-01-01";
+			dobField.val(derived).data("derived", derived);
+		});
+
+	page.main
+		.off("input", '.cad-field[data-field="dob"]')
+		.on("input", '.cad-field[data-field="dob"]', function () {
+			const ageField = page.main.find('.cad-field[data-field="age"]');
+			const age = years_since($(this).val());
+
+			if (age === null || age > MAX_PLAUSIBLE_AGE) {
+				if (ageField.val() && ageField.val() === ageField.data("derived")) {
+					ageField.val("").removeData("derived");
+				}
+				return;
+			}
+
+			ageField.val(age).data("derived", String(age));
+		});
+
+	page.main.off("click", ".tab-btn").on("click", ".tab-btn", function () {
+		const wrap = $(this).closest(".tab-group-wrap");
+		wrap.find(".tab-btn").removeClass("is-selected");
+		$(this).addClass("is-selected");
+
+		const value = $(this).data("value");
+		const isOther = value === "Other";
+		const hiddenField = wrap.find("input.cad-field");
+
+		if (wrap.data("mode") === "picker") {
+			hiddenField.val(isOther ? "" : value);
+			wrap.find(".other-picker").prop("hidden", !isOther).val("");
+		} else {
+			hiddenField.val(value);
+		}
+		wrap.find(".detail-field").prop("hidden", !isOther).val("");
+
+		if (hiddenField.data("field") === "native_state")
+			loadDistrictSuggestions(page, hiddenField.val());
+	});
+
+	page.main.off("change", ".other-picker").on("change", ".other-picker", function () {
+		const wrap = $(this).closest(".tab-group-wrap");
+		const hiddenField = wrap.find("input.cad-field");
+		hiddenField.val($(this).val());
+
+		if (hiddenField.data("field") === "native_state")
+			loadDistrictSuggestions(page, hiddenField.val());
 	});
 
 	page.main
 		.off("click", ".cad-register-submit")
 		.on("click", ".cad-register-submit", () => submitRegistration(page));
-
-	page.main
-		.off("change", ".cad-field[data-field='native_state']")
-		.on("change", ".cad-field[data-field='native_state']", function () {
-			loadDistrictSuggestions(page, $(this).val());
-		});
 }
 
-// Native District stays free text (Autocomplete, not Link, server-side) so a state without
-// a mapped district list never blocks registration — this only offers suggestions.
 async function loadDistrictSuggestions(page, state) {
-	const datalist = page.main.find("#cad-district-list");
-	datalist.empty();
+	const select = page.main.find(".district-select");
+	select
+		.empty()
+		.append(
+			'<option value="">' +
+				frappe.utils.escape_html(__("-- Select District --")) +
+				"</option>"
+		)
+		.prop("disabled", true);
 	if (!state) return;
 
 	const response = await frappe.call({
@@ -557,11 +782,34 @@ async function loadDistrictSuggestions(page, state) {
 		args: { state },
 	});
 	const districts = (response && response.message) || [];
-	datalist.html(
+	select.append(
 		districts
-			.map((district) => '<option value="' + frappe.utils.escape_html(district) + '">')
+			.map(
+				(district) =>
+					'<option value="' +
+					frappe.utils.escape_html(district) +
+					'">' +
+					frappe.utils.escape_html(district) +
+					"</option>"
+			)
 			.join("")
 	);
+	select.prop("disabled", false);
+}
+
+function years_since(date_string) {
+	const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date_string || "");
+	if (!parts) return null;
+
+	const [birth_year, birth_month, birth_day] = parts.slice(1).map(Number);
+	const today = new Date();
+	let age = today.getFullYear() - birth_year;
+	const before_birthday =
+		today.getMonth() + 1 < birth_month ||
+		(today.getMonth() + 1 === birth_month && today.getDate() < birth_day);
+	if (before_birthday) age -= 1;
+
+	return age < 0 ? null : age;
 }
 
 async function submitRegistration(page) {
@@ -569,14 +817,14 @@ async function submitRegistration(page) {
 	page.main.find(".cad-field").each(function () {
 		values[$(this).data("field")] = $(this).val();
 	});
-	values.sex = page.main.find(".sex-btn.active").data("value");
 
 	if (!values.full_name || !values.full_name.trim()) {
 		frappe.msgprint(__("Full name is required."));
 		return;
 	}
-	if (!values.dob) {
-		frappe.msgprint(__("Date of birth is required."));
+	const hasAge = values.age !== undefined && values.age !== "";
+	if (!values.dob && !hasAge) {
+		frappe.msgprint(__("Enter the date of birth, or an approximate age if it isn't known."));
 		return;
 	}
 	if (!values.sex) {
@@ -598,18 +846,25 @@ async function submitRegistration(page) {
 
 	const args = {
 		full_name: values.full_name.trim(),
-		dob: values.dob,
 		sex: values.sex,
 		session: cadSession.session_name,
 	};
+	if (values.dob) args.dob = values.dob;
+	if (hasAge) args.age = values.age;
 	if (values.mobile) args.mobile = values.mobile;
 	if (values.height_cm) args.height_cm = values.height_cm;
 	if (values.weight_kg) args.weight_kg = values.weight_kg;
+	if (values.native_country) args.native_country = values.native_country;
+	if (values.specify_native_country) args.specify_native_country = values.specify_native_country;
 	if (values.native_state) args.native_state = values.native_state;
 	if (values.native_district) args.native_district = values.native_district;
 	if (values.occupation) args.occupation = values.occupation;
+	if (values.specify_sector) args.specify_sector = values.specify_sector;
 	if (values.company_name) args.company_name = values.company_name;
 	if (values.abha_id) args.abha_id = values.abha_id;
+
+	const existing = await find_possible_duplicate(args);
+	if (existing && !(await confirm_register_anyway(page, existing))) return;
 
 	frappe.dom.freeze();
 	let patient;
@@ -626,9 +881,7 @@ async function submitRegistration(page) {
 	if (!patient) return;
 
 	await addPatientToQueue(page, patient, () => {
-		page.main.find(".cad-register-form").hide();
-		page.main.find(".cad-field").val("");
-		page.main.find(".sex-btn").removeClass("btn-primary active").addClass("btn-default");
+		page.main.find(".cad-register-form").hide().html(renderRegisterForm());
 		focus_scan_input(page);
 	});
 
@@ -636,6 +889,69 @@ async function submitRegistration(page) {
 	// button, so the card can be printed now or at any point during the visit without a
 	// dialog interrupting the next registration.
 	frappe.show_alert({ message: __("Patient registered."), indicator: "green" });
+}
+
+async function find_possible_duplicate(args) {
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.find_possible_duplicate",
+		args: {
+			full_name: args.full_name,
+			dob: args.dob,
+			age: args.age,
+			mobile: args.mobile,
+			abha_id: args.abha_id,
+		},
+	});
+	return response.message;
+}
+
+function confirm_register_anyway(page, existing) {
+	return new Promise((resolve) => {
+		const label = [
+			existing.patient_name,
+			bandhu.session_ui.group_clinic_id(existing.clinic_id),
+			existing.age,
+		]
+			.filter(Boolean)
+			.join(" · ");
+
+		const dialog = new frappe.ui.Dialog({
+			title: __("Already registered?"),
+			fields: [
+				{
+					fieldtype: "HTML",
+					options:
+						"<p>" +
+						__("{0} is already on the patient list, with {1}.", [
+							"<b>" + frappe.utils.escape_html(label) + "</b>",
+							frappe.utils.escape_html(existing.matched_on),
+						]) +
+						"</p><p>" +
+						__(
+							"Registering again gives this person a second Clinic ID and a second card."
+						) +
+						"</p>",
+				},
+			],
+			primary_action_label: __("Add to queue"),
+			primary_action: async () => {
+				dialog.hide();
+				resolve(false);
+				await addPatientToQueue(page, existing.name, () => {
+					page.main.find(".cad-register-form").hide().html(renderRegisterForm());
+					focus_scan_input(page);
+				});
+			},
+			secondary_action_label: __("Register as new"),
+			secondary_action: () => {
+				dialog.hide();
+				resolve(true);
+			},
+		});
+
+		dialog.$wrapper.on("hidden.bs.modal", () => resolve(false));
+		dialog.show();
+	});
 }
 
 async function addPatientToQueue(page, patient, onQueued) {
@@ -667,7 +983,7 @@ function renderQueueTable(page, rows) {
 
 	if (!rows.length) {
 		body.html(
-			'<tr><td colspan="4" class="queue-empty">' +
+			'<tr><td colspan="5" class="queue-empty">' +
 				__("No patients in queue yet.") +
 				"</td></tr>"
 		);
@@ -687,70 +1003,54 @@ function renderQueueTable(page, rows) {
 				"<td>" +
 				format_stage_badge(row.current_stage) +
 				"</td>" +
+				'<td class="queue-in-session">' +
+				format_time_in_session(row) +
+				"</td>" +
 				'<td class="queue-row-actions">' +
-				'<span class="queue-more" data-patient="' +
-				frappe.utils.escape_html(row.patient || "") +
-				'" data-encounter="' +
-				frappe.utils.escape_html(row.encounter || "") +
-				'" data-patient-name="' +
-				frappe.utils.escape_html(row.patient_name || "") +
-				'" data-can-cancel="' +
-				(row.encounter && !QUEUE_TERMINAL_STAGES.has(row.current_stage) ? "1" : "") +
-				'"></span>' +
+				render_row_menu(row) +
 				"</td>" +
 				"</tr>"
 		)
 		.join("");
 
 	body.html(html);
-	attachRowMenus(page, body);
 }
 
 // Every row carries the menu, including finished ones, so the actions column keeps a single
 // shape down the table. Print Card lives in it rather than beside it: the queue is the screen
 // the front desk reads, and a button on every row competed with the patient names for it.
-let queueRowMenus = [];
+function render_row_menu(row) {
+	const canCancel = row.encounter && !QUEUE_TERMINAL_STAGES.has(row.current_stage);
+	return (
+		'<div class="dropdown queue-more">' +
+		'<button type="button" class="btn btn-sm btn-default queue-more-btn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="' +
+		frappe.utils.escape_html(__("More actions")) +
+		'">' +
+		frappe.utils.icon("ellipsis", "sm", "", "", "current-color") +
+		"</button>" +
+		'<ul class="dropdown-menu dropdown-menu-right" role="menu">' +
+		'<li><a class="dropdown-item queue-print-card" data-patient="' +
+		frappe.utils.escape_html(row.patient || "") +
+		'">' +
+		__("Print Card") +
+		"</a></li>" +
+		(canCancel
+			? '<li><a class="dropdown-item text-danger queue-cancel-visit" data-encounter="' +
+			  frappe.utils.escape_html(row.encounter || "") +
+			  '" data-patient-name="' +
+			  frappe.utils.escape_html(row.patient_name || "") +
+			  '">' +
+			  __("Cancel Visit") +
+			  "</a></li>"
+			: "") +
+		"</ul></div>"
+	);
+}
 
-function attachRowMenus(page, body) {
-	queueRowMenus.forEach((menu) => menu.destroy());
-	queueRowMenus = [];
+function format_time_in_session(row) {
+	if (!row.queued_at || QUEUE_TERMINAL_STAGES.has(row.current_stage)) return "";
 
-	body.find(".queue-more").each(function () {
-		const patient = $(this).data("patient");
-		const encounter = $(this).data("encounter");
-		const patient_name = $(this).data("patient-name");
-
-		const options = [
-			{
-				label: __("Print Card"),
-				icon: "printer",
-				onclick: () => print_patient_card(patient),
-			},
-		];
-		if ($(this).data("can-cancel")) {
-			options.push({
-				label: __("Cancel Visit"),
-				icon: "ban",
-				theme: "red",
-				onclick: () => cancel_queued_visit(page, encounter, patient_name),
-			});
-		}
-
-		const $trigger = frappe.ui.dropdown({
-			// label "" is what makes frappe.ui.button render icon-only; Dropdown otherwise
-			// defaults the trigger to a labelled "Options" button.
-			button: {
-				label: "",
-				icon: "ellipsis",
-				variant: "ghost",
-				tooltip: __("More actions"),
-			},
-			align: "end",
-			options,
-		});
-		$(this).replaceWith($trigger);
-		queueRowMenus.push($trigger.data("es-dropdown"));
-	});
+	return frappe.datetime.comment_when(row.queued_at, true);
 }
 
 // Status was a second column that only ever restated the stage (Completed reads Done, every
@@ -776,26 +1076,32 @@ function format_stage_badge(stage) {
 frappe.pages["cad-form"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
-		title: __("CAD Front Desk"),
+		title: __("CAD"),
 		single_column: true,
 	});
 
-	page.set_secondary_action(__("Refresh"), refreshDashboard);
-	page.set_primary_action(__("My Schedule"), () => frappe.set_route("my-schedule"), "calendar");
+	page.set_secondary_action(
+		__("My Schedule"),
+		() => frappe.set_route("my-schedule"),
+		"calendar"
+	);
 
 	cadPage = page;
 };
 
-async function refreshDashboard() {
-	await frappe.require(SESSION_UI_ASSET);
-	await bandhu.session_ui.refresh_page(cadPage, loadDashboard);
-}
-
 // Desk keeps this page's DOM and module state alive across route changes, so the queue would
 // otherwise still show the state it had when the CAD left the page. Only the queue is reloaded
 // when the front desk is already up -- a full re-render would wipe a half-typed registration.
-frappe.pages["cad-form"].on_page_show = async function () {
+async function refresh_board() {
 	await frappe.require(SESSION_UI_ASSET);
+	bandhu.session_ui.add_refresh_icon(cadPage, refresh_board);
 	const load = cadPage.main.find(".cad-queue-body").length ? loadQueue : loadDashboard;
 	await bandhu.session_ui.refresh_page(cadPage, load);
-};
+	bandhu.session_ui.subscribe_to_board_updates(
+		"cad-form",
+		() => (cadSession ? cadSession.session_name : null),
+		refresh_board
+	);
+}
+
+frappe.pages["cad-form"].on_page_show = refresh_board;

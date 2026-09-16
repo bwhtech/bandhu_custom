@@ -14,6 +14,7 @@ from bandhu_app.bandhu_app.page.new_schedule.new_schedule import (
 	get_form_options,
 	preview_schedule,
 )
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -41,12 +42,11 @@ class IntegrationTestNewSchedule(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
-		cls.unit = frappe.get_all("Unit", limit=1, pluck="name")[0]
-		cls.doctor = frappe.get_all(
-			"Healthcare Practitioner", filters={"custom_role": "Doctor"}, limit=1, pluck="name"
-		)[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.site = baseline["site"]
+		cls.unit = baseline["unit"]
+		cls.doctor = baseline["doctor"]
 
 	def wizard_values(self, **overrides):
 		values = {
@@ -94,12 +94,11 @@ class IntegrationTestNewSchedule(IntegrationTestCase):
 		self.assertEqual(result["dates"], [])
 		self.assertEqual(result["total"], 0)
 
-	def test_create_builds_every_camp_the_wizard_promised(self):
+	def test_create_builds_every_session_the_wizard_promised(self):
 		result = create_schedule(self.wizard_values())
 
 		self.assertTrue(frappe.db.exists("Bandhu Session Schedule", result["name"]))
 		self.assertTrue(result["scheduled"])
-		# `scheduled` is read off the pattern because the camps are built by a background job.
 		# It still has to match what that job goes on to create.
 		self.assertEqual(
 			result["scheduled"],

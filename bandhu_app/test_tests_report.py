@@ -6,6 +6,7 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, add_years, nowtime, today
 
 from bandhu_app.bandhu_app.report.bandhu_tests_report.bandhu_tests_report import execute
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -16,10 +17,12 @@ class IntegrationTestTestsReport(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.project = frappe.get_all("Bandhu Projects", limit=1, pluck="name")[0]
-		cls.appointment_type = frappe.get_all("Appointment Type", limit=1, pluck="name")[0]
-		cls.state = frappe.get_all("State", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.project = baseline["project"]
+		cls.appointment_type = baseline["appointment_type"]
+		cls.unit = baseline["unit"]
+		cls.state = baseline["state"]
 
 		cls.doctor = (
 			frappe.get_doc(
@@ -70,6 +73,7 @@ class IntegrationTestTestsReport(IntegrationTestCase):
 					"date": date or today(),
 					"clinic": self.clinic,
 					"site": self.site,
+					"unit": self.unit,
 					"project": self.project,
 					"assigned_doctor": self.doctor,
 					"status": "In Progress",
@@ -157,7 +161,7 @@ class IntegrationTestTestsReport(IntegrationTestCase):
 		rows = self._run(test_name="Malaria")
 		self.assertEqual([row["test_name"] for row in rows], ["Malaria"])
 
-	def test_camps_outside_the_period_are_excluded(self):
+	def test_sessions_outside_the_period_are_excluded(self):
 		self._make_encounter(self._make_session(add_days(today(), -10)), [{"test_name": "Hb"}])
 
 		self.assertEqual(self._run(), [])
@@ -180,6 +184,7 @@ class IntegrationTestTestsReport(IntegrationTestCase):
 					"from_date": today(),
 					"to_date": today(),
 					"site": self.site,
+					"unit": self.unit,
 				}
 			)[4]
 		}

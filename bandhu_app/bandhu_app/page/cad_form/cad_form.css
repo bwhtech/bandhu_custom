@@ -11,7 +11,7 @@
 	align-items: center;
 	padding: var(--padding-2xl) var(--padding-md);
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	color: var(--text-muted);
 	background: var(--bg-color);
 }
@@ -53,6 +53,10 @@
 }
 
 .cad-dash .welcome {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--padding-md);
 	padding: var(--padding-lg) 0 var(--padding-xl) 0;
 }
 
@@ -64,15 +68,24 @@
 }
 
 .cad-dash .queue-head {
-	font-size: var(--text-lg);
+	display: flex;
+	align-items: baseline;
+	gap: var(--padding-sm);
+	margin: 0 0 var(--margin-md);
+	padding-bottom: var(--padding-sm);
+	border-bottom: 1px solid var(--border-color);
+	font-size: var(--text-xs);
 	font-weight: var(--weight-semibold);
-	color: var(--heading-color);
-	margin: 0;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+	color: var(--text-muted);
 }
 
 .cad-dash .queue-meta {
 	font-weight: var(--weight-regular);
-	font-size: var(--text-base);
+	letter-spacing: 0;
+	font-variant-numeric: tabular-nums;
+	font-size: var(--text-xs);
 	color: var(--text-muted);
 }
 
@@ -82,6 +95,10 @@
 
 .cad-dash .cad-search-section .queue-head {
 	margin-bottom: var(--margin-sm);
+}
+
+.cad-dash .cad-queue-section .table-wrap {
+	margin-top: 0;
 }
 
 .cad-dash .search-row {
@@ -122,7 +139,7 @@
 	gap: var(--padding-sm);
 	padding: 10px 12px;
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	margin-bottom: 6px;
 	cursor: pointer;
 	background: var(--bg-color);
@@ -156,12 +173,31 @@
 	color: var(--text-muted);
 }
 
-.cad-dash .patient-result-row .pr-actions,
-.cad-dash .queue-row-actions {
+.cad-dash .patient-result-row .pr-actions {
 	display: flex;
 	gap: 6px;
 	flex-shrink: 0;
 	justify-content: flex-end;
+}
+
+.cad-dash .queue-row-actions {
+	text-align: right;
+	white-space: nowrap;
+}
+
+.cad-dash .pr-summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--padding-sm);
+	margin: var(--margin-sm) 0;
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+}
+
+.cad-dash .queue-in-session {
+	white-space: nowrap;
+	color: var(--text-muted);
 }
 
 .cad-dash .cad-register-section {
@@ -173,7 +209,7 @@
 	margin-top: var(--margin-sm);
 	padding: var(--padding-lg);
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	background: var(--bg-color);
 }
 
@@ -193,13 +229,52 @@
 	margin-bottom: 4px;
 }
 
-.cad-dash .sex-btn-group {
+.cad-dash .required-mark {
+	color: var(--danger);
+}
+
+.cad-dash .field-note {
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+}
+
+.cad-dash .register-grid .field-wide {
+	grid-column: 1 / -1;
+}
+
+.cad-dash .tab-group-wrap {
+	grid-column: 1 / -1;
+}
+
+.cad-dash .tab-btn-group {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 8px;
 }
 
-.cad-dash .sex-btn {
-	flex: 1;
+.cad-dash .tab-btn {
+	flex: 1 1 auto;
+	min-width: 100px;
+}
+
+.cad-dash .tab-btn.is-selected {
+	background: var(--gray-300);
+	box-shadow: inset 0 0 0 1px var(--gray-400);
+	color: var(--text-color);
+	font-weight: var(--weight-semibold);
+}
+
+.cad-dash .tab-btn:not(.is-selected):hover {
+	background: var(--gray-200);
+}
+
+.cad-dash .other-picker,
+.cad-dash .detail-field {
+	margin-top: 8px;
+}
+
+.cad-dash .form-control[hidden] {
+	display: none !important;
 }
 
 .cad-dash .register-actions {
@@ -215,7 +290,7 @@
 .cad-dash .table-wrap {
 	overflow: auto;
 	border: 1px solid var(--table-border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	margin-top: var(--margin-sm);
 }
 
@@ -267,6 +342,19 @@
 		grid-template-columns: 1fr;
 	}
 
+	.cad-dash .search-row {
+		flex-wrap: wrap;
+	}
+
+	.cad-dash .search-field {
+		flex: 1 1 100%;
+	}
+
+	.cad-dash .search-row .btn {
+		flex: 1;
+		min-height: 40px;
+	}
+
 	.cad-dash .table {
 		min-width: 350px;
 	}
@@ -286,7 +374,7 @@
 	margin: var(--margin-md) auto;
 	padding: var(--padding-2xl) var(--padding-md);
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	background: var(--bg-color);
 	color: var(--text-muted);
 	text-align: center;

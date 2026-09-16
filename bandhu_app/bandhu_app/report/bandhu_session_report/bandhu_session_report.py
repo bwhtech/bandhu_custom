@@ -1,6 +1,6 @@
 import frappe
 from frappe import _
-from frappe.utils import cint, flt, formatdate, get_datetime, getdate
+from frappe.utils import cint, date_diff, flt, formatdate, get_datetime, getdate
 
 from bandhu_app.bandhu_app.utils.clinic_stats import (
 	count_encounters,
@@ -23,12 +23,18 @@ def execute(filters=None):
 	return get_columns(), rows, None, build_chart(rows), build_summary(rows)
 
 
+MAX_REPORT_DAYS = 366
+
+
 def validate_filters(filters):
 	if not (filters.from_date and filters.to_date):
 		frappe.throw(_("From Date and To Date are required."))
 
 	if getdate(filters.from_date) > getdate(filters.to_date):
 		frappe.throw(_("From Date cannot be after To Date."))
+
+	if date_diff(filters.to_date, filters.from_date) > MAX_REPORT_DAYS:
+		frappe.throw(_("Choose a period of {0} days or less.").format(MAX_REPORT_DAYS))
 
 
 def fetch_sessions(filters) -> list:
@@ -150,8 +156,6 @@ def hours_between(start, end) -> float:
 
 
 def build_chart(rows: list) -> dict:
-	"""One bar per day, not per camp — several camps share a date, and repeated
-	x-labels get truncated to an unreadable stub once the bars are narrow."""
 	by_date = {}
 	for row in rows:
 		day = by_date.setdefault(row["date"], {"patients": 0, "new_patients": 0})
@@ -175,10 +179,10 @@ def build_chart(rows: list) -> dict:
 
 def build_summary(rows: list) -> list:
 	patients = sum(row["patients"] for row in rows)
-	camps_held = len([row for row in rows if row["status"] in ("In Progress", "Completed")])
+	sessions_held = len([row for row in rows if row["status"] in ("In Progress", "Completed")])
 
 	return [
-		{"label": _("Camps Held"), "value": camps_held, "datatype": "Int"},
+		{"label": _("Sessions Held"), "value": sessions_held, "datatype": "Int"},
 		{"label": _("Patients Seen"), "value": patients, "datatype": "Int"},
 		{
 			"label": _("New Patients"),
@@ -186,8 +190,8 @@ def build_summary(rows: list) -> list:
 			"datatype": "Int",
 		},
 		{
-			"label": _("Avg Patients per Camp"),
-			"value": flt(patients / camps_held, 1) if camps_held else 0,
+			"label": _("Avg Patients per Session"),
+			"value": flt(patients / sessions_held, 1) if sessions_held else 0,
 			"datatype": "Float",
 		},
 		{
@@ -203,7 +207,7 @@ def get_columns() -> list:
 		{"fieldname": "date", "label": _("Date"), "fieldtype": "Date", "width": 100},
 		{
 			"fieldname": "session",
-			"label": _("Camp"),
+			"label": _("Session"),
 			"fieldtype": "Link",
 			"options": "Bandhu Clinic Session",
 			"width": 150,

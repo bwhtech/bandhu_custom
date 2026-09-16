@@ -3,10 +3,15 @@ import re
 import frappe
 from frappe import _
 from frappe.core.doctype.access_log.access_log import make_access_log
-from frappe.utils import flt, validate_phone_number
+from frappe.rate_limiter import rate_limit
+from frappe.utils import flt, getdate, validate_phone_number
 
-from bandhu_app.bandhu_app.utils.patient_encounter import TERMINAL_WORKFLOW_STATES
-from bandhu_app.bandhu_app.utils.session import find_active_session
+from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
+from bandhu_app.bandhu_app.utils.patient_encounter import (
+	ENCOUNTER_TO_QUEUE_STAGE,
+	TERMINAL_WORKFLOW_STATES,
+)
+from bandhu_app.bandhu_app.utils.session import find_active_session, require_running_session
 
 
 def require_cad_access() -> None:
@@ -65,28 +70,44 @@ def get_session_status() -> dict:
 	}
 
 
+QUICK_COUNTRIES = ["India", "Nepal"]
+
+
 @frappe.whitelist()
 def get_form_options() -> dict:
 	require_cad_access()
-	states = frappe.get_all(
-		"State",
-		fields=["name", "is_major_state"],
-		order_by="is_major_state desc, name asc",
+	major_states = frappe.get_all(
+		"State", filters={"is_major_state": 1}, fields=["name"], order_by="name asc", pluck="name"
 	)
-	sectors = frappe.get_all("Sectors", fields=["name"], order_by="name asc")
+	other_states = frappe.get_all(
+		"State", filters={"is_major_state": 0}, fields=["name"], order_by="name asc", pluck="name"
+	)
+	major_sectors = frappe.get_all(
+		"Sectors", filters={"is_major_sector": 1}, fields=["name"], order_by="name asc", pluck="name"
+	)
 	return {
-		"states": [s.name for s in states],
-		"sectors": [s.name for s in sectors],
+		"major_states": major_states,
+		"other_states": other_states,
+		"major_sectors": major_sectors,
+		"quick_countries": QUICK_COUNTRIES,
 	}
 
 
+SEARCH_LIMIT = 20
+
+MIN_SEARCH_LENGTH = 2
+
+
 @frappe.whitelist()
-def search_patient(query: str) -> list:
+def search_patient(query: str) -> dict:
 	require_cad_access()
 
 	query = (query or "").strip()
 	if not query:
-		return []
+		return {"results": [], "capped": False}
+
+	if len(query) < MIN_SEARCH_LENGTH:
+		frappe.throw(_("Type at least {0} characters to search.").format(MIN_SEARCH_LENGTH))
 
 	like = f"%{query}%"
 	results = frappe.get_all(
@@ -99,8 +120,13 @@ def search_patient(query: str) -> list:
 			["dob", "like", like],
 		],
 		fields=["name", "patient_name", "custom_bandhu_id", "sex", "dob"],
-		limit=20,
+		limit=SEARCH_LIMIT + 1,
 	)
+	capped = len(results) > SEARCH_LIMIT
+	results = results[:SEARCH_LIMIT]
+
+	for row in results:
+		row["age"] = compact_age(row.dob)
 
 	# The search reads the whole patient master by design (a CAD legitimately meets patients
 	# registered at another site), so the term is recorded rather than the search being narrowed.
@@ -109,102 +135,140 @@ def search_patient(query: str) -> list:
 	# costs the request nothing.
 	make_access_log(doctype="Patient", method="CAD Patient Search", filters=query)
 
-	return results
-
-
-PATIENT_CARD_PRINT_FORMAT = "Bandhu Patient Card"
+	return {"results": results, "capped": capped}
 
 
 @frappe.whitelist()
 def get_patient_card_html(patient: str) -> str:
-	"""Render the printable card for one patient.
-
-	The CAD role holds no Patient DocType permission at all — every patient-facing call on
-	this page crosses that boundary behind require_cad_access(), and this is the same
-	crossing. It renders one named patient into a fixed print format that carries only what
-	is already printed on the card, so it grants no wider read than the CAD already has via
-	search_patient.
-	"""
 	require_cad_access()
-
-	patient = (patient or "").strip()
-	if not frappe.db.exists("Patient", patient):
-		frappe.throw(_("Patient not found."), frappe.DoesNotExistError)
-
-	# Rendering a print format checks the Patient print permission, which this role does not
-	# hold. The flag is Frappe's own way to render on behalf of a caller that has already
-	# been authorised by other means, as require_cad_access() has done above.
-	# The card names one patient and carries their PII to a printer, so who rendered which card
-	# is the access worth keeping — the reference document makes it answerable per patient.
-	make_access_log(doctype="Patient", document=patient, method="CAD Patient Card")
-
-	frappe.flags.ignore_print_permissions = True
-	try:
-		return frappe.get_print(
-			"Patient",
-			patient,
-			print_format=PATIENT_CARD_PRINT_FORMAT,
-			no_letterhead=True,
-		)
-	finally:
-		frappe.flags.ignore_print_permissions = False
-
-
-def require_running_session(session_name: str) -> dict:
-	# Registration is gated on the camp's status, not just the caller's role: the session
-	# resolves the LSG and unit codes baked into the patient's permanent Clinic ID, and a
-	# cancelled or not-yet-started camp would stamp a location the patient was never seen at.
-	session_doc = frappe.db.get_value(
-		"Bandhu Clinic Session",
-		session_name,
-		["status", "assigned_doctor"],
-		as_dict=True,
-	)
-	if not session_doc:
-		frappe.throw(_("Clinic session not found."))
-	if session_doc.status == "Cancelled":
-		frappe.throw(_("This clinic session was cancelled."))
-	if session_doc.status == "Completed":
-		frappe.throw(_("This clinic session is already completed."))
-	if session_doc.status != "In Progress":
-		frappe.throw(
-			_("This clinic session hasn't started yet. Ask the nurse to start the session first."),
-		)
-
-	return session_doc
+	return render_patient_card(patient, "CAD Patient Card")
 
 
 def resolve_registration_origin(session: str) -> tuple[str | None, str | None]:
-	"""The LSG and unit whose numeric codes get baked into the patient's Clinic ID."""
 	session_site, unit = frappe.db.get_value("Bandhu Clinic Session", session, ["site", "unit"])
 	location = frappe.db.get_value("Site", session_site, "location") if session_site else None
 
+	if not location:
+		frappe.throw(
+			_(
+				"This session's site has no LSG set, so a Clinic ID cannot be issued. Ask an administrator to set it."
+			)
+		)
+	if not frappe.db.get_value("Bandhu Location", location, "lsg_numeric_code"):
+		frappe.throw(
+			_(
+				"{0} has no LSG number yet, so a Clinic ID cannot be issued. Ask an administrator to set it."
+			).format(location)
+		)
+	if not unit:
+		frappe.throw(
+			_(
+				"This session has no unit set, so a Clinic ID cannot be issued. Ask an administrator to set it."
+			)
+		)
+	if not frappe.db.get_value("Unit", unit, "unit_numeric_code"):
+		frappe.throw(
+			_(
+				"{0} has no unit number yet, so a Clinic ID cannot be issued. Ask an administrator to set it."
+			).format(unit)
+		)
+
 	return location, unit
+
+
+MAX_PLAUSIBLE_AGE = 120
+
+DUPLICATE_CHECK_LIMIT = 200
+DUPLICATE_CHECK_WINDOW_SECONDS = 60 * 60
+
+
+def resolve_dob(dob: str | None, age: float | None) -> str:
+	dob = (dob or "").strip()
+	if dob:
+		return dob
+
+	if age is None:
+		frappe.throw(_("Date of birth or age is required."))
+	if flt(age) < 0 or flt(age) > MAX_PLAUSIBLE_AGE:
+		frappe.throw(_("Age must be between 0 and {0}.").format(MAX_PLAUSIBLE_AGE))
+
+	return f"{getdate().year - int(flt(age))}-01-01"
+
+
+@frappe.whitelist()
+@rate_limit(limit=DUPLICATE_CHECK_LIMIT, seconds=DUPLICATE_CHECK_WINDOW_SECONDS)
+def find_possible_duplicate(
+	full_name: str,
+	dob: str | None = None,
+	age: float | None = None,
+	mobile: str | None = None,
+	abha_id: str | None = None,
+) -> dict | None:
+	require_cad_access()
+
+	full_name = (full_name or "").strip()
+	mobile = (mobile or "").strip()
+	abha_id = (abha_id or "").strip()
+	if not full_name:
+		return None
+
+	candidates = []
+	if abha_id:
+		candidates.append((_("the same ABHA ID"), {"custom_abha_id": abha_id}))
+	if mobile:
+		candidates.append((_("the same mobile number"), {"mobile": mobile}))
+	candidates.append(
+		(_("the same name and date of birth"), {"patient_name": full_name, "dob": resolve_dob(dob, age)})
+	)
+
+	for matched_on, filters in candidates:
+		match = frappe.get_all(
+			"Patient",
+			filters=filters,
+			fields=["name", "patient_name", "custom_bandhu_id", "dob"],
+			limit=1,
+		)
+		if match:
+			row = match[0]
+			make_access_log(doctype="Patient", document=row.name, method="CAD Duplicate Check")
+			return {
+				"name": row.name,
+				"patient_name": row.patient_name,
+				"clinic_id": row.custom_bandhu_id,
+				"age": compact_age(row.dob),
+				"matched_on": matched_on,
+			}
+
+	return None
 
 
 @frappe.whitelist(methods=["POST"])
 def register_patient(
 	full_name: str,
-	dob: str,
 	sex: str,
-	session: str | None = None,
+	session: str,
+	dob: str | None = None,
+	age: float | None = None,
 	mobile: str | None = None,
 	height_cm: float | None = None,
 	weight_kg: float | None = None,
+	native_country: str | None = None,
+	specify_native_country: str | None = None,
 	native_state: str | None = None,
 	native_district: str | None = None,
 	occupation: str | None = None,
+	specify_sector: str | None = None,
 	company_name: str | None = None,
 	abha_id: str | None = None,
 ) -> str:
 	# Gate on the session rather than the role alone: the session decides which LSG and
 	# unit codes end up in the patient's permanent Clinic ID.
-	session = (session or "").strip() or None
-	if session:
-		require_session_access(session)
-		require_running_session(session)
-	else:
+	session = (session or "").strip()
+	if not session:
 		require_cad_access()
+		frappe.throw(_("Open a running clinic session before registering a patient."))
+	require_session_access(session)
+	require_running_session(session)
 
 	full_name = (full_name or "").strip()
 	dob = (dob or "").strip()
@@ -212,10 +276,10 @@ def register_patient(
 
 	if not full_name:
 		frappe.throw(_("Full name is required."))
-	if not dob:
-		frappe.throw(_("Date of birth is required."))
 	if not sex:
 		frappe.throw(_("Sex is required."))
+
+	dob = resolve_dob(dob, age)
 
 	if height_cm is not None and flt(height_cm) < 0:
 		frappe.throw(_("Height cannot be negative."))
@@ -228,11 +292,15 @@ def register_patient(
 		if not re.fullmatch(r"\d{10}", mobile):
 			frappe.throw(_("Mobile number must be exactly 10 digits."))
 
+	abha_id = (abha_id or "").strip() or None
+	if abha_id and frappe.db.exists("Patient", {"custom_abha_id": abha_id}):
+		frappe.throw(_("Another patient is already registered with this ABHA ID."))
+
 	name_parts = full_name.split(None, 1)
 	first_name = name_parts[0]
 	last_name = name_parts[1] if len(name_parts) > 1 else None
 
-	registered_lsg, registered_unit = resolve_registration_origin(session) if session else (None, None)
+	registered_lsg, registered_unit = resolve_registration_origin(session)
 
 	patient_fields = {
 		"doctype": "Patient",
@@ -243,9 +311,12 @@ def register_patient(
 		"sex": sex,
 		"dob": dob,
 		"mobile": mobile,
+		"custom_native_country": native_country or None,
+		"custom_specify_native_country": specify_native_country or None,
 		"custom_native_state": native_state or None,
 		"custom_native_district": native_district or None,
 		"custom_sector_of_employment": occupation or None,
+		"custom_specify_employment_sector": specify_sector or None,
 		"custom_name_of_company": company_name or None,
 		"custom_abha_id": abha_id or None,
 	}
@@ -296,6 +367,9 @@ def create_encounter(patient: str, session: str) -> str:
 			"patient_age": patient_doc.get_age(),
 			"practitioner": session_doc.assigned_doctor,
 			"custom_clinic_session": session,
+			"custom_location": frappe.db.get_value("Site", session_doc.site, "location")
+			if session_doc.site
+			else None,
 			"custom_workflow_state": "Waiting for Doctor",
 			"encounter_date": frappe.utils.today(),
 		}
@@ -310,9 +384,9 @@ def get_today_queue(session: str) -> list:
 	require_session_access(session)
 
 	rows = frappe.get_all(
-		"Patient Queue",
-		filters={"clinic_session": session},
-		fields=["name", "patient", "encounter", "current_stage", "status"],
+		"Patient Encounter",
+		filters={"custom_clinic_session": session, "docstatus": ["<", 2]},
+		fields=["name as encounter", "patient", "custom_workflow_state", "creation"],
 		order_by="creation asc",
 	)
 	if not rows:
@@ -332,8 +406,9 @@ def get_today_queue(session: str) -> list:
 			"encounter": row.encounter,
 			"patient_name": patient_by_name.get(row.patient, {}).get("patient_name", ""),
 			"clinic_id": patient_by_name.get(row.patient, {}).get("custom_bandhu_id", ""),
-			"current_stage": row.current_stage,
-			"status": row.status,
+			"current_stage": ENCOUNTER_TO_QUEUE_STAGE.get(row.custom_workflow_state, ""),
+			"status": "Done" if row.custom_workflow_state in TERMINAL_WORKFLOW_STATES else "Active",
+			"queued_at": row.creation,
 		}
 		for row in rows
 	]

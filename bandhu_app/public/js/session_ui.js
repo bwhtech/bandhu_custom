@@ -9,9 +9,6 @@
 frappe.provide("bandhu.session_ui");
 
 (function () {
-	// frappe.call REJECTS on network failure (frappe/public/js/frappe/request.js:32-41). Without
-	// this wrapper the rejection escapes unhandled and page.main is never written, leaving staff
-	// on a weak camp signal staring at a blank screen with no message and no way to retry.
 	async function refresh_page(page, load) {
 		try {
 			await load(page);
@@ -20,6 +17,73 @@ frappe.provide("bandhu.session_ui");
 			page.main.off("click", ".load-error-retry");
 			page.main.on("click", ".load-error-retry", () => refresh_page(page, load));
 		}
+	}
+
+	const BOARD_UPDATE_EVENT = "bandhu_board_update";
+	const BOARD_UPDATE_DOCTYPE = "Bandhu Clinic Session";
+
+	const BOARD_UPDATE_DELAY = 500;
+
+	let background_refresh_depth = 0;
+	const subscribed_routes = new Set();
+	const subscribed_rooms = new Map();
+
+	function freeze() {
+		if (!background_refresh_depth) frappe.dom.freeze();
+	}
+
+	function unfreeze() {
+		if (!background_refresh_depth) frappe.dom.unfreeze();
+	}
+
+	function join_session_room(route, session) {
+		if (subscribed_rooms.get(route) === session) return;
+
+		const previous = subscribed_rooms.get(route);
+		if (previous) frappe.realtime.doc_unsubscribe(BOARD_UPDATE_DOCTYPE, previous);
+		if (session) frappe.realtime.doc_subscribe(BOARD_UPDATE_DOCTYPE, session);
+
+		subscribed_rooms.set(route, session);
+	}
+
+	function subscribe_to_board_updates(route, current_session, refresh) {
+		join_session_room(route, current_session());
+
+		if (subscribed_routes.has(route)) return;
+		subscribed_routes.add(route);
+
+		let timer = null;
+		let deferred = false;
+
+		async function apply() {
+			timer = null;
+			if (frappe.get_route_str() !== route || $(".modal:visible").length) {
+				deferred = true;
+				return;
+			}
+
+			deferred = false;
+			background_refresh_depth += 1;
+			try {
+				await refresh();
+			} finally {
+				background_refresh_depth -= 1;
+			}
+		}
+
+		function schedule(message) {
+			if (message && message.actor === frappe.session.user) return;
+
+			const session = current_session();
+			if (session && message && message.clinic_session !== session) return;
+			if (timer) return;
+			timer = setTimeout(apply, BOARD_UPDATE_DELAY);
+		}
+
+		frappe.realtime.on(BOARD_UPDATE_EVENT, schedule);
+		$(document).on("hidden.bs.modal", () => {
+			if (deferred) schedule();
+		});
 	}
 
 	function format_load_error() {
@@ -43,9 +107,16 @@ frappe.provide("bandhu.session_ui");
 		);
 	}
 
-	// A camp that is over and a camp that is running have to be told apart across a phone screen
-	// in daylight, so the status is a labelled badge rather than a coloured dot: colour alone is
-	// the one signal that fails both a colour-blind reader and a washed-out outdoor screen.
+	function add_refresh_icon(page, refresh) {
+		if (page.bandhu_refresh_icon) return;
+		page.bandhu_refresh_icon = page.add_action_icon(
+			"refresh",
+			() => refresh(),
+			"",
+			__("Refresh")
+		);
+	}
+
 	const SESSION_STATUS_BADGES = {
 		"In Progress": { theme: "green", variant: "subtle" },
 		Planned: { theme: "blue", variant: "subtle" },
@@ -128,28 +199,20 @@ frappe.provide("bandhu.session_ui");
 	// dialog keeps following Desk across a Frappe upgrade instead of drifting. The label carries
 	// the weight and the glyph because it is what a nurse scans the column for; the value is read
 	// only once the right label has been found.
-	function format_detail_field(label, value, icon_name) {
+	function format_detail_field(label, value, icon_name, fixed_width) {
 		if (value === null || value === undefined || value === "") return "";
 		return (
-			'<div class="col-6 col-md-4 mb-4 flex items-start gap-2">' +
-			// The glyph hangs in its own gutter so the label and the value it belongs to keep a
-			// single left edge. Inline, it indented the label off the value beneath it and gave
-			// every field two ragged edges. `margin: 0` because Desk's own .icon ships
-			// `margin: 0 auto`, which in a flex row flings it away from what it labels.
+			'<div class="col-6 col-md-4 bandhu-detail">' +
 			(icon_name
-				? frappe.utils.icon(
-						icon_name,
-						"sm",
-						"",
-						"margin: 1px 0 0",
-						"current-color shrink-0"
-				  )
+				? frappe.utils.icon(icon_name, "sm", "", "", "current-color bandhu-detail-icon")
 				: "") +
-			'<div class="min-w-0">' +
-			'<div class="text-xs-semibold text-ink-gray-7 mb-1">' +
+			'<div class="bandhu-detail-text">' +
+			'<div class="bandhu-detail-label">' +
 			frappe.utils.escape_html(label) +
 			"</div>" +
-			'<div class="text-base text-ink-gray-9">' +
+			'<div class="bandhu-detail-value' +
+			(fixed_width ? " bandhu-fixed-width" : "") +
+			'">' +
 			frappe.utils.escape_html(String(value)) +
 			"</div></div></div>"
 		);
@@ -164,9 +227,9 @@ frappe.provide("bandhu.session_ui");
 	// counting across columns to find the one being asked.
 	function format_identity_details(patient) {
 		return format_detail_row(
-			format_detail_field(__("Clinic ID"), patient.custom_bandhu_id, "id-card") +
-				format_detail_field(__("ABHA ID"), patient.custom_abha_id, "badge-check") +
-				format_detail_field(__("Mobile"), patient.mobile, "phone") +
+			format_detail_field(__("Clinic ID"), patient.custom_bandhu_id, "id-card", true) +
+				format_detail_field(__("ABHA ID"), patient.custom_abha_id, "badge-check", true) +
+				format_detail_field(__("Mobile Number"), patient.mobile, "phone", true) +
 				// The endpoint returns the stored date; every other Bandhu screen shows dates
 				// in the user's own format, so printing it raw here is the odd one out.
 				format_detail_field(
@@ -177,23 +240,28 @@ frappe.provide("bandhu.session_ui");
 		);
 	}
 
-	// One field labelled "Vitals" inside a section headed "Vitals" said the word twice and then
-	// crammed three separate measurements into a single middot-joined cell. Each reading is its
-	// own field, so each gets its own column and a nurse can find one without parsing a string.
-	function format_vitals_details(patient) {
+	function format_vitals_details(patient, encounter) {
+		const height = encounter.custom_height
+			? encounter.custom_height + " cm"
+			: patient.custom_height_m
+			? patient.custom_height_m + " m"
+			: "";
+		const weight = encounter.custom_weight
+			? encounter.custom_weight + " kg"
+			: patient.custom_weight_kg
+			? patient.custom_weight_kg + " kg"
+			: "";
+		const bmi = encounter.custom_bmi || patient.custom_bmi;
+		const temperature = encounter.custom_temperature || patient.custom_temperature;
+
 		return format_detail_row(
-			format_detail_field(
-				__("Height"),
-				patient.custom_height_m ? patient.custom_height_m + " m" : "",
-				"ruler"
-			) +
-				format_detail_field(
-					__("Weight"),
-					patient.custom_weight_kg ? patient.custom_weight_kg + " kg" : "",
-					"weight"
-				) +
-				format_detail_field(__("BMI"), patient.custom_bmi, "gauge") +
-				format_detail_field(__("Temperature"), patient.custom_temperature, "thermometer")
+			format_detail_field(__("Height"), height, "ruler") +
+				format_detail_field(__("Weight"), weight, "weight") +
+				format_detail_field(__("BMI"), bmi, "gauge") +
+				format_detail_field(__("Temperature"), temperature, "thermometer") +
+				format_detail_field(__("Pulse"), encounter.custom_pulse_rate, "heart-pulse") +
+				format_detail_field(__("SpO2"), encounter.custom_spo2, "activity") +
+				format_detail_field(__("Blood Pressure"), encounter.custom_blood_pressure, "gauge")
 		);
 	}
 
@@ -216,8 +284,6 @@ frappe.provide("bandhu.session_ui");
 		);
 	}
 
-	// An omitted theme is deliberate: .es-badge's own default is gray, and there is no
-	// [data-theme="gray"] rule to name, so a closed camp gets the neutral badge by leaving it off.
 	function format_badge(label, theme, variant) {
 		return (
 			'<span class="es-badge"' +
@@ -259,7 +325,7 @@ frappe.provide("bandhu.session_ui");
 
 	function format_note(note) {
 		return (
-			'<div class="text-xs text-muted mt-1">' +
+			'<div class="bandhu-detail-note">' +
 			__("Note") +
 			": " +
 			frappe.utils.escape_html(note) +
@@ -268,7 +334,7 @@ frappe.provide("bandhu.session_ui");
 	}
 
 	function format_row_open() {
-		return '<div class="flex items-baseline justify-between gap-3 py-1.5">';
+		return '<div class="bandhu-line">';
 	}
 
 	// `shared_note` is the doctor's one ordering note when it covers every row (see
@@ -279,11 +345,11 @@ frappe.provide("bandhu.session_ui");
 				const own_note = (test.notes || "").trim();
 				return (
 					format_row_open() +
-					'<div class="min-w-0"><div class="text-sm text-ink-gray-8">' +
+					'<div class="bandhu-line-main"><div class="bandhu-line-title">' +
 					frappe.utils.escape_html(test.test_name) +
 					"</div>" +
 					(own_note && own_note !== shared_note ? format_note(own_note) : "") +
-					'</div><div class="shrink-0">' +
+					'</div><div class="bandhu-line-side">' +
 					format_test_result(test) +
 					"</div></div>"
 				);
@@ -303,16 +369,16 @@ frappe.provide("bandhu.session_ui");
 					.join(" ");
 				return (
 					format_row_open() +
-					'<div class="min-w-0"><div class="text-sm text-ink-gray-8">' +
+					'<div class="bandhu-line-main"><div class="bandhu-line-title">' +
 					frappe.utils.escape_html(prescription.medicines) +
 					(schedule
-						? '<span class="text-xs text-muted ms-2">' +
+						? '<span class="bandhu-line-schedule">' +
 						  frappe.utils.escape_html(schedule) +
 						  "</span>"
 						: "") +
 					"</div>" +
 					(prescription.instructions ? format_note(prescription.instructions) : "") +
-					'</div><div class="shrink-0">' +
+					'</div><div class="bandhu-line-side">' +
 					(prescription.dispensed
 						? format_badge(__("Dispensed"), "green", "subtle")
 						: format_badge(__("Pending"), "amber", "subtle")) +
@@ -326,7 +392,7 @@ frappe.provide("bandhu.session_ui");
 		return (diagnosis || [])
 			.map(
 				(entry) =>
-					'<div class="py-1.5"><div class="text-sm text-ink-gray-8">' +
+					'<div class="bandhu-line"><div class="bandhu-line-title">' +
 					frappe.utils.escape_html(entry.diagnosis_name) +
 					"</div>" +
 					(entry.notes ? format_note(entry.notes) : "") +
@@ -338,10 +404,10 @@ frappe.provide("bandhu.session_ui");
 	function format_section(title, body, lead) {
 		if (!body) return "";
 		return (
-			'<div class="mt-4"><div class="text-base-semibold text-ink-gray-8 mb-2">' +
+			'<div class="bandhu-section"><div class="bandhu-section-title">' +
 			frappe.utils.escape_html(title) +
 			"</div>" +
-			(lead ? '<div class="text-sm text-muted mb-2">' + lead + "</div>" : "") +
+			(lead ? '<div class="bandhu-section-lead">' + lead + "</div>" : "") +
 			body +
 			"</div>"
 		);
@@ -351,9 +417,34 @@ frappe.provide("bandhu.session_ui");
 	function format_patient_details(patient, encounter) {
 		const shared_note = (encounter.shared_test_note || "").trim();
 		return (
+			'<div class="bandhu-details">' +
 			format_section(__("Registration Details"), format_identity_details(patient)) +
-			format_section(__("Vitals"), format_vitals_details(patient)) +
+			format_section(__("Vitals"), format_vitals_details(patient, encounter)) +
 			format_section(__("Origin & Work"), format_origin_details(patient)) +
+			format_section(
+				__("Patient Complaints"),
+				encounter.custom_chief_complaints
+					? '<div class="bandhu-section-text">' +
+							frappe.utils.escape_html(encounter.custom_chief_complaints) +
+							"</div>"
+					: ""
+			) +
+			format_section(
+				__("Past History"),
+				encounter.custom_past_history
+					? '<div class="bandhu-section-text">' +
+							frappe.utils.escape_html(encounter.custom_past_history) +
+							"</div>"
+					: ""
+			) +
+			format_section(
+				__("Allergy History"),
+				encounter.custom_allergy_history
+					? '<div class="bandhu-section-text">' +
+							frappe.utils.escape_html(encounter.custom_allergy_history) +
+							"</div>"
+					: ""
+			) +
 			format_section(
 				__("Tests"),
 				format_test_rows(encounter.tests, shared_note),
@@ -363,7 +454,8 @@ frappe.provide("bandhu.session_ui");
 				__("Prescriptions"),
 				format_prescription_rows(encounter.prescriptions)
 			) +
-			format_section(__("Diagnosis"), format_diagnosis_rows(encounter.diagnosis))
+			format_section(__("Diagnosis"), format_diagnosis_rows(encounter.diagnosis)) +
+			"</div>"
 		);
 	}
 
@@ -427,8 +519,12 @@ frappe.provide("bandhu.session_ui");
 
 	Object.assign(bandhu.session_ui, {
 		refresh_page,
+		subscribe_to_board_updates,
+		freeze,
+		unfreeze,
 		format_load_error,
 		format_welcome,
+		add_refresh_icon,
 		format_session_info,
 		format_clock_time,
 		format_planned_window,

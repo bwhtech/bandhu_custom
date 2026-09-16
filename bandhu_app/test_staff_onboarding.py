@@ -86,6 +86,19 @@ class IntegrationTestStaffOnboarding(IntegrationTestCase):
 		self.assertEqual(practitioner.custom_role, "Doctor")
 		self.assertEqual(practitioner.status, "Active")
 
+	def test_provision_works_without_a_last_name(self):
+		frappe.set_user(self.system_manager_user)
+		try:
+			result = provision_staff_member(
+				first_name="Onename",
+				email="test.onboard.onename@bandhuapp.test",
+				role="Nurse",
+			)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertTrue(frappe.db.exists("Healthcare Practitioner", result["practitioner"]))
+
 	def test_provision_rejects_non_provisionable_role(self):
 		with self.assertRaises(frappe.ValidationError):
 			self._as_system_manager(

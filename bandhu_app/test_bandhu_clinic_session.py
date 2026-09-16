@@ -6,6 +6,7 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import today
 
 from bandhu_app.bandhu_app.utils.session import find_active_session
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -15,9 +16,11 @@ class IntegrationTestBandhuClinicSession(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
-		cls.project = frappe.get_all("Bandhu Projects", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.site = baseline["site"]
+		cls.unit = baseline["unit"]
+		cls.project = baseline["project"]
 
 		cls.doctor = cls._make_practitioner("Role Test Doctor", "Doctor")
 		cls.nurse = cls._make_practitioner("Role Test Nurse", "Nurse")
@@ -44,6 +47,7 @@ class IntegrationTestBandhuClinicSession(IntegrationTestCase):
 			"date": today(),
 			"clinic": self.clinic,
 			"site": self.site,
+			"unit": self.unit,
 			"project": self.project,
 		}
 		fields.update(overrides)
@@ -103,7 +107,7 @@ class IntegrationTestBandhuClinicSession(IntegrationTestCase):
 		driver = self._make_practitioner("Site Label Test Driver", "Clinic Assistant cum Driver")
 		# Site is autonamed SITE-.####, so a fresh record is guaranteed to have an id that
 		# differs from its name — which is the whole thing being asserted.
-		site = frappe.get_doc({"doctype": "Site", "site_name": "Site Label Test Camp"}).insert(
+		site = frappe.get_doc({"doctype": "Site", "site_name": "Site Label Test Session"}).insert(
 			ignore_permissions=True
 		)
 		self.assertNotEqual(site.name, site.site_name)
@@ -114,4 +118,4 @@ class IntegrationTestBandhuClinicSession(IntegrationTestCase):
 
 		result = find_active_session("assigned_driver", driver)
 
-		self.assertEqual(result.site, "Site Label Test Camp")
+		self.assertEqual(result.site, "Site Label Test Session")

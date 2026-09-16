@@ -1,5 +1,28 @@
 import frappe
+from frappe import _
+from frappe.core.doctype.access_log.access_log import make_access_log
 from frappe.utils import flt, getdate, today
+
+PATIENT_CARD_PRINT_FORMAT = "Bandhu Patient Card"
+
+
+def render_patient_card(patient: str, access_method: str) -> str:
+	patient = (patient or "").strip()
+	if not frappe.db.exists("Patient", patient):
+		frappe.throw(_("Patient not found."), frappe.DoesNotExistError)
+
+	make_access_log(doctype="Patient", document=patient, method=access_method)
+
+	frappe.flags.ignore_print_permissions = True
+	try:
+		return frappe.get_print(
+			"Patient",
+			patient,
+			print_format=PATIENT_CARD_PRINT_FORMAT,
+			no_letterhead=True,
+		)
+	finally:
+		frappe.flags.ignore_print_permissions = False
 
 
 def compact_age(dob) -> str:

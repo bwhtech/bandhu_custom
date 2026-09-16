@@ -8,7 +8,7 @@
 .nurse-dash .upcoming-card {
 	margin-top: var(--margin-lg);
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	background: var(--bg-color);
 	padding: var(--padding-md);
 }
@@ -52,9 +52,9 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	padding: var(--padding-2xl) var(--padding-md);
+	padding: var(--padding-lg) var(--padding-md);
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	color: var(--text-muted);
 	background: var(--bg-color);
 }
@@ -81,10 +81,14 @@
 	font-size: var(--text-sm);
 }
 
+.nurse-dash .queue-section .table-wrap {
+	margin-top: 0;
+}
+
 .nurse-dash .table-wrap {
 	overflow: auto;
 	border: 1px solid var(--table-border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	margin-top: var(--margin-sm);
 }
 
@@ -127,16 +131,31 @@
 }
 
 .nurse-dash .queue-head {
-	font-size: var(--text-lg);
+	display: flex;
+	align-items: baseline;
+	gap: var(--padding-sm);
+	margin: 0 0 var(--margin-md);
+	padding-bottom: var(--padding-sm);
+	border-bottom: 1px solid var(--border-color);
+	font-size: var(--text-xs);
 	font-weight: var(--weight-semibold);
-	color: var(--heading-color);
-	margin: 0;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+	color: var(--text-muted);
 }
 
 .nurse-dash .queue-meta {
 	font-weight: var(--weight-regular);
-	font-size: var(--text-base);
+	letter-spacing: 0;
+	font-variant-numeric: tabular-nums;
+	font-size: var(--text-xs);
 	color: var(--text-muted);
+}
+
+.nurse-dash .queue-empty {
+	padding: var(--padding-md) 0;
+	font-size: var(--text-sm);
+	color: var(--text-light);
 }
 
 .nurse-dash .queue-section {
@@ -168,6 +187,10 @@
 }
 
 .nurse-dash .welcome {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--padding-md);
 	padding: var(--padding-lg) 0 var(--padding-xl) 0;
 }
 
@@ -185,13 +208,30 @@
 }
 
 .nurse-dash .end-session-bar {
+	display: flex;
+	justify-content: flex-end;
 	padding: 0 0 var(--padding-lg) 0;
 }
 
 .nurse-action-btns {
 	display: flex;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	gap: 6px;
+	justify-content: flex-end;
+}
+
+.nurse-dash .action-cell {
+	width: 1%;
+	white-space: nowrap;
+}
+
+.nurse-dash .age-cell,
+.nurse-dash .sex-cell {
+	white-space: nowrap;
+}
+
+.nurse-dash .patient-cell {
+	overflow-wrap: anywhere;
 }
 
 .nurse-action-btn {
@@ -222,7 +262,7 @@
 	margin: var(--margin-md) auto;
 	padding: var(--padding-2xl) var(--padding-md);
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--border-radius-md);
 	background: var(--bg-color);
 	color: var(--text-muted);
 	text-align: center;
@@ -237,4 +277,32 @@
 .bandhu-load-error .load-error-retry {
 	min-height: 44px;
 	padding: 0 var(--padding-lg);
+}
+
+.nurse-dash .session-progress {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--padding-md);
+	margin-bottom: var(--margin-md);
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+}
+
+.nurse-dash .session-progress-item b {
+	color: var(--heading-color);
+	font-weight: var(--weight-semibold);
+	font-variant-numeric: tabular-nums;
+}
+
+.nurse-dash .queue-order {
+	display: block;
+	margin-top: 2px;
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+}
+
+.nurse-dash .waited-cell {
+	white-space: nowrap;
+	font-size: var(--text-xs);
+	color: var(--text-muted);
 }

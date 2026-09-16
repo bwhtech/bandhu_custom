@@ -1,6 +1,6 @@
 import frappe
 from frappe import _
-from frappe.utils import cint, flt, getdate
+from frappe.utils import cint, date_diff, flt, getdate
 
 from bandhu_app.bandhu_app.utils.clinic_stats import (
 	count_encounters,
@@ -26,12 +26,18 @@ def execute(filters=None):
 	return get_columns(filters), rows, None, build_chart(rows), build_summary(rows)
 
 
+MAX_REPORT_DAYS = 366
+
+
 def validate_filters(filters):
 	if not (filters.from_date and filters.to_date):
 		frappe.throw(_("From Date and To Date are required."))
 
 	if getdate(filters.from_date) > getdate(filters.to_date):
 		frappe.throw(_("From Date cannot be after To Date."))
+
+	if date_diff(filters.to_date, filters.from_date) > MAX_REPORT_DAYS:
+		frappe.throw(_("Choose a period of {0} days or less.").format(MAX_REPORT_DAYS))
 
 	group_by = filters.get("group_by")
 	if group_by and group_by not in GROUP_BY_FIELD:
@@ -83,9 +89,9 @@ def build_rows(sessions: list, group_by: str) -> list:
 			key,
 			{
 				"group": key,
-				"camps_planned": 0,
-				"camps_held": 0,
-				"camps_cancelled": 0,
+				"sessions_planned": 0,
+				"sessions_held": 0,
+				"sessions_cancelled": 0,
 				"patients": 0,
 				"new_patients": 0,
 				"repeat_patients": 0,
@@ -101,9 +107,9 @@ def build_rows(sessions: list, group_by: str) -> list:
 		patients = cint(counts.patients)
 		new_patients = new_patient_counts.get(session.name, 0)
 
-		row["camps_planned"] += 1
-		row["camps_held"] += 1 if session.status in HELD_STATUSES else 0
-		row["camps_cancelled"] += 1 if session.status == "Cancelled" else 0
+		row["sessions_planned"] += 1
+		row["sessions_held"] += 1 if session.status in HELD_STATUSES else 0
+		row["sessions_cancelled"] += 1 if session.status == "Cancelled" else 0
 		row["patients"] += patients
 		row["new_patients"] += new_patients
 		row["repeat_patients"] += patients - new_patients
@@ -113,7 +119,9 @@ def build_rows(sessions: list, group_by: str) -> list:
 
 	rows = sorted(totals.values(), key=lambda row: row["patients"], reverse=True)
 	for row in rows:
-		row["patients_per_camp"] = flt(row["patients"] / row["camps_held"], 1) if row["camps_held"] else 0
+		row["patients_per_session"] = (
+			flt(row["patients"] / row["sessions_held"], 1) if row["sessions_held"] else 0
+		)
 
 	return rows
 
@@ -143,20 +151,20 @@ def build_chart(rows: list) -> dict:
 
 
 def build_summary(rows: list) -> list:
-	camps_held = sum(row["camps_held"] for row in rows)
+	sessions_held = sum(row["sessions_held"] for row in rows)
 	patients = sum(row["patients"] for row in rows)
 
 	return [
-		{"label": _("Camps Held"), "value": camps_held, "datatype": "Int"},
+		{"label": _("Sessions Held"), "value": sessions_held, "datatype": "Int"},
 		{
-			"label": _("Camps Cancelled"),
-			"value": sum(row["camps_cancelled"] for row in rows),
+			"label": _("Sessions Cancelled"),
+			"value": sum(row["sessions_cancelled"] for row in rows),
 			"datatype": "Int",
 		},
 		{"label": _("Patients Seen"), "value": patients, "datatype": "Int"},
 		{
-			"label": _("Avg Patients per Camp"),
-			"value": flt(patients / camps_held, 1) if camps_held else 0,
+			"label": _("Avg Patients per Session"),
+			"value": flt(patients / sessions_held, 1) if sessions_held else 0,
 			"datatype": "Float",
 		},
 	]
@@ -170,15 +178,15 @@ def get_columns(filters) -> list:
 			"fieldtype": "Data",
 			"width": 220,
 		},
-		{"fieldname": "camps_planned", "label": _("Camps Scheduled"), "fieldtype": "Int", "width": 140},
-		{"fieldname": "camps_held", "label": _("Camps Held"), "fieldtype": "Int", "width": 110},
-		{"fieldname": "camps_cancelled", "label": _("Cancelled"), "fieldtype": "Int", "width": 100},
+		{"fieldname": "sessions_planned", "label": _("Sessions Scheduled"), "fieldtype": "Int", "width": 140},
+		{"fieldname": "sessions_held", "label": _("Sessions Held"), "fieldtype": "Int", "width": 110},
+		{"fieldname": "sessions_cancelled", "label": _("Cancelled"), "fieldtype": "Int", "width": 100},
 		{"fieldname": "patients", "label": _("Patients"), "fieldtype": "Int", "width": 100},
 		{"fieldname": "new_patients", "label": _("New"), "fieldtype": "Int", "width": 80},
 		{"fieldname": "repeat_patients", "label": _("Repeat"), "fieldtype": "Int", "width": 90},
 		{
-			"fieldname": "patients_per_camp",
-			"label": _("Per Camp"),
+			"fieldname": "patients_per_session",
+			"label": _("Per Session"),
 			"fieldtype": "Float",
 			"width": 100,
 			# Summing an average across rows produces a number that means nothing.

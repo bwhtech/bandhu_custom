@@ -1,25 +1,23 @@
 import frappe
 
-# Other apps ship their own Desktop Icons for the /desk grid with no role restriction, so
-# every Desk user sees ERPNext's Accounting/Buying/Stock and friends whether or not they
-# mean anything to a nurse. We don't own those apps' fixtures (never edit apps/frappe,
-# apps/erpnext — lost on bench update), and each app's own `bench migrate` re-syncs its
-# icons from its own JSON on every run, silently wiping a restriction set directly on the
-# doc. Running this again after every migrate, via the after_migrate hook, is what makes it
-# stick.
-#
-# Matched by rule rather than by name: an earlier hardcoded list ("Framework", "Quality",
-# "Marley Health") missed every ERPNext icon and named one that does not exist on this
-# site at all. Restricting the top-level icons is enough — children render under their
-# parent, so hiding the parent hides the branch.
-ALLOWED_ROLES = ["System Manager"]
+ALLOWED_ROLES = ["Administrator"]
+
+DESK_ICON_IMAGE_BY_WORKSPACE = {
+	"CAD": "/assets/bandhu_app/images/desk_icons/cad.svg",
+	"Doctor": "/assets/bandhu_app/images/desk_icons/doctor.svg",
+	"Nurse": "/assets/bandhu_app/images/desk_icons/nurse.svg",
+	"Admin": "/assets/bandhu_app/images/desk_icons/admin.svg",
+}
 
 
 def restrict_other_app_desktop_icons():
-	"""Hide other apps' top-level desk icons from everyone but System Manager."""
+	bandhu_workspaces = frappe.get_all("Workspace", filters={"module": "Bandhu App"}, pluck="name")
 	foreign_icons = frappe.get_all(
 		"Desktop Icon",
-		filters={"app": ["!=", "bandhu_app"], "parent_icon": ["in", ["", None]]},
+		filters={
+			"parent_icon": ["in", ["", None]],
+			"link_to": ["not in", bandhu_workspaces or [""]],
+		},
 		pluck="name",
 	)
 
@@ -40,41 +38,37 @@ def restrict_other_app_desktop_icons():
 
 
 def sync_bandhu_desktop_icons():
-	"""Put one Bandhu App tile on /desk, visible to the roles our workspaces are for.
-
-	/desk renders the Desktop Icon grid, not the workspace list, and Frappe seeds icons from
-	workspaces only in its `after_app_install` hook — which for this app ran before the
-	workspaces declared `app = "bandhu_app"`, so nothing was ever seeded and field staff
-	landed on a grid with no route to their own board.
-
-	One icon, not one per workspace: `is_icon_permitted` resolves a link icon through
-	`bootinfo.workspace_sidebar_item`, which is keyed by app ("bandhu app"), never by
-	workspace name, so per-workspace icons are created and then filtered straight back out.
-	The app tile is the route; the sidebar behind it is already role-filtered per workspace.
-	"""
 	app_title = frappe.get_hooks("app_title", app_name="bandhu_app")[0]
-	icon_name = frappe.db.get_value("Desktop Icon", {"label": app_title, "icon_type": "App"}, "name")
-	icon = (
-		frappe.get_doc("Desktop Icon", icon_name)
-		if icon_name
-		else frappe.new_doc("Desktop Icon").update({"label": app_title, "icon_type": "App"})
+	stale_app_tile = frappe.db.get_value("Desktop Icon", {"label": app_title, "icon_type": "App"}, "name")
+	if stale_app_tile:
+		frappe.delete_doc("Desktop Icon", stale_app_tile, ignore_permissions=True)
+
+	workspaces = frappe.get_all(
+		"Workspace", filters={"module": "Bandhu App", "public": 1}, fields=["name", "icon"]
 	)
-	icon.app = "bandhu_app"
+	any_icon_changed = False
+	for workspace in workspaces:
+		icon_name = frappe.db.get_value("Desktop Icon", {"link_to": workspace.name, "icon_type": "Link"})
+		if not icon_name:
+			continue
 
-	# Without a roles table the tile shows to every Desk user on the site, who would click
-	# into an empty sidebar. The union of what our workspaces are for is exactly who has
-	# something behind it.
-	roles = workspace_roles()
-	icon.set("roles", [{"role": role} for role in sorted(roles)])
-	icon.save()
-
-
-def workspace_roles() -> set:
-	workspaces = frappe.get_all("Workspace", filters={"app": "bandhu_app", "public": 1}, pluck="name")
-	return set(
-		frappe.get_all(
-			"Has Role",
-			filters={"parenttype": "Workspace", "parent": ["in", workspaces]},
-			pluck="role",
+		roles = frappe.get_all(
+			"Has Role", filters={"parenttype": "Workspace", "parent": workspace.name}, pluck="role"
 		)
-	)
+		icon = frappe.get_doc("Desktop Icon", icon_name)
+		image_path = DESK_ICON_IMAGE_BY_WORKSPACE.get(workspace.name)
+		roles_match = {row.role for row in icon.roles} == set(roles)
+		icon_matches = icon.icon == workspace.icon
+		image_matches = not image_path or icon.icon_image == image_path
+		if roles_match and icon_matches and image_matches:
+			continue
+
+		icon.set("roles", [{"role": role} for role in sorted(roles)])
+		icon.icon = workspace.icon
+		if image_path:
+			icon.icon_image = image_path
+		icon.save(ignore_permissions=True)
+		any_icon_changed = True
+
+	if any_icon_changed:
+		frappe.cache.delete_key("desktop_icons")

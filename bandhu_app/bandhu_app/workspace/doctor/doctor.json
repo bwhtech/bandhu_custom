@@ -38,7 +38,7 @@
    "color": "Grey",
    "doc_view": "List",
    "label": "Patient Queue",
-   "link_to": "Patient Encounter",
+   "link_to": "Patient Queue",
    "stats_filter": "[]",
    "type": "DocType"
   },

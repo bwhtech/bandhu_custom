@@ -39,7 +39,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Result Type",
-   "options": "\nPositive\nNegative\nValue",
+   "options": "\nPositive\nNegative\nValue\nNot Done",
    "permlevel": 2
   }
  ],

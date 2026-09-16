@@ -5,38 +5,31 @@ import frappe
 from frappe.tests import IntegrationTestCase
 
 from bandhu_app.bandhu_app.page.doctor_form.doctor_form import (
+	call_patient,
 	complete_encounter,
 	get_patient_registration_details,
+	get_referral_letter_html,
+	get_registered_patients,
 	get_session_status,
 	get_test_options,
 	order_test,
 	prescribe_medicine,
+	release_patient,
 )
 from bandhu_app.bandhu_app.utils.clinic_test import seed_default_tests
 from bandhu_app.bandhu_app.utils.patient_details import get_clinical_details_by_encounter
-
-
-def first_of(doctype: str) -> str | None:
-	"""Resolve a master by lookup rather than by name.
-
-	Hardcoded fixture names only exist on the site they were written against, so the suite
-	failed in setUp everywhere else before it reached a single assertion.
-	"""
-	names = frappe.get_all(doctype, limit=1, pluck="name")
-	return names[0] if names else None
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 
 class TestDoctorForm(IntegrationTestCase):
-	@classmethod
-	def setUpClass(cls):
-		super().setUpClass()
-		cls.appointment_type = first_of("Appointment Type")
-		cls.project = first_of("Bandhu Projects")
-		cls.site = first_of("Site")
-		cls.clinic = first_of("Clinic")
-		cls.item = first_of("Item")
-
 	def setUp(self):
+		baseline = ensure_baseline_fixtures()
+		self.appointment_type = baseline["appointment_type"]
+		self.project = baseline["project"]
+		self.site = baseline["site"]
+		self.unit = baseline["unit"]
+		self.clinic = baseline["clinic"]
+		self.item = baseline["item"]
 		self.today = frappe.utils.today()
 
 		self.patient = self._make_patient("Doctor Form Test Patient")
@@ -100,6 +93,7 @@ class TestDoctorForm(IntegrationTestCase):
 				"date": self.today,
 				"project": self.project,
 				"site": self.site,
+				"unit": self.unit,
 				"clinic": self.clinic,
 				"status": "In Progress",
 				"assigned_doctor": practitioner.name,
@@ -226,6 +220,123 @@ class TestDoctorForm(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			prescribe_medicine(self.encounter.name, [{"dosage_frequency": "BD"}])
 
+	def test_order_test_records_chief_complaint(self):
+		frappe.set_user(self.doctor_user_1)
+		order_test(self.encounter.name, ["Malaria"], chief_complaint="Fever for 3 days")
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_chief_complaints, "Fever for 3 days")
+
+	def test_prescribe_medicine_records_chief_complaint(self):
+		frappe.set_user(self.doctor_user_1)
+		prescribe_medicine(
+			self.encounter.name,
+			[{"medicines": self.item, "dosage_frequency": "BD", "duration_days": 5, "quantity": 10}],
+			chief_complaint="Joint pain",
+		)
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_chief_complaints, "Joint pain")
+
+	def test_complete_encounter_records_chief_complaint(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(self.encounter.name, chief_complaint="Cough")
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_chief_complaints, "Cough")
+
+	def test_order_test_records_past_and_allergy_history(self):
+		frappe.set_user(self.doctor_user_1)
+		order_test(
+			self.encounter.name,
+			["Malaria"],
+			past_history="Diabetes",
+			allergy_history="Penicillin",
+		)
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_past_history, "Diabetes")
+		self.assertEqual(self.encounter.custom_allergy_history, "Penicillin")
+
+	def test_prescribe_medicine_records_past_and_allergy_history(self):
+		frappe.set_user(self.doctor_user_1)
+		prescribe_medicine(
+			self.encounter.name,
+			[{"medicines": self.item, "dosage_frequency": "BD", "duration_days": 5, "quantity": 10}],
+			past_history="Hypertension",
+			allergy_history="Sulfa drugs",
+		)
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_past_history, "Hypertension")
+		self.assertEqual(self.encounter.custom_allergy_history, "Sulfa drugs")
+
+	def test_complete_encounter_records_past_and_allergy_history(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(self.encounter.name, past_history="Asthma", allergy_history="Dust")
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_past_history, "Asthma")
+		self.assertEqual(self.encounter.custom_allergy_history, "Dust")
+
+	def test_an_omitted_chief_complaint_does_not_erase_one_already_recorded(self):
+		frappe.set_user(self.doctor_user_1)
+		order_test(self.encounter.name, ["Malaria"], chief_complaint="Fever for 3 days")
+
+		frappe.db.set_value(
+			"Patient Encounter", self.encounter.name, "custom_workflow_state", "Awaiting Doctor Review"
+		)
+		prescribe_medicine(
+			self.encounter.name,
+			[{"medicines": self.item, "dosage_frequency": "BD", "duration_days": 5, "quantity": 10}],
+		)
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_chief_complaints, "Fever for 3 days")
+
+	def test_clearing_an_allergy_actually_clears_it(self):
+		frappe.set_user(self.doctor_user_1)
+		order_test(self.encounter.name, ["Malaria"], allergy_history="Penicillin")
+
+		frappe.db.set_value(
+			"Patient Encounter", self.encounter.name, "custom_workflow_state", "Awaiting Doctor Review"
+		)
+		complete_encounter(self.encounter.name, allergy_history="")
+
+		self.encounter.reload()
+		self.assertFalse(self.encounter.custom_allergy_history)
+
+	def test_prescribe_medicine_rejects_the_same_medicine_twice_in_one_prescription(self):
+		frappe.set_user(self.doctor_user_1)
+		with self.assertRaises(frappe.ValidationError):
+			prescribe_medicine(
+				self.encounter.name,
+				[
+					{"medicines": self.item, "dosage_frequency": "BD", "quantity": 10},
+					{"medicines": self.item, "dosage_frequency": "OD", "quantity": 5},
+				],
+			)
+
+	def test_prescribe_medicine_rejects_a_medicine_already_on_the_encounter(self):
+		frappe.set_user(self.doctor_user_1)
+		prescribe_medicine(self.encounter.name, [{"medicines": self.item, "quantity": 10}])
+
+		frappe.db.set_value(
+			"Patient Encounter", self.encounter.name, "custom_workflow_state", "Awaiting Doctor Review"
+		)
+		with self.assertRaises(frappe.ValidationError):
+			prescribe_medicine(self.encounter.name, [{"medicines": self.item, "quantity": 5}])
+
+	def test_prescribe_medicine_rejects_a_negative_quantity(self):
+		frappe.set_user(self.doctor_user_1)
+		with self.assertRaises(frappe.ValidationError):
+			prescribe_medicine(self.encounter.name, [{"medicines": self.item, "quantity": -5}])
+
+	def test_prescribe_medicine_rejects_negative_days(self):
+		frappe.set_user(self.doctor_user_1)
+		with self.assertRaises(frappe.ValidationError):
+			prescribe_medicine(self.encounter.name, [{"medicines": self.item, "duration_days": -3}])
+
 	def test_complete_encounter_records_diagnosis(self):
 		frappe.set_user(self.doctor_user_1)
 		complete_encounter(self.encounter.name, diagnosis="Viral fever", clinical_notes="Rest advised")
@@ -241,6 +352,206 @@ class TestDoctorForm(IntegrationTestCase):
 		complete_encounter(self.encounter.name)
 		self.encounter.reload()
 		self.assertEqual(self.encounter.custom_workflow_state, "Completed")
+
+	def test_complete_encounter_creates_a_referral(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(
+			self.encounter.name,
+			referred_to="Ernakulam General Hospital",
+			referred_to_practitioner=self.practitioner_2.name,
+			referral_reason="Suspected fracture, needs an X-ray",
+			referral_priority="High",
+		)
+
+		self.encounter.reload()
+		self.assertTrue(self.encounter.custom_has_referral)
+
+		referral = frappe.get_last_doc("Referral", filters={"patient_encounter": self.encounter.name})
+		self.assertEqual(referral.patient, self.patient.name)
+		self.assertEqual(referral.referred_to, "Ernakulam General Hospital")
+		self.assertEqual(referral.referred_to_practitioner, self.practitioner_2.name)
+		self.assertEqual(referral.reason, "Suspected fracture, needs an X-ray")
+		self.assertEqual(referral.priority, "High")
+		self.assertEqual(referral.status, "Pending")
+		self.assertTrue(referral.helpline_flag)
+		self.assertEqual(referral.project, self.project)
+		self.assertEqual(referral.clinic_session, self.session_1.name)
+		self.assertEqual(referral.referral_by_source, self.practitioner_1.name)
+
+	def test_complete_encounter_referral_defaults_to_medium_priority(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(
+			self.encounter.name,
+			referred_to="Ernakulam General Hospital",
+			referral_reason="Follow-up care",
+		)
+
+		referral = frappe.get_last_doc("Referral", filters={"patient_encounter": self.encounter.name})
+		self.assertEqual(referral.priority, "Medium")
+
+	def test_complete_encounter_rejects_a_referral_missing_the_reason(self):
+		frappe.set_user(self.doctor_user_1)
+		with self.assertRaises(frappe.ValidationError):
+			complete_encounter(self.encounter.name, referred_to="Ernakulam General Hospital")
+
+	def test_complete_encounter_without_referral_fields_creates_no_referral(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(self.encounter.name, diagnosis="Viral fever")
+
+		self.encounter.reload()
+		self.assertFalse(self.encounter.custom_has_referral)
+		self.assertEqual(frappe.db.count("Referral", {"patient_encounter": self.encounter.name}), 0)
+
+	def test_referral_letter_renders_for_a_referred_patient(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(
+			self.encounter.name,
+			referred_to="Ernakulam General Hospital",
+			referral_reason="Suspected fracture",
+		)
+
+		html = get_referral_letter_html(self.encounter.name)
+		self.assertIn("Ernakulam General Hospital", html)
+		self.assertIn("Suspected fracture", html)
+
+	def test_referral_letter_escapes_injected_referral_fields(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(
+			self.encounter.name,
+			referred_to="<img src=x onerror=alert(1)>",
+			referral_reason="<script>alert(1)</script>",
+		)
+
+		html = get_referral_letter_html(self.encounter.name)
+		self.assertNotIn("alert(1)", html)
+		self.assertNotIn("onerror=", html)
+
+	def test_referral_letter_rejects_a_patient_with_no_referral(self):
+		frappe.set_user(self.doctor_user_1)
+		complete_encounter(self.encounter.name, diagnosis="Viral fever")
+
+		with self.assertRaises(frappe.DoesNotExistError):
+			get_referral_letter_html(self.encounter.name)
+
+	def test_call_patient_marks_who_is_in_the_room(self):
+		frappe.set_user(self.doctor_user_1)
+		call_patient(self.encounter.name)
+
+		self.assertIsNotNone(
+			frappe.db.get_value("Patient Encounter", self.encounter.name, "custom_called_at")
+		)
+
+	def test_three_patients_can_be_with_the_doctor_at_once(self):
+		others = [self._make_encounter(self.session_1, "Waiting for Doctor") for _ in range(2)]
+
+		frappe.set_user(self.doctor_user_1)
+		call_patient(self.encounter.name)
+		for other in others:
+			call_patient(other.name)
+
+		self.assertEqual(
+			frappe.db.count(
+				"Patient Encounter",
+				{"custom_clinic_session": self.session_1.name, "custom_called_at": ["is", "set"]},
+			),
+			3,
+		)
+
+	def test_a_fourth_patient_is_refused_until_one_leaves(self):
+		others = [self._make_encounter(self.session_1, "Waiting for Doctor") for _ in range(3)]
+
+		frappe.set_user(self.doctor_user_1)
+		call_patient(self.encounter.name)
+		call_patient(others[0].name)
+		call_patient(others[1].name)
+
+		with self.assertRaises(frappe.ValidationError):
+			call_patient(others[2].name)
+
+		release_patient(self.encounter.name)
+		call_patient(others[2].name)
+
+		self.assertIsNotNone(frappe.db.get_value("Patient Encounter", others[2].name, "custom_called_at"))
+
+	def test_calling_the_same_patient_twice_does_not_take_a_second_place(self):
+		others = [self._make_encounter(self.session_1, "Waiting for Doctor") for _ in range(2)]
+
+		frappe.set_user(self.doctor_user_1)
+		call_patient(self.encounter.name)
+		call_patient(self.encounter.name)
+		for other in others:
+			call_patient(other.name)
+
+		self.assertEqual(
+			frappe.db.count(
+				"Patient Encounter",
+				{"custom_clinic_session": self.session_1.name, "custom_called_at": ["is", "set"]},
+			),
+			3,
+		)
+
+	def test_a_full_room_does_not_block_another_doctor(self):
+		mine = [self._make_encounter(self.session_1, "Waiting for Doctor") for _ in range(2)]
+		theirs = self._make_encounter(self.session_2, "Waiting for Doctor")
+
+		frappe.set_user(self.doctor_user_1)
+		call_patient(self.encounter.name)
+		for one in mine:
+			call_patient(one.name)
+
+		frappe.set_user(self.doctor_user_2)
+		call_patient(theirs.name)
+
+		self.assertIsNotNone(frappe.db.get_value("Patient Encounter", theirs.name, "custom_called_at"))
+
+	def test_a_cancelled_patient_leaves_the_doctors_queue(self):
+		cancelled = self._make_encounter(self.session_1, "Cancelled")
+
+		frappe.set_user(self.doctor_user_1)
+		names = [row["name"] for row in get_registered_patients()]
+
+		self.assertNotIn(cancelled.name, names)
+		self.assertIn(self.encounter.name, names)
+
+	def test_call_patient_rejects_a_patient_the_nurse_holds(self):
+		with_nurse = self._make_encounter(self.session_1, "Awaiting Test")
+
+		frappe.set_user(self.doctor_user_1)
+		with self.assertRaises(frappe.ValidationError):
+			call_patient(with_nurse.name)
+
+	def test_call_patient_blocks_another_doctors_patient(self):
+		frappe.set_user(self.doctor_user_2)
+		with self.assertRaises(frappe.PermissionError):
+			call_patient(self.encounter.name)
+
+	def test_release_patient_empties_the_room(self):
+		frappe.set_user(self.doctor_user_1)
+		call_patient(self.encounter.name)
+		release_patient(self.encounter.name)
+
+		self.assertIsNone(frappe.db.get_value("Patient Encounter", self.encounter.name, "custom_called_at"))
+
+	def test_ordering_a_test_sends_the_patient_out_of_the_room(self):
+		frappe.set_user(self.doctor_user_1)
+		call_patient(self.encounter.name)
+		order_test(self.encounter.name, ["Malaria"])
+
+		self.assertIsNone(frappe.db.get_value("Patient Encounter", self.encounter.name, "custom_called_at"))
+
+	def test_completing_a_patient_sends_them_out_of_the_room(self):
+		frappe.set_user(self.doctor_user_1)
+		call_patient(self.encounter.name)
+		complete_encounter(self.encounter.name)
+
+		self.assertIsNone(frappe.db.get_value("Patient Encounter", self.encounter.name, "custom_called_at"))
+
+	def test_prescribing_sends_the_patient_out_of_the_room(self):
+		frappe.set_user(self.doctor_user_1)
+		call_patient(self.encounter.name)
+		prescribe_medicine(self.encounter.name, [{"medicines": self.item}])
+
+		self.assertIsNone(frappe.db.get_value("Patient Encounter", self.encounter.name, "custom_called_at"))
 
 	def test_doctor_cannot_act_on_another_doctors_patient(self):
 		frappe.set_user(self.doctor_user_2)

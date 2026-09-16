@@ -234,10 +234,12 @@
   },
   {
    "read": 1,
+   "report": 1,
    "role": "Director"
   },
   {
    "read": 1,
+   "report": 1,
    "role": "Programme Manager"
   }
  ],

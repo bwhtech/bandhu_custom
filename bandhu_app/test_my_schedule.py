@@ -7,6 +7,7 @@ from frappe.utils import add_days, today
 
 from bandhu_app.bandhu_app.page.my_schedule.my_schedule import get_my_schedule
 from bandhu_app.bandhu_app.utils.session import SCHEDULE_MAX_DAYS, find_my_schedule
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -16,8 +17,10 @@ class IntegrationTestMySchedule(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.site = baseline["site"]
+		cls.unit = baseline["unit"]
 
 		cls.doctor = cls.make_practitioner("Schedule Test Doctor", "Doctor", "9800000001")
 		cls.nurse = cls.make_practitioner("Schedule Test Nurse", "Nurse", "9800000002")
@@ -46,6 +49,7 @@ class IntegrationTestMySchedule(IntegrationTestCase):
 			"date": date,
 			"clinic": self.clinic,
 			"site": self.site,
+			"unit": self.unit,
 			"assigned_doctor": self.doctor,
 			"assigned_nurse": self.nurse,
 			"assigned_driver": self.driver,

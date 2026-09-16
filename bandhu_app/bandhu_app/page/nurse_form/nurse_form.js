@@ -7,7 +7,7 @@ let encountersByName = {};
 let nursePage = null;
 
 async function loadDashboard(page) {
-	frappe.dom.freeze();
+	bandhu.session_ui.freeze();
 	let data;
 	try {
 		const response = await frappe.call({
@@ -15,7 +15,7 @@ async function loadDashboard(page) {
 		});
 		data = response.message || {};
 	} finally {
-		frappe.dom.unfreeze();
+		bandhu.session_ui.unfreeze();
 	}
 
 	if (!data.has_session) {
@@ -45,7 +45,7 @@ async function loadDashboard(page) {
 				bandhu.session_ui.format_session_info(data) +
 				'<div class="start-session-bar">' +
 				'<button class="btn btn-primary btn-lg nurse-start-session">' +
-				frappe.utils.icon("circle-play", "sm", "", "", "current-color") +
+				frappe.utils.icon("circle-play", "xs", "", "", "current-color") +
 				__("Start Session") +
 				"</button></div></div>"
 		);
@@ -106,11 +106,11 @@ function endSession(page) {
 }
 
 async function loadQueues(page) {
-	frappe.dom.freeze();
+	bandhu.session_ui.freeze();
 	const sessionName = nurseSession.session_name;
-	let tests, medicines, completed;
+	let tests, medicines, completed, progressCounts;
 	try {
-		[tests, medicines, completed] = await Promise.all([
+		[tests, medicines, completed, progressCounts] = await Promise.all([
 			frappe.call({
 				method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_patients_for_tests",
 				args: { session_name: sessionName },
@@ -123,14 +123,19 @@ async function loadQueues(page) {
 				method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_completed_patients",
 				args: { session_name: sessionName },
 			}),
+			frappe.call({
+				method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_session_progress",
+				args: { session_name: sessionName },
+			}),
 		]);
 	} finally {
-		frappe.dom.unfreeze();
+		bandhu.session_ui.unfreeze();
 	}
 
 	const testRows = tests.message || [];
 	const medicineRows = medicines.message || [];
 	const completedRows = completed.message || [];
+	const progress = progressCounts.message || {};
 	encountersByName = Object.fromEntries(
 		[...testRows, ...medicineRows, ...completedRows].map((encounter) => [
 			encounter.name,
@@ -142,6 +147,7 @@ async function loadQueues(page) {
 		'<div class="nurse-dash">' +
 			bandhu.session_ui.format_welcome() +
 			bandhu.session_ui.format_session_info(nurseSession) +
+			render_session_progress(progress) +
 			renderEndSessionButton() +
 			renderQueueSection(__("Patients for Tests"), testRows, "test") +
 			renderQueueSection(__("Patients for Medicines"), medicineRows, "medicine") +
@@ -180,14 +186,41 @@ function dispatchNurseAction(page, encounter, action) {
 		case "dispense":
 			openDispenseDialog(page, encounter);
 			break;
+		case "vitals":
+			open_vitals_dialog(page, encounter);
+			break;
 	}
+}
+
+function render_session_progress(progress) {
+	const stages = [
+		[__("with doctor"), (progress.registered || 0) + (progress.with_doctor || 0)],
+		[__("for tests"), progress.for_tests || 0],
+		[__("for medicines"), progress.for_medicines || 0],
+		[__("done"), progress.completed || 0],
+	];
+
+	return (
+		'<div class="session-progress">' +
+		stages
+			.map(
+				([label, count]) =>
+					'<span class="session-progress-item"><b>' +
+					count +
+					"</b> " +
+					frappe.utils.escape_html(label) +
+					"</span>"
+			)
+			.join("") +
+		"</div>"
+	);
 }
 
 function renderEndSessionButton() {
 	return (
 		'<div class="end-session-bar">' +
-		'<button class="btn btn-danger btn-sm nurse-end-session">' +
-		frappe.utils.icon("circle-stop", "sm", "", "", "current-color") +
+		'<button class="btn btn-default btn-sm nurse-end-session">' +
+		frappe.utils.icon("circle-stop", "xs", "", "", "current-color") +
 		__("End Session") +
 		"</button></div>"
 	);
@@ -220,7 +253,7 @@ function openTestResultsDialog(page, encounter) {
 						fieldtype: "Select",
 						fieldname: "result_type",
 						label: __("Result"),
-						options: "\nPositive\nNegative\nValue",
+						options: "\nPositive\nNegative\nValue\nNot Done",
 						in_list_view: 1,
 					},
 					{
@@ -241,6 +274,16 @@ function openTestResultsDialog(page, encounter) {
 		],
 		primary_action_label: __("Save Results"),
 		primary_action: async (values) => {
+			const blank = (values.results || []).find((result) => !result.result_type);
+			if (blank) {
+				frappe.msgprint(
+					__("{0} has no result. Choose Not Done if the test could not be run.", [
+						blank.test_name,
+					])
+				);
+				return;
+			}
+
 			dialog.hide();
 			await submitNurseAction(page, "submit_test_results", {
 				encounter,
@@ -275,6 +318,27 @@ function openDispenseDialog(page, encounter) {
 						read_only: 1,
 					},
 					{
+						fieldtype: "Data",
+						fieldname: "dosage_frequency",
+						label: __("Frequency"),
+						in_list_view: 1,
+						read_only: 1,
+					},
+					{
+						fieldtype: "Int",
+						fieldname: "duration_days",
+						label: __("Days"),
+						in_list_view: 1,
+						read_only: 1,
+					},
+					{
+						fieldtype: "Int",
+						fieldname: "quantity",
+						label: __("Qty"),
+						in_list_view: 1,
+						read_only: 1,
+					},
+					{
 						fieldtype: "Small Text",
 						fieldname: "instructions",
 						label: __("Instructions"),
@@ -285,7 +349,6 @@ function openDispenseDialog(page, encounter) {
 						fieldname: "dispensed",
 						label: __("Dispensed"),
 						in_list_view: 1,
-						default: 1,
 					},
 				],
 				data: (row.prescriptions || []).map((prescription) => ({ ...prescription })),
@@ -296,10 +359,96 @@ function openDispenseDialog(page, encounter) {
 			const dispensedRows = (values.prescriptions || [])
 				.filter((prescription) => prescription.dispensed)
 				.map((prescription) => prescription.name);
+
+			if (!dispensedRows.length) {
+				frappe.confirm(
+					__("Nothing is ticked. Finish this visit with no medicine handed over?"),
+					async () => {
+						dialog.hide();
+						await submitNurseAction(page, "dispense_medicine", {
+							encounter,
+							dispensed_rows: [],
+						});
+					}
+				);
+				return;
+			}
+
 			dialog.hide();
 			await submitNurseAction(page, "dispense_medicine", {
 				encounter,
 				dispensed_rows: dispensedRows,
+			});
+		},
+	});
+	dialog.show();
+}
+
+function open_vitals_dialog(page, encounter) {
+	const row = encountersByName[encounter] || {};
+	const [bpSystolic, bpDiastolic] = (row.custom_blood_pressure || "").split("/");
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Record Vitals"),
+		fields: [
+			{
+				fieldtype: "Float",
+				fieldname: "height_cm",
+				label: __("Height (cm)"),
+				default: row.custom_height,
+			},
+			{
+				fieldtype: "Float",
+				fieldname: "weight_kg",
+				label: __("Weight (kg)"),
+				default: row.custom_weight,
+			},
+			{ fieldtype: "Column Break" },
+			{
+				fieldtype: "Float",
+				fieldname: "temperature",
+				label: __("Temperature (°F)"),
+				default: row.custom_temperature,
+			},
+			{
+				fieldtype: "Int",
+				fieldname: "spo2",
+				label: __("SpO2 (%)"),
+				default: row.custom_spo2,
+			},
+			{ fieldtype: "Section Break" },
+			{
+				fieldtype: "Int",
+				fieldname: "pulse_rate",
+				label: __("Pulse (bpm)"),
+				default: row.custom_pulse_rate,
+			},
+			{
+				fieldtype: "Int",
+				fieldname: "bp_systolic",
+				label: __("BP Systolic"),
+				default: bpSystolic || null,
+			},
+			{ fieldtype: "Column Break" },
+			{
+				fieldtype: "Int",
+				fieldname: "bp_diastolic",
+				label: __("BP Diastolic"),
+				default: bpDiastolic || null,
+			},
+		],
+		primary_action_label: __("Save Vitals"),
+		primary_action: async (values) => {
+			dialog.hide();
+			await submitNurseAction(page, "record_vitals", {
+				encounter,
+				height_cm: values.height_cm || null,
+				weight_kg: values.weight_kg || null,
+				temperature: values.temperature || null,
+				pulse_rate: values.pulse_rate || null,
+				spo2: values.spo2 || null,
+				bp_systolic: values.bp_systolic || null,
+				bp_diastolic: values.bp_diastolic || null,
 			});
 		},
 	});
@@ -331,6 +480,17 @@ function renderQueueActionButtons(encounter, action) {
 			false
 		),
 	];
+	if (action === "test" || action === "medicine") {
+		buttons.push(
+			bandhu.session_ui.format_action_button(
+				"nurse-action-btn",
+				encounter.name,
+				"vitals",
+				__("Vitals"),
+				false
+			)
+		);
+	}
 	if (action === "test") {
 		buttons.push(
 			bandhu.session_ui.format_action_button(
@@ -338,7 +498,7 @@ function renderQueueActionButtons(encounter, action) {
 				encounter.name,
 				"enter_results",
 				__("Enter Results"),
-				true
+				false
 			)
 		);
 	} else if (action === "medicine") {
@@ -348,11 +508,28 @@ function renderQueueActionButtons(encounter, action) {
 				encounter.name,
 				"dispense",
 				__("Dispense"),
-				true
+				false
 			)
 		);
 	}
 	return '<div class="nurse-action-btns">' + buttons.join("") + "</div>";
+}
+
+function render_queue_order(encounter, action) {
+	const items =
+		action === "test"
+			? (encounter.tests || []).map((test) => test.test_name)
+			: (encounter.prescriptions || []).map((prescription) => prescription.medicines);
+	const named = items.filter(Boolean);
+	if (!named.length) return "";
+
+	return '<span class="queue-order">' + frappe.utils.escape_html(named.join(", ")) + "</span>";
+}
+
+function render_time_in_session(encounter) {
+	if (!encounter.creation) return "";
+
+	return frappe.datetime.comment_when(encounter.creation, true);
 }
 
 function renderQueueSection(title, encounters, action) {
@@ -365,11 +542,8 @@ function renderQueueSection(title, encounters, action) {
 			frappe.utils.escape_html(title) +
 			count +
 			"</h4>" +
-			'<div class="empty-state">' +
-			frappe.utils.icon("inbox", "xl", "", "", "current-color empty-state-icon") +
-			'<span class="empty-state-text">' +
+			'<div class="queue-empty">' +
 			__("No patients in queue.") +
-			"</span>" +
 			"</div></div>"
 		);
 	}
@@ -382,6 +556,7 @@ function renderQueueSection(title, encounters, action) {
 				'">' +
 				'<td class="patient-cell">' +
 				frappe.utils.escape_html(encounter.patient_name || "") +
+				render_queue_order(encounter, action) +
 				"</td>" +
 				'<td class="age-cell">' +
 				frappe.utils.escape_html(encounter.patient_age || "") +
@@ -389,6 +564,9 @@ function renderQueueSection(title, encounters, action) {
 				'<td class="sex-cell">' +
 				frappe.utils.escape_html(encounter.patient_sex || "") +
 				"</td>" +
+				(action
+					? '<td class="waited-cell">' + render_time_in_session(encounter) + "</td>"
+					: "") +
 				'<td class="action-cell">' +
 				renderQueueActionButtons(encounter, action) +
 				"</td>" +
@@ -414,6 +592,7 @@ function renderQueueSection(title, encounters, action) {
 		"<th>" +
 		__("Sex") +
 		"</th>" +
+		(action ? "<th>" + __("In session") + "</th>" : "") +
 		"<th>" +
 		__("Actions") +
 		"</th>" +
@@ -432,15 +611,24 @@ frappe.pages["nurse-form"].on_page_load = function (wrapper) {
 		single_column: true,
 	});
 
-	page.set_secondary_action(__("Refresh"), refreshDashboard);
-	page.set_primary_action(__("My Schedule"), () => frappe.set_route("my-schedule"), "calendar");
+	page.set_secondary_action(
+		__("My Schedule"),
+		() => frappe.set_route("my-schedule"),
+		"calendar"
+	);
 
 	nursePage = page;
 };
 
 async function refreshDashboard() {
 	await frappe.require(SESSION_UI_ASSET);
+	bandhu.session_ui.add_refresh_icon(nursePage, refreshDashboard);
 	await bandhu.session_ui.refresh_page(nursePage, loadDashboard);
+	bandhu.session_ui.subscribe_to_board_updates(
+		"nurse-form",
+		() => (nurseSession ? nurseSession.session_name : null),
+		refreshDashboard
+	);
 }
 
 // Desk keeps this page's DOM and module state alive, so returning from a Patient Encounter would

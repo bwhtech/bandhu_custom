@@ -1,8 +1,15 @@
 import frappe
 from frappe import _
+from frappe.query_builder.functions import Count
+from frappe.utils import flt
 
 from bandhu_app.bandhu_app.utils.patient_details import get_patient_details, get_session_encounters
-from bandhu_app.bandhu_app.utils.session import find_active_session, find_upcoming_sessions
+from bandhu_app.bandhu_app.utils.realtime import publish_board_update
+from bandhu_app.bandhu_app.utils.session import (
+	find_active_session,
+	find_upcoming_sessions,
+	require_running_session,
+)
 
 
 def require_session_access(session_name: str) -> None:
@@ -90,10 +97,6 @@ def get_upcoming_sessions() -> list:
 
 def load_session_for_status_change(session_name: str) -> dict:
 	require_session_access(session_name)
-	# for_update locks the row for the rest of this transaction, so a second request opening or
-	# closing the same camp waits here and then reads the committed status — without it both
-	# requests read Planned, both pass the guards below, and the second write silently replaces
-	# the first camp's start_time, which is what Session Report and "Camps Late To Open" read.
 	session_doc = frappe.db.get_value(
 		"Bandhu Clinic Session",
 		session_name,
@@ -104,7 +107,7 @@ def load_session_for_status_change(session_name: str) -> dict:
 	if not session_doc:
 		frappe.throw(_("Clinic session not found."))
 	if session_doc.status == "Cancelled":
-		frappe.throw(_("This camp was cancelled. Do not travel to it."))
+		frappe.throw(_("This session was cancelled. Do not travel to it."))
 
 	return session_doc
 
@@ -114,22 +117,20 @@ def start_session(session_name: str) -> None:
 	session_doc = load_session_for_status_change(session_name)
 
 	if session_doc.status == "In Progress":
-		frappe.throw(_("This camp is already open."))
-	# Reopening a closed camp would let patients be registered against it hours or days
-	# later, with nothing in the record showing the camp had already been signed off.
+		frappe.throw(_("This session is already open."))
 	if session_doc.status == "Completed":
 		frappe.throw(
-			_("This camp is already closed and cannot be reopened."),
+			_("This session is already closed and cannot be reopened."),
 		)
-	# A camp opened on the wrong date counts as running today on every board and dashboard.
 	if str(session_doc.date) != frappe.utils.today():
-		frappe.throw(_("You can only open a camp on the day it is scheduled."))
+		frappe.throw(_("You can only open a session on the day it is scheduled."))
 
 	frappe.db.set_value(
 		"Bandhu Clinic Session",
 		session_name,
 		{"status": "In Progress", "start_time": frappe.utils.now_datetime()},
 	)
+	publish_board_update(session_name)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -137,13 +138,14 @@ def end_session(session_name: str) -> None:
 	session_doc = load_session_for_status_change(session_name)
 
 	if session_doc.status != "In Progress":
-		frappe.throw(_("This camp is not open, so it cannot be closed."))
+		frappe.throw(_("This session is not open, so it cannot be closed."))
 
 	frappe.db.set_value(
 		"Bandhu Clinic Session",
 		session_name,
 		{"status": "Completed", "end_time": frappe.utils.now_datetime()},
 	)
+	publish_board_update(session_name)
 
 
 @frappe.whitelist()
@@ -164,6 +166,31 @@ def get_completed_patients(session_name: str) -> list:
 	return get_session_encounters(session_name, "Completed")
 
 
+SESSION_PROGRESS_STATES = {
+	"registered": "Waiting for Doctor",
+	"with_doctor": "Awaiting Doctor Review",
+	"for_tests": "Awaiting Test",
+	"for_medicines": "Awaiting Medicine",
+	"completed": "Completed",
+}
+
+
+@frappe.whitelist()
+def get_session_progress(session_name: str) -> dict:
+	require_session_access(session_name)
+
+	encounter = frappe.qb.DocType("Patient Encounter")
+	counts = (
+		frappe.qb.from_(encounter)
+		.select(encounter.custom_workflow_state, Count("*").as_("total"))
+		.where(encounter.custom_clinic_session == session_name)
+		.groupby(encounter.custom_workflow_state)
+	).run(as_dict=True)
+	by_state = {row.custom_workflow_state: row.total for row in counts}
+
+	return {key: by_state.get(state, 0) for key, state in SESSION_PROGRESS_STATES.items()}
+
+
 @frappe.whitelist()
 def get_patient_registration_details(encounter: str) -> dict:
 	doc = load_session_encounter(encounter)
@@ -173,6 +200,7 @@ def get_patient_registration_details(encounter: str) -> dict:
 @frappe.whitelist(methods=["POST"])
 def submit_test_results(encounter: str, results: list | str) -> None:
 	doc = load_session_encounter(encounter)
+	require_running_session(doc.custom_clinic_session)
 	if doc.custom_workflow_state != "Awaiting Test":
 		frappe.throw(_("This patient is not awaiting a test."))
 
@@ -185,13 +213,85 @@ def submit_test_results(encounter: str, results: list | str) -> None:
 		row.result_type = result.get("result_type")
 		row.result_value = result.get("result_value")
 
+	for row in doc.custom_test_instructions:
+		if not row.result_type:
+			frappe.throw(
+				_("{0} has no result. Choose Not Done if the test could not be run.").format(row.test_name)
+			)
+		if row.result_type == "Value" and not (row.result_value or "").strip():
+			frappe.throw(_("{0} is a value test and needs a reading.").format(row.test_name))
+
 	doc.custom_workflow_state = "Awaiting Doctor Review"
+	doc.save(ignore_permissions=True)
+
+
+@frappe.whitelist(methods=["POST"])
+def record_vitals(
+	encounter: str,
+	height_cm: float | None = None,
+	weight_kg: float | None = None,
+	temperature: float | None = None,
+	pulse_rate: int | None = None,
+	spo2: int | None = None,
+	bp_systolic: int | None = None,
+	bp_diastolic: int | None = None,
+) -> None:
+	doc = load_session_encounter(encounter)
+	require_running_session(doc.custom_clinic_session)
+	if doc.custom_workflow_state not in ("Awaiting Test", "Awaiting Medicine"):
+		frappe.throw(_("Vitals can only be recorded while the patient is with the nurse."))
+
+	measurements = [
+		(_("Height"), height_cm, 30, 250),
+		(_("Weight"), weight_kg, 1, 300),
+		(_("Temperature"), temperature, 90, 110),
+		(_("Pulse"), pulse_rate, 20, 250),
+		(_("SpO2"), spo2, 50, 100),
+		(_("BP systolic"), bp_systolic, 50, 300),
+		(_("BP diastolic"), bp_diastolic, 30, 200),
+	]
+	if not any(value is not None for _label, value, _low, _high in measurements):
+		frappe.throw(_("Enter at least one vital sign."))
+
+	for label, value, low, high in measurements:
+		if value is None:
+			continue
+		if flt(value) <= 0:
+			frappe.throw(_("Vital signs must be positive numbers."))
+		if not low <= flt(value) <= high:
+			frappe.throw(
+				_("{0} of {1} is outside what a person can record. Check the entry.").format(label, value)
+			)
+
+	if (bp_systolic is None) != (bp_diastolic is None):
+		frappe.throw(_("Blood pressure needs both the systolic and the diastolic number."))
+	if bp_systolic is not None and flt(bp_diastolic) >= flt(bp_systolic):
+		frappe.throw(_("The systolic number has to be the higher of the two."))
+
+	if height_cm is not None:
+		doc.custom_height = height_cm
+	if weight_kg is not None:
+		doc.custom_weight = weight_kg
+	if temperature is not None:
+		doc.custom_temperature = temperature
+	if pulse_rate is not None:
+		doc.custom_pulse_rate = pulse_rate
+	if spo2 is not None:
+		doc.custom_spo2 = spo2
+	if bp_systolic is not None and bp_diastolic is not None:
+		doc.custom_blood_pressure = f"{bp_systolic}/{bp_diastolic}"
+
+	if doc.custom_height and doc.custom_weight:
+		height_m = flt(doc.custom_height) / 100
+		doc.custom_bmi = round(flt(doc.custom_weight) / (height_m * height_m), 2)
+
 	doc.save(ignore_permissions=True)
 
 
 @frappe.whitelist(methods=["POST"])
 def dispense_medicine(encounter: str, dispensed_rows: list | str | None = None) -> None:
 	doc = load_session_encounter(encounter)
+	require_running_session(doc.custom_clinic_session)
 	if doc.custom_workflow_state != "Awaiting Medicine":
 		frappe.throw(_("This patient is not awaiting medicine."))
 

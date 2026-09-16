@@ -1,6 +1,17 @@
 import frappe
 from frappe import _
 
+DEFAULT_APPOINTMENT_TYPE = "Walk-In"
+
+
+def seed_default_appointment_type() -> None:
+	if frappe.db.exists("Appointment Type", DEFAULT_APPOINTMENT_TYPE):
+		return
+	frappe.get_doc({"doctype": "Appointment Type", "appointment_type": DEFAULT_APPOINTMENT_TYPE}).insert(
+		ignore_permissions=True
+	)
+
+
 VALID_WORKFLOW_STATES = {
 	"Waiting for Doctor",
 	"Awaiting Test",

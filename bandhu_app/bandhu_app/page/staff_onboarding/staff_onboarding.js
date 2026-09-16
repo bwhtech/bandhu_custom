@@ -62,7 +62,7 @@ function renderForm(page) {
 		renderTextField("email", __("Email"), "email", true) +
 		renderTextField(
 			"mobile_phone",
-			__("Mobile"),
+			__("Mobile Number"),
 			"tel",
 			false,
 			'inputmode="numeric" maxlength="10"'
@@ -75,13 +75,28 @@ function renderForm(page) {
 		__("Create Account") +
 		"</button>" +
 		"</div>" +
-		'<div class="onboarding-result"></div>' +
-		"</div></div>";
+		"</div>" +
+		'<div class="onboarding-done"></div>' +
+		"</div>";
 
 	page.main.html(html);
 	page.main
 		.off("click", ".onboarding-submit")
 		.on("click", ".onboarding-submit", () => submitOnboarding(page));
+
+	page.main
+		.off("click", ".onboarding-add-document")
+		.on("click", ".onboarding-add-document", () => pickDocument(page));
+
+	page.main
+		.off("click", ".onboarding-remove-document")
+		.on("click", ".onboarding-remove-document", function () {
+			remove_document(page, $(this).closest(".onboarding-document-row").attr("data-file"));
+		});
+
+	page.main
+		.off("click", ".onboarding-finish")
+		.on("click", ".onboarding-finish", () => finish_onboarding(page));
 }
 
 function readFormValues(page) {
@@ -135,27 +150,136 @@ async function submitOnboarding(page) {
 
 	if (!result) return;
 
-	const resultBox = page.main.find(".onboarding-result");
+	renderCreated(page, result, values);
+}
+
+let uploaded_documents = [];
+
+function renderCreated(page, result, values) {
+	uploaded_documents = [];
+
+	const fullName = [values.first_name, values.last_name]
+		.map((part) => (part || "").trim())
+		.filter(Boolean)
+		.join(" ");
 	const emailLine = result.email_sent
-		? __("A set-password email has been sent to {0}.", [
-				frappe.utils.escape_html(values.email.trim()),
-		  ])
-		: __(
-				"Account created, but the set-password email could not be sent. Set a password manually."
-		  );
-	resultBox
+		? __("A set-password email has been sent to them.")
+		: __("The set-password email could not be sent. Set a password for them manually.");
+
+	page.main.find(".onboarding-form").hide();
+	page.main
+		.find(".onboarding-done")
+		.data("staff-user", result.user)
 		.show()
 		.html(
-			"<strong>" +
-				__("Account created.") +
-				"</strong><br>" +
+			'<div class="onboarding-created">' +
+				frappe.utils.icon(
+					"solid-success",
+					"lg",
+					"",
+					"",
+					"current-color onboarding-created-icon"
+				) +
+				"<div><strong>" +
+				__("{0} can now sign in", [frappe.utils.escape_html(fullName)]) +
+				'</strong><div class="onboarding-created-detail">' +
 				frappe.utils.escape_html(result.user) +
 				" &middot; " +
 				frappe.utils.escape_html(result.practitioner) +
 				"<br>" +
-				emailLine
+				emailLine +
+				"</div></div></div>" +
+				'<div class="onboarding-documents"></div>' +
+				'<div class="onboarding-done-actions">' +
+				'<button type="button" class="btn btn-primary onboarding-finish">' +
+				__("Done") +
+				"</button></div>"
 		);
-	page.main.find(".onboarding-field").val("");
+
+	renderDocumentsPanel(page);
+}
+
+function finish_onboarding(page) {
+	renderForm(page);
+	frappe.show_alert({ message: __("Onboarding complete"), indicator: "green" });
+}
+
+function renderDocumentsPanel(page) {
+	page.main
+		.find(".onboarding-documents")
+		.html(
+			'<h4 class="onboarding-documents-head">' +
+				__("Documents") +
+				"</h4>" +
+				'<p class="onboarding-documents-note">' +
+				__("Optional. Files are attached to their user record and kept private.") +
+				"</p>" +
+				'<div class="onboarding-document-rows"></div>' +
+				'<button type="button" class="btn btn-default onboarding-add-document">' +
+				frappe.utils.icon("upload", "xs", "", "", "current-color") +
+				'<span class="onboarding-add-document-label"></span>' +
+				"</button>"
+		);
+
+	renderDocumentRows(page);
+}
+
+function renderDocumentRows(page) {
+	const rows = uploaded_documents
+		.map(
+			(file) =>
+				'<div class="onboarding-document-row" data-file="' +
+				frappe.utils.escape_html(file.name) +
+				'">' +
+				'<span class="onboarding-document-file">' +
+				frappe.utils.escape_html(file.file_name) +
+				"</span>" +
+				'<span class="es-badge" data-variant="subtle" data-theme="green">' +
+				__("Saved") +
+				"</span>" +
+				'<button type="button" class="btn btn-default onboarding-remove-document" aria-label="' +
+				frappe.utils.escape_html(__("Remove")) +
+				'">' +
+				frappe.utils.icon("close", "xs", "", "", "current-color") +
+				"</button></div>"
+		)
+		.join("");
+
+	page.main.find(".onboarding-document-rows").html(rows);
+	page.main
+		.find(".onboarding-add-document-label")
+		.text(uploaded_documents.length ? __("Add another document") : __("Add a document"));
+}
+
+function pickDocument(page) {
+	const staffUser = page.main.find(".onboarding-done").data("staff-user");
+
+	new frappe.ui.FileUploader({
+		doctype: "User",
+		docname: staffUser,
+		disable_file_browser: true,
+		allow_multiple: false,
+		allow_toggle_private: false,
+		restrictions: { max_file_size: 5 * 1024 * 1024 },
+		on_success: (file) => {
+			uploaded_documents.push({ name: file.name, file_name: file.file_name });
+			renderDocumentRows(page);
+			frappe.show_alert({
+				message: __("{0} saved", [frappe.utils.escape_html(file.file_name)]),
+				indicator: "green",
+			});
+		},
+	});
+}
+
+async function remove_document(page, file_id) {
+	await frappe.call({
+		method: "frappe.desk.form.utils.remove_attach",
+		args: { fid: file_id },
+	});
+
+	uploaded_documents = uploaded_documents.filter((file) => file.name !== file_id);
+	renderDocumentRows(page);
 }
 
 async function loadDashboard(page) {

@@ -18,6 +18,7 @@ from frappe.utils import today
 
 from bandhu_app.bandhu_app.page.doctor_form import doctor_form
 from bandhu_app.bandhu_app.page.nurse_form import nurse_form
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.test_api_boundary import CAD, DOCTOR, NURSE, call_over_http
 
 
@@ -25,13 +26,15 @@ class TestEncounterConcurrency(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls.clinic = frappe.get_all("Clinic", limit=1, pluck="name")[0]
-		cls.site = frappe.get_all("Site", limit=1, pluck="name")[0]
-		cls.project = frappe.get_all("Bandhu Projects", limit=1, pluck="name")[0]
+		baseline = ensure_baseline_fixtures()
+		cls.clinic = baseline["clinic"]
+		cls.site = baseline["site"]
+		cls.unit = baseline["unit"]
+		cls.project = baseline["project"]
+		cls.item = baseline["item"]
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
 	def setUp(self):
-		# Rollback is per class: a shared camp would let each test count the previous test's
 		# encounters.
 		self.suffix = frappe.generate_hash(length=8)
 		self.driver = self.make_practitioner("Clinic Assistant cum Driver")
@@ -81,6 +84,7 @@ class TestEncounterConcurrency(IntegrationTestCase):
 					"date": today(),
 					"clinic": self.clinic,
 					"site": self.site,
+					"unit": self.unit,
 					"project": self.project,
 					"assigned_driver": self.driver,
 					"assigned_doctor": self.doctor,
@@ -185,8 +189,7 @@ class TestEncounterConcurrency(IntegrationTestCase):
 	def test_a_double_fired_dispense_completes_the_patient_once(self):
 		encounter = self.make_encounter("Awaiting Medicine")
 		doc = frappe.get_doc("Patient Encounter", encounter)
-		item = frappe.get_all("Item", limit=1, pluck="name")[0]
-		doc.append("custom_bandhu_prescription", {"medicines": item, "quantity": 1})
+		doc.append("custom_bandhu_prescription", {"medicines": self.item, "quantity": 1})
 		doc.save(ignore_permissions=True)
 		prescription_row = doc.custom_bandhu_prescription[0].name
 
@@ -208,8 +211,7 @@ class TestEncounterConcurrency(IntegrationTestCase):
 		self.assertEqual(len(stored.custom_bandhu_prescription), 1)
 		self.assertEqual(stored.custom_bandhu_prescription[0].dispensed, 1)
 
-	def test_a_stale_nurse_request_cannot_reopen_a_camp_the_first_one_closed(self):
-		"""Two nurses on the camp controls: the loser must not resurrect a closed camp."""
+	def test_a_stale_nurse_request_cannot_reopen_a_session_the_first_one_closed(self):
 		frappe.set_user(self.nurse_user)
 		first_read = nurse_form.load_session_for_status_change(self.session)
 		self.assertEqual(first_read.status, "In Progress")
