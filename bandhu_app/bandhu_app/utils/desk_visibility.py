@@ -7,6 +7,7 @@ DESK_ICON_IMAGE_BY_WORKSPACE = {
 	"Doctor": "/assets/bandhu_app/images/desk_icons/doctor.svg",
 	"Nurse": "/assets/bandhu_app/images/desk_icons/nurse.svg",
 	"Admin": "/assets/bandhu_app/images/desk_icons/admin.svg",
+	"Dashboard": "/assets/bandhu_app/images/desk_icons/dashboard.svg",
 }
 
 
