@@ -11,6 +11,10 @@ def execute():
 	if not frappe.db.has_column("Sectors", "is_major_sector"):
 		return
 
+	for sector in frappe.get_all("Sectors", fields=["name", "employment_sector_name"]):
+		if sector.employment_sector_name and sector.name != sector.employment_sector_name:
+			frappe.rename_doc("Sectors", sector.name, sector.employment_sector_name)
+
 	for old_name, new_name in RENAMES.items():
 		if frappe.db.exists("Sectors", old_name) and not frappe.db.exists("Sectors", new_name):
 			frappe.rename_doc("Sectors", old_name, new_name)
