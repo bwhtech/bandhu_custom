@@ -26,11 +26,11 @@
   "assigned_nurse",
   "vehicle",
   "additional_details_section",
+  "notes",
+  "column_break_ltxj",
   "departure_time",
   "arrival_time",
-  "distance_travelled_km",
-  "column_break_ltxj",
-  "notes"
+  "distance_travelled_km"
  ],
  "fields": [
   {
@@ -153,12 +153,14 @@
   {
    "fieldname": "departure_time",
    "fieldtype": "Time",
+   "hidden": 1,
    "label": "Departure Time",
    "no_copy": 1
   },
   {
    "fieldname": "arrival_time",
    "fieldtype": "Time",
+   "hidden": 1,
    "label": "Arrival Time",
    "no_copy": 1
   },
@@ -189,6 +191,7 @@
   {
    "fieldname": "distance_travelled_km",
    "fieldtype": "Data",
+   "hidden": 1,
    "label": "Distance Travelled (km)",
    "no_copy": 1
   }
@@ -201,7 +204,7 @@
    "link_fieldname": "custom_clinic_session"
   }
  ],
- "modified": "2026-07-30 17:29:23.998952",
+ "modified": "2026-09-22 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Bandhu Clinic Session",
