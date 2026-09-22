@@ -5,6 +5,7 @@ const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
 let cadSession = null;
 let cadPage = null;
 let formOptions = { major_states: [], other_states: [], major_sectors: [] };
+let log_book_save_pending = false;
 
 const QUICK_COUNTRIES = ["India", "Nepal"];
 
@@ -77,12 +78,12 @@ async function loadDashboard(page) {
 	cadSession = data;
 
 	if (data.status === "Completed") {
-		renderCompleted(page, data);
+		render_completed(page, data);
 		return;
 	}
 
 	if (data.status === "Planned") {
-		renderWaitingForNurse(page, data);
+		await render_waiting_for_nurse(page, data);
 		return;
 	}
 
@@ -110,11 +111,12 @@ function renderNoSession(page, data) {
 	);
 }
 
-function renderWaitingForNurse(page, data) {
+async function render_waiting_for_nurse(page, data) {
 	page.main.html(
 		'<div class="cad-dash">' +
 			bandhu.session_ui.format_welcome() +
 			bandhu.session_ui.format_session_info(data) +
+			render_log_book_section() +
 			'<div class="empty-state">' +
 			frappe.utils.icon("hourglass", "xl", "", "", "current-color empty-state-icon") +
 			'<span class="empty-state-text">' +
@@ -123,9 +125,10 @@ function renderWaitingForNurse(page, data) {
 			) +
 			"</span></div></div>"
 	);
+	await load_log_book(page);
 }
 
-function renderCompleted(page, data) {
+function render_completed(page, data) {
 	page.main.html(
 		'<div class="cad-dash">' +
 			bandhu.session_ui.format_welcome() +
@@ -175,6 +178,7 @@ async function renderFrontDesk(page, data) {
 		"</tr></thead>" +
 		'<tbody class="cad-queue-body"></tbody>' +
 		"</table></div></div>" +
+		render_log_book_section() +
 		"</div>";
 
 	page.main.html(html);
@@ -182,6 +186,7 @@ async function renderFrontDesk(page, data) {
 	bindRegisterEvents(page);
 	await loadQueue(page);
 	focus_scan_input(page);
+	await load_log_book(page);
 }
 
 // A USB barcode scanner is a keyboard: it types the Clinic ID and presses Enter. That only
@@ -1071,6 +1076,97 @@ function format_stage_badge(stage) {
 	if (!stage) return "";
 	const badge = QUEUE_STAGE_BADGES[stage] || { theme: "", variant: "subtle" };
 	return bandhu.session_ui.format_badge(__(stage), badge.theme, badge.variant);
+}
+
+function render_log_book_section() {
+	return '<div class="cad-log-book-section"></div>';
+}
+
+async function load_log_book(page) {
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_log_book",
+		args: { session: cadSession.session_name },
+	});
+	if (!response.message) return;
+	render_log_book(page, response.message);
+}
+
+function time_input_value(value) {
+	if (!value) return "";
+	const [hours, minutes] = String(value).split(":");
+	return hours.padStart(2, "0") + ":" + (minutes || "00").padStart(2, "0");
+}
+
+function render_log_book_field(label, input) {
+	return '<label class="log-book-field">' + label + input + "</label>";
+}
+
+function render_log_book(page, log_book) {
+	page.main
+		.find(".cad-log-book-section")
+		.html(
+			'<h4 class="queue-head">' +
+				__("Log Book") +
+				"</h4>" +
+				'<div class="log-book-row">' +
+				render_log_book_field(
+					__("Departure Time"),
+					'<input type="time" class="form-control log-book-departure" value="' +
+						time_input_value(log_book.departure_time) +
+						'">'
+				) +
+				render_log_book_field(
+					__("Arrival Time"),
+					'<input type="time" class="form-control log-book-arrival" value="' +
+						time_input_value(log_book.arrival_time) +
+						'">'
+				) +
+				render_log_book_field(
+					__("Distance Travelled (km)"),
+					'<input type="number" min="0" step="0.1" inputmode="decimal" class="form-control log-book-distance" value="' +
+						frappe.utils.escape_html(log_book.distance_travelled_km || "") +
+						'">'
+				) +
+				'<button class="btn btn-default log-book-save">' +
+				__("Save") +
+				"</button>" +
+				"</div>"
+		);
+
+	page.main
+		.off("click", ".log-book-save")
+		.on("click", ".log-book-save", () => save_log_book(page));
+}
+
+async function save_log_book(page) {
+	if (log_book_save_pending) return;
+
+	const args = { session: cadSession.session_name };
+	const departure_time = page.main.find(".log-book-departure").val();
+	const arrival_time = page.main.find(".log-book-arrival").val();
+	const distance_travelled_km = page.main.find(".log-book-distance").val();
+	if (departure_time) args.departure_time = departure_time;
+	if (arrival_time) args.arrival_time = arrival_time;
+	if (distance_travelled_km !== "") args.distance_travelled_km = flt(distance_travelled_km);
+
+	if (Object.keys(args).length === 1) {
+		frappe.show_alert({ message: __("Fill in the log book first."), indicator: "orange" });
+		return;
+	}
+
+	log_book_save_pending = true;
+	let response;
+	try {
+		response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.save_log_book",
+			args,
+		});
+	} finally {
+		log_book_save_pending = false;
+	}
+	if (!response.message) return;
+	render_log_book(page, response.message);
+	frappe.show_alert({ message: __("Log book saved"), indicator: "green" });
 }
 
 frappe.pages["cad-form"].on_page_load = function (wrapper) {

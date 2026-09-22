@@ -1,10 +1,11 @@
+import math
 import re
 
 import frappe
 from frappe import _
 from frappe.core.doctype.access_log.access_log import make_access_log
 from frappe.rate_limiter import rate_limit
-from frappe.utils import flt, getdate, validate_phone_number
+from frappe.utils import flt, get_time, getdate, today, validate_phone_number
 
 from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
 from bandhu_app.bandhu_app.utils.patient_encounter import (
@@ -429,3 +430,67 @@ def cancel_visit(encounter: str, session: str) -> None:
 
 	encounter_doc.custom_workflow_state = "Cancelled"
 	encounter_doc.save(ignore_permissions=True)
+
+
+LOG_BOOK_FIELDS = ["departure_time", "arrival_time", "distance_travelled_km"]
+LOG_BOOK_OPEN_STATUSES = ("Planned", "In Progress")
+MAX_DISTANCE_TRAVELLED_KM = 500
+
+
+def parse_log_book_time(value: str) -> str:
+	try:
+		return get_time(value).strftime("%H:%M:%S")
+	except ValueError:
+		frappe.throw(_("Enter a valid time."))
+
+
+@frappe.whitelist()
+def get_log_book(session: str) -> dict:
+	require_session_access(session)
+	return frappe.db.get_value("Bandhu Clinic Session", session, LOG_BOOK_FIELDS, as_dict=True) or {}
+
+
+@frappe.whitelist(methods=["POST"])
+def save_log_book(
+	session: str,
+	departure_time: str | None = None,
+	arrival_time: str | None = None,
+	distance_travelled_km: float | None = None,
+) -> dict:
+	require_session_access(session)
+
+	session_doc = frappe.db.get_value(
+		"Bandhu Clinic Session",
+		session,
+		["status", "date", *LOG_BOOK_FIELDS],
+		as_dict=True,
+		for_update=True,
+	)
+	if not session_doc:
+		frappe.throw(_("Clinic session not found."))
+	if session_doc.status not in LOG_BOOK_OPEN_STATUSES or str(session_doc.date) != today():
+		frappe.throw(_("The log book can only be filled for today's session before it is closed."))
+
+	values = {}
+	if departure_time is not None:
+		values["departure_time"] = parse_log_book_time(departure_time)
+	if arrival_time is not None:
+		values["arrival_time"] = parse_log_book_time(arrival_time)
+	if distance_travelled_km is not None:
+		if not math.isfinite(distance_travelled_km) or not (
+			0 <= distance_travelled_km <= MAX_DISTANCE_TRAVELLED_KM
+		):
+			frappe.throw(
+				_("Distance travelled must be between 0 and {0} km.").format(MAX_DISTANCE_TRAVELLED_KM)
+			)
+		values["distance_travelled_km"] = f"{flt(distance_travelled_km, 1):g}"
+
+	departure = values.get("departure_time", session_doc.departure_time)
+	arrival = values.get("arrival_time", session_doc.arrival_time)
+	if departure is not None and arrival is not None and get_time(arrival) < get_time(departure):
+		frappe.throw(_("Arrival time cannot be before departure time."))
+
+	if values:
+		frappe.db.set_value("Bandhu Clinic Session", session, values)
+
+	return get_log_book(session)
