@@ -1,0 +1,23 @@
+{
+ "content": null,
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "module": "Bandhu App",
+ "name": "referral-follow-up",
+ "owner": "Administrator",
+ "page_name": "referral-follow-up",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Helpline Staff"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Referral Follow Up"
+}

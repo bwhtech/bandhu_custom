@@ -1,11 +1,8 @@
-// Clicking the CAD / Doctor / Nurse workspace icon in the Desk sidebar
-// used to land on the generic Workspace shortcut screen (Patient/Vehicle
-// list shortcuts), forcing field staff to hunt for the actual working
-// page. Bounce straight into the real Desk Page instead.
 const WORKSPACE_REDIRECTS = {
 	cad: { page: "cad-form", role: "Clinic Assistant cum Driver" },
 	doctor: { page: "doctor-form", role: "Doctor" },
 	nurse: { page: "nurse-form", role: "Nurse" },
+	helpline: { page: "referral-follow-up", role: "Helpline Staff" },
 };
 
 frappe.router.on("change", () => {

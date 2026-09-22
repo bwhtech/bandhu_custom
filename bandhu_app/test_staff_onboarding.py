@@ -105,10 +105,10 @@ class IntegrationTestStaffOnboarding(IntegrationTestCase):
 				provision_staff_member,
 				first_name="Test",
 				last_name=None,
-				email="test.onboard.helpline@bandhuapp.test",
-				role="Helpline Staff",
+				email="test.onboard.elevated@bandhuapp.test",
+				role="System Manager",
 			)
-		self.assertFalse(frappe.db.exists("User", "test.onboard.helpline@bandhuapp.test"))
+		self.assertFalse(frappe.db.exists("User", "test.onboard.elevated@bandhuapp.test"))
 
 	def test_provision_rejects_duplicate_email(self):
 		with self.assertRaises(frappe.ValidationError):

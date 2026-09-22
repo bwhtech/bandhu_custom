@@ -4,7 +4,7 @@ import frappe
 from frappe import _
 from frappe.utils import validate_email_address, validate_phone_number
 
-PROVISIONABLE_ROLES = ["Doctor", "Nurse", "Clinic Assistant cum Driver"]
+PROVISIONABLE_ROLES = ["Doctor", "Nurse", "Clinic Assistant cum Driver", "Helpline Staff"]
 
 OFFERED_GENDERS = ["Male", "Female", "Other"]
 
