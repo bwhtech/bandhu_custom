@@ -412,9 +412,29 @@ function render_state_group() {
 	});
 }
 
-function render_sector_group() {
+function render_occupation_group() {
+	if (
+		!(formOptions.major_occupations || []).length &&
+		!(formOptions.other_occupations || []).length
+	) {
+		return "";
+	}
+
 	return render_tab_group({
 		field: "occupation",
+		label: __("Occupation"),
+		options: (formOptions.major_occupations || []).concat(["Other"]),
+		mode: "picker",
+		otherPickerHtml: render_other_picker(
+			formOptions.other_occupations || [],
+			__("-- Select Occupation --")
+		),
+	});
+}
+
+function render_sector_group() {
+	return render_tab_group({
+		field: "sector",
 		label: __("Sector of Employment"),
 		options: (formOptions.major_sectors || []).concat(["Other"]),
 		mode: "direct",
@@ -436,6 +456,7 @@ function renderRegisterForm() {
 		render_country_group() +
 		render_state_group() +
 		render_district_field() +
+		render_occupation_group() +
 		render_sector_group() +
 		render_fields(CONTACT_FIELDS) +
 		"</div>" +
@@ -859,6 +880,7 @@ async function submitRegistration(page) {
 	if (values.native_state) args.native_state = values.native_state;
 	if (values.native_district) args.native_district = values.native_district;
 	if (values.occupation) args.occupation = values.occupation;
+	if (values.sector) args.sector = values.sector;
 	if (values.specify_sector) args.specify_sector = values.specify_sector;
 	if (values.company_name) args.company_name = values.company_name;
 	if (values.abha_id) args.abha_id = values.abha_id;

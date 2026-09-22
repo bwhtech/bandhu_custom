@@ -275,6 +275,7 @@ frappe.provide("bandhu.session_ui");
 					patient.custom_native_district,
 					"map-pin"
 				) +
+				format_detail_field(__("Occupation"), patient.custom_occupation, "users") +
 				format_detail_field(
 					__("Sector of Employment"),
 					patient.custom_sector_of_employment,
