@@ -140,6 +140,16 @@ after_migrate = [
 # 	"Event": "frappe.desk.doctype.event.event.has_permission",
 # }
 
+permission_query_conditions = {
+	"Vehicle Usage Log": "bandhu_app.bandhu_app.utils.vehicle_log.get_permission_query_conditions",
+	"Vehicle Refuel Log": "bandhu_app.bandhu_app.utils.vehicle_log.get_permission_query_conditions",
+}
+
+has_permission = {
+	"Vehicle Usage Log": "bandhu_app.bandhu_app.utils.vehicle_log.has_permission",
+	"Vehicle Refuel Log": "bandhu_app.bandhu_app.utils.vehicle_log.has_permission",
+}
+
 # Document Events
 # ---------------
 # Hook on document methods and events

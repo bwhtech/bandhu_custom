@@ -4,14 +4,18 @@ import frappe
 from frappe import _
 from frappe.core.doctype.access_log.access_log import make_access_log
 from frappe.rate_limiter import rate_limit
-from frappe.utils import flt, getdate, validate_phone_number
+from frappe.utils import flt, getdate, nowtime, today, validate_phone_number
 
 from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
 from bandhu_app.bandhu_app.utils.patient_encounter import (
 	ENCOUNTER_TO_QUEUE_STAGE,
 	TERMINAL_WORKFLOW_STATES,
 )
-from bandhu_app.bandhu_app.utils.session import find_active_session, require_running_session
+from bandhu_app.bandhu_app.utils.session import (
+	find_active_session,
+	label_sites,
+	require_running_session,
+)
 
 
 def require_cad_access() -> None:
@@ -53,7 +57,7 @@ def get_session_status() -> dict:
 	if not practitioner:
 		return {"has_session": False, "message": _("No Healthcare Practitioner linked to your account.")}
 
-	session = find_active_session("assigned_driver", practitioner)
+	session = find_active_session("assigned_driver", practitioner) or find_completed_session(practitioner)
 
 	if not session:
 		return {
@@ -68,6 +72,17 @@ def get_session_status() -> dict:
 		"clinic": session.clinic,
 		"site": session.site,
 	}
+
+
+def find_completed_session(practitioner: str) -> dict | None:
+	session = frappe.db.get_value(
+		"Bandhu Clinic Session",
+		{"date": today(), "assigned_driver": practitioner, "status": "Completed"},
+		["name", "status", "clinic", "site"],
+		as_dict=True,
+		order_by="modified desc",
+	)
+	return label_sites([session])[0] if session else None
 
 
 QUICK_COUNTRIES = ["India", "Nepal"]
@@ -429,3 +444,124 @@ def cancel_visit(encounter: str, session: str) -> None:
 
 	encounter_doc.custom_workflow_state = "Cancelled"
 	encounter_doc.save(ignore_permissions=True)
+
+
+FUEL_TYPE_BY_VEHICLE_FUEL = {"Natural Gas": "CNG"}
+
+
+def load_vehicle_session(session: str, for_update: bool = False) -> dict:
+	require_session_access(session)
+
+	session_doc = frappe.db.get_value(
+		"Bandhu Clinic Session",
+		session,
+		["name", "date", "status", "clinic", "vehicle", "assigned_driver"],
+		as_dict=True,
+		for_update=for_update,
+	)
+	if not session_doc:
+		frappe.throw(_("Clinic session not found."))
+
+	if session_doc.status == "Cancelled" or getdate(session_doc.date) != getdate(today()):
+		frappe.throw(_("Km and fuel can only be recorded for today's session."))
+
+	session_doc.vehicle = session_doc.vehicle or frappe.db.get_value("Clinic", session_doc.clinic, "vehicle")
+	return session_doc
+
+
+def require_vehicle(session_doc: dict) -> None:
+	if not session_doc.vehicle:
+		frappe.throw(_("No vehicle is set for this session or its clinic."))
+
+	if not frappe.db.exists("Vehicle", session_doc.vehicle):
+		frappe.throw(
+			_("Vehicle {0} is not in the Vehicle list yet. Ask an admin to add it.").format(
+				session_doc.vehicle
+			)
+		)
+
+
+@frappe.whitelist()
+def get_vehicle_log(session: str) -> dict:
+	session_doc = load_vehicle_session(session)
+
+	usage_logs = frappe.get_list(
+		"Vehicle Usage Log",
+		filters={"clinic_session": session},
+		fields=["odometer_start", "odometer_end", "distance"],
+		limit=1,
+	)
+	fuel_entries = frappe.get_list(
+		"Vehicle Refuel Log",
+		filters={"clinic_session": session},
+		fields=["quantity", "amount", "fuel_station", "time"],
+		order_by="creation asc",
+	)
+	return {
+		"vehicle": session_doc.vehicle,
+		"reading": usage_logs[0] if usage_logs else {},
+		"fuel_entries": fuel_entries,
+	}
+
+
+@frappe.whitelist(methods=["POST"])
+def save_odometer(session: str, odometer_start: int | None = None, odometer_end: int | None = None) -> dict:
+	session_doc = load_vehicle_session(session, for_update=True)
+	require_vehicle(session_doc)
+
+	usage_log_name = frappe.db.get_value("Vehicle Usage Log", {"clinic_session": session}, "name")
+	usage_log = (
+		frappe.get_doc("Vehicle Usage Log", usage_log_name)
+		if usage_log_name
+		else frappe.new_doc("Vehicle Usage Log")
+	)
+	usage_log.update(
+		{
+			"vehicle": session_doc.vehicle,
+			"clinic_session": session,
+			"date": session_doc.date,
+			"driver": session_doc.assigned_driver,
+		}
+	)
+	if odometer_start is not None:
+		usage_log.odometer_start = odometer_start
+		usage_log.start_time = usage_log.start_time or nowtime()
+	if odometer_end is not None:
+		usage_log.odometer_end = odometer_end
+		usage_log.end_time = usage_log.end_time or nowtime()
+	usage_log.save()
+
+	return get_vehicle_log(session)
+
+
+@frappe.whitelist(methods=["POST"])
+def add_fuel(
+	session: str,
+	quantity: float,
+	rate: float,
+	fuel_station: str,
+	odometer_reading: int,
+	bill_number: str | None = None,
+) -> dict:
+	session_doc = load_vehicle_session(session)
+	require_vehicle(session_doc)
+
+	vehicle_fuel = frappe.db.get_value("Vehicle", session_doc.vehicle, "fuel_type")
+	frappe.get_doc(
+		{
+			"doctype": "Vehicle Refuel Log",
+			"vehicle": session_doc.vehicle,
+			"clinic_session": session,
+			"driver": session_doc.assigned_driver,
+			"date": session_doc.date,
+			"time": nowtime(),
+			"odometer_reading": odometer_reading,
+			"quantity": quantity,
+			"rate": rate,
+			"fuel_station": fuel_station,
+			"bill_number": bill_number,
+			"fuel_type": FUEL_TYPE_BY_VEHICLE_FUEL.get(vehicle_fuel, vehicle_fuel),
+		}
+	).insert()
+
+	return get_vehicle_log(session)

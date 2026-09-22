@@ -1,8 +1,10 @@
 # Copyright (c) 2026, CMID and contributors
 # For license information, please see license.txt
 
-# import frappe
+import frappe
+from frappe import _
 from frappe.model.document import Document
+from frappe.utils import cint
 
 
 class VehicleUsageLog(Document):
@@ -28,4 +30,17 @@ class VehicleUsageLog(Document):
 		vehicle: DF.Link
 	# end: auto-generated types
 
-	pass
+	def validate(self):
+		odometer_start = cint(self.odometer_start)
+		odometer_end = cint(self.odometer_end)
+		if odometer_start < 0 or odometer_end < 0:
+			frappe.throw(_("A km reading cannot be negative."))
+
+		if not (odometer_start and odometer_end):
+			self.distance = 0
+			return
+
+		if odometer_end < odometer_start:
+			frappe.throw(_("End km cannot be less than start km."))
+
+		self.distance = odometer_end - odometer_start

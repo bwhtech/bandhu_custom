@@ -9,6 +9,7 @@
   "vehicle",
   "odometer_reading",
   "driver",
+  "clinic_session",
   "column_break_okrm",
   "date",
   "time",
@@ -132,6 +133,12 @@
    "label": "Driver",
    "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Clinic Assistant cum Driver\"]]",
    "options": "Healthcare Practitioner"
+  },
+  {
+   "fieldname": "clinic_session",
+   "fieldtype": "Link",
+   "label": "Clinic Session",
+   "options": "Bandhu Clinic Session"
   }
  ],
  "grid_page_length": 50,
@@ -146,7 +153,7 @@
    "link_fieldname": "vehicle"
   }
  ],
- "modified": "2026-07-30 17:19:57.443767",
+ "modified": "2026-09-22 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Vehicle Refuel Log",
@@ -162,6 +169,12 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Clinic Assistant cum Driver",
    "write": 1
   }
  ],

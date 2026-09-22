@@ -5,6 +5,7 @@ const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
 let cadSession = null;
 let cadPage = null;
 let formOptions = { major_states: [], other_states: [], major_sectors: [] };
+let vehicle_save_pending = false;
 
 const QUICK_COUNTRIES = ["India", "Nepal"];
 
@@ -77,12 +78,12 @@ async function loadDashboard(page) {
 	cadSession = data;
 
 	if (data.status === "Completed") {
-		renderCompleted(page, data);
+		await renderCompleted(page, data);
 		return;
 	}
 
 	if (data.status === "Planned") {
-		renderWaitingForNurse(page, data);
+		await renderWaitingForNurse(page, data);
 		return;
 	}
 
@@ -110,11 +111,12 @@ function renderNoSession(page, data) {
 	);
 }
 
-function renderWaitingForNurse(page, data) {
+async function renderWaitingForNurse(page, data) {
 	page.main.html(
 		'<div class="cad-dash">' +
 			bandhu.session_ui.format_welcome() +
 			bandhu.session_ui.format_session_info(data) +
+			render_vehicle_section() +
 			'<div class="empty-state">' +
 			frappe.utils.icon("hourglass", "xl", "", "", "current-color empty-state-icon") +
 			'<span class="empty-state-text">' +
@@ -123,13 +125,15 @@ function renderWaitingForNurse(page, data) {
 			) +
 			"</span></div></div>"
 	);
+	await load_vehicle_log(page);
 }
 
-function renderCompleted(page, data) {
+async function renderCompleted(page, data) {
 	page.main.html(
 		'<div class="cad-dash">' +
 			bandhu.session_ui.format_welcome() +
 			bandhu.session_ui.format_session_info(data) +
+			render_vehicle_section() +
 			'<div class="empty-state">' +
 			frappe.utils.icon(
 				"circle-check",
@@ -142,6 +146,7 @@ function renderCompleted(page, data) {
 			__("Session completed. No further patients can be registered.") +
 			"</span></div></div>"
 	);
+	await load_vehicle_log(page);
 }
 
 async function renderFrontDesk(page, data) {
@@ -175,6 +180,7 @@ async function renderFrontDesk(page, data) {
 		"</tr></thead>" +
 		'<tbody class="cad-queue-body"></tbody>' +
 		"</table></div></div>" +
+		render_vehicle_section() +
 		"</div>";
 
 	page.main.html(html);
@@ -182,6 +188,7 @@ async function renderFrontDesk(page, data) {
 	bindRegisterEvents(page);
 	await loadQueue(page);
 	focus_scan_input(page);
+	await load_vehicle_log(page);
 }
 
 // A USB barcode scanner is a keyboard: it types the Clinic ID and presses Enter. That only
@@ -1071,6 +1078,171 @@ function format_stage_badge(stage) {
 	if (!stage) return "";
 	const badge = QUEUE_STAGE_BADGES[stage] || { theme: "", variant: "subtle" };
 	return bandhu.session_ui.format_badge(__(stage), badge.theme, badge.variant);
+}
+
+function render_vehicle_section() {
+	return '<div class="cad-vehicle-section"></div>';
+}
+
+async function load_vehicle_log(page) {
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_vehicle_log",
+		args: { session: cadSession.session_name },
+	});
+	if (!response.message) return;
+	render_vehicle_log(page, response.message);
+}
+
+function render_vehicle_log(page, vehicle_log) {
+	const container = page.main.find(".cad-vehicle-section");
+	const heading =
+		'<h4 class="queue-head">' +
+		__("Vehicle") +
+		(vehicle_log.vehicle
+			? '<span class="queue-meta cad-vehicle-number">' +
+			  frappe.utils.escape_html(vehicle_log.vehicle) +
+			  "</span>"
+			: "") +
+		"</h4>";
+
+	if (!vehicle_log.vehicle) {
+		container.html(
+			heading +
+				'<p class="text-muted">' +
+				__("No vehicle is set for this session or its clinic.") +
+				"</p>"
+		);
+		return;
+	}
+
+	const reading = vehicle_log.reading || {};
+	container.html(
+		heading +
+			'<div class="vehicle-row">' +
+			render_odometer_input("cad-odometer-start", __("Start km"), reading.odometer_start) +
+			render_odometer_input("cad-odometer-end", __("End km"), reading.odometer_end) +
+			'<button class="btn btn-default cad-save-odometer">' +
+			__("Save km") +
+			"</button>" +
+			'<span class="vehicle-distance">' +
+			(reading.distance ? __("{0} km today", [reading.distance]) : "") +
+			"</span>" +
+			"</div>" +
+			render_fuel_entries(vehicle_log.fuel_entries) +
+			'<button class="btn btn-default cad-add-fuel">' +
+			frappe.utils.icon("add", "xs", "", "", "current-color") +
+			__("Add fuel") +
+			"</button>"
+	);
+
+	page.main
+		.off("click", ".cad-save-odometer")
+		.on("click", ".cad-save-odometer", () => save_odometer(page));
+	page.main
+		.off("click", ".cad-add-fuel")
+		.on("click", ".cad-add-fuel", () =>
+			open_fuel_dialog(page, reading.odometer_end || reading.odometer_start)
+		);
+}
+
+function render_odometer_input(class_name, label, value) {
+	return (
+		'<label class="vehicle-reading">' +
+		label +
+		'<input type="number" min="0" inputmode="numeric" class="form-control ' +
+		class_name +
+		'" value="' +
+		(value ? cint(value) : "") +
+		'"></label>'
+	);
+}
+
+function render_fuel_entries(fuel_entries) {
+	if (!fuel_entries || !fuel_entries.length) return "";
+	return (
+		'<ul class="fuel-entries">' +
+		fuel_entries
+			.map(
+				(entry) =>
+					"<li>" +
+					__("{0} L", [flt(entry.quantity, 2)]) +
+					'<span class="session-sep">|</span>' +
+					format_currency(entry.amount) +
+					'<span class="session-sep">|</span>' +
+					frappe.utils.escape_html(entry.fuel_station || "") +
+					'<span class="session-sep">|</span>' +
+					bandhu.session_ui.format_clock_time(entry.time) +
+					"</li>"
+			)
+			.join("") +
+		"</ul>"
+	);
+}
+
+async function save_odometer(page) {
+	if (vehicle_save_pending) return;
+	const args = { session: cadSession.session_name };
+	const odometer_start = page.main.find(".cad-odometer-start").val();
+	const odometer_end = page.main.find(".cad-odometer-end").val();
+	if (odometer_start !== "") args.odometer_start = cint(odometer_start);
+	if (odometer_end !== "") args.odometer_end = cint(odometer_end);
+
+	if (args.odometer_start === undefined && args.odometer_end === undefined) {
+		frappe.show_alert({ message: __("Enter a km reading first."), indicator: "orange" });
+		return;
+	}
+
+	vehicle_save_pending = true;
+	let response;
+	try {
+		response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.save_odometer",
+			args,
+		});
+	} finally {
+		vehicle_save_pending = false;
+	}
+	if (!response.message) return;
+	render_vehicle_log(page, response.message);
+	frappe.show_alert({ message: __("Km saved"), indicator: "green" });
+}
+
+function open_fuel_dialog(page, latest_reading) {
+	const dialog = new frappe.ui.Dialog({
+		title: __("Add Fuel"),
+		fields: [
+			{ fieldname: "quantity", fieldtype: "Float", label: __("Litres"), reqd: 1 },
+			{ fieldname: "rate", fieldtype: "Currency", label: __("Rate per Litre"), reqd: 1 },
+			{ fieldname: "fuel_station", fieldtype: "Data", label: __("Fuel Station"), reqd: 1 },
+			{
+				fieldname: "odometer_reading",
+				fieldtype: "Int",
+				label: __("Km Reading"),
+				reqd: 1,
+				default: latest_reading || undefined,
+			},
+			{ fieldname: "bill_number", fieldtype: "Data", label: __("Bill Number") },
+		],
+		primary_action_label: __("Save"),
+		primary_action: async (values) => {
+			if (vehicle_save_pending) return;
+			vehicle_save_pending = true;
+			let response;
+			try {
+				response = await frappe.call({
+					method: "bandhu_app.bandhu_app.page.cad_form.cad_form.add_fuel",
+					args: { session: cadSession.session_name, ...values },
+				});
+			} finally {
+				vehicle_save_pending = false;
+			}
+			if (!response.message) return;
+			dialog.hide();
+			render_vehicle_log(page, response.message);
+			frappe.show_alert({ message: __("Fuel saved"), indicator: "green" });
+		},
+	});
+	dialog.show();
 }
 
 frappe.pages["cad-form"].on_page_load = function (wrapper) {

@@ -390,3 +390,76 @@
 	min-height: 44px;
 	padding: 0 var(--padding-lg);
 }
+
+.cad-dash .cad-vehicle-section {
+	margin: var(--margin-xl) 0;
+}
+
+.cad-dash .cad-vehicle-number {
+	font-family: monospace;
+	text-transform: none;
+}
+
+.cad-dash .vehicle-row {
+	display: flex;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	gap: var(--padding-md);
+	margin-bottom: var(--margin-md);
+}
+
+.cad-dash .vehicle-reading {
+	display: flex;
+	flex-direction: column;
+	gap: var(--padding-xs);
+	margin: 0;
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+}
+
+.cad-dash .vehicle-reading input {
+	width: 140px;
+	font-variant-numeric: tabular-nums;
+}
+
+.cad-dash .vehicle-distance {
+	display: flex;
+	align-items: center;
+	height: var(--input-height);
+	font-size: var(--text-sm);
+	font-weight: var(--weight-medium);
+	color: var(--text-color);
+}
+
+.cad-dash .fuel-entries {
+	list-style: none;
+	margin: 0 0 var(--margin-md);
+	padding: 0;
+	font-size: var(--text-sm);
+	color: var(--text-color);
+}
+
+.cad-dash .fuel-entries li {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--padding-sm);
+	padding: var(--padding-xs) 0;
+}
+
+.cad-dash .fuel-entries .session-sep {
+	color: var(--border-color);
+}
+
+.cad-dash .cad-vehicle-section .btn .icon {
+	margin: 0;
+}
+
+@media (max-width: 768px) {
+	.cad-dash .vehicle-reading {
+		flex: 1 1 40%;
+	}
+
+	.cad-dash .vehicle-reading input {
+		width: 100%;
+	}
+}
