@@ -1,0 +1,87 @@
+{
+ "app": "bandhu_app",
+ "charts": [],
+ "content": "[{\"id\":\"pharmacistHeader\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h2\\\">Pharmacist</span>\",\"col\":12}},{\"id\":\"pharmacistGroup0\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Stock Movement</span>\",\"col\":12}},{\"id\":\"sReceiveMedicine\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Receive Medicine\",\"col\":4}},{\"id\":\"sSendToClinic\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Send to Clinic\",\"col\":4}},{\"id\":\"sStockEntries\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Entries\",\"col\":4}},{\"id\":\"pharmacistGroup1\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Reports</span>\",\"col\":12}},{\"id\":\"sStockBalance\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Balance\",\"col\":4}},{\"id\":\"pharmacistGroup2\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Masters</span>\",\"col\":12}},{\"id\":\"sMedicines\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Medicines\",\"col\":4}},{\"id\":\"sFundingSources\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Funding Sources\",\"col\":4}}]",
+ "creation": "2026-04-16 23:13:47.807606",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "healthcare",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Pharmacist",
+ "link_type": "DocType",
+ "links": [],
+ "modified": "2026-09-19 11:42:31.000000",
+ "modified_by": "Administrator",
+ "module": "Bandhu Pharmacy",
+ "name": "Pharmacist",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Stock Manager"
+  },
+  {
+   "role": "Stock User"
+  }
+ ],
+ "sequence_id": 25.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Receive Medicine",
+   "type": "URL",
+   "url": "/app/stock-entry/new?stock_entry_type=Material%20Receipt"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Send to Clinic",
+   "type": "URL",
+   "url": "/app/stock-entry/new?stock_entry_type=Material%20Issue"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Stock Entries",
+   "link_to": "Stock Entry",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Stock Balance",
+   "link_to": "Stock Balance",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Medicines",
+   "type": "URL",
+   "url": "/app/item?item_group=Drug"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Funding Sources",
+   "link_to": "Funding Source",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Pharmacist",
+ "type": "Workspace"
+}
