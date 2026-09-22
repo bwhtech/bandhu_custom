@@ -9,7 +9,7 @@ from bandhu_app.bandhu_app.utils.desk_visibility import (
 )
 
 PHARMACY_WORKSPACE = "Pharmacist"
-FOREIGN_ICON = "Accounting"
+FOREIGN_ICON = "Test Other App Folder"
 SEEDED_ROLE = "Report Manager"
 
 
@@ -21,6 +21,20 @@ def get_icon_roles(icon_name):
 			pluck="role",
 		)
 	)
+
+
+def ensure_icon(label, icon_type, link_to=None):
+	if frappe.db.exists("Desktop Icon", label):
+		return
+	frappe.get_doc(
+		{
+			"doctype": "Desktop Icon",
+			"label": label,
+			"icon_type": icon_type,
+			"link_type": "Workspace Sidebar",
+			"link_to": link_to,
+		}
+	).insert()
 
 
 def seed_roles(icon_name):
@@ -35,6 +49,8 @@ class IntegrationTestDeskVisibility(IntegrationTestCase):
 		developer_mode_off.start()
 		self.addCleanup(developer_mode_off.stop)
 
+		ensure_icon(PHARMACY_WORKSPACE, "Link", link_to=PHARMACY_WORKSPACE)
+		ensure_icon(FOREIGN_ICON, "Folder")
 		seed_roles(PHARMACY_WORKSPACE)
 		seed_roles(FOREIGN_ICON)
 
