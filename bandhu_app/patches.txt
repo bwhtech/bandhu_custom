@@ -19,3 +19,4 @@ bandhu_app.patches.seed_indian_states
 bandhu_app.patches.remove_duplicate_clinic_id_field
 bandhu_app.patches.backfill_encounter_location
 bandhu_app.patches.stop_linking_customer_to_patient
+bandhu_app.patches.seed_companies_from_patients

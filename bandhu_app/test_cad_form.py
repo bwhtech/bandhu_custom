@@ -44,6 +44,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		cls.no_role_user = cls._make_user("test.cad.norole@bandhuapp.test", None, [])
 
 		cls.session = cls._make_session(cls.cad_practitioner, cls.doctor_practitioner)
+		cls.company = cls._make_company("Acme Textiles")
 
 	@classmethod
 	def _make_practitioner(cls, first_name, custom_role=None):
@@ -78,6 +79,16 @@ class IntegrationTestCadForm(IntegrationTestCase):
 			frappe.db.set_value("Healthcare Practitioner", practitioner, "user_id", email)
 
 		return email
+
+	@classmethod
+	def _make_company(cls, company_name):
+		if frappe.db.exists("Bandhu Company", company_name):
+			return company_name
+		return (
+			frappe.get_doc({"doctype": "Bandhu Company", "company_name": company_name})
+			.insert(ignore_permissions=True)
+			.name
+		)
 
 	@classmethod
 	def _make_session(cls, assigned_driver, assigned_doctor, status="In Progress"):
