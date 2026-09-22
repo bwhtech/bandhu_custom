@@ -1,10 +1,8 @@
 # Copyright (c) 2026, CMID and contributors
 # For license information, please see license.txt
 
-import frappe
-from frappe import _
+# import frappe
 from frappe.model.document import Document
-from frappe.utils import cint, flt
 
 
 class VehicleRefuelLog(Document):
@@ -18,7 +16,6 @@ class VehicleRefuelLog(Document):
 
 		amount: DF.Currency
 		bill_number: DF.Data | None
-		clinic_session: DF.Link | None
 		date: DF.Date
 		driver: DF.Link | None
 		fill_type: DF.Literal["Full Tank", "Partial"]
@@ -31,11 +28,4 @@ class VehicleRefuelLog(Document):
 		vehicle: DF.Link
 	# end: auto-generated types
 
-	def validate(self):
-		if flt(self.quantity) <= 0 or flt(self.rate) <= 0:
-			frappe.throw(_("Litres and rate must be more than zero."))
-
-		if cint(self.odometer_reading) < 0:
-			frappe.throw(_("A km reading cannot be negative."))
-
-		self.amount = flt(flt(self.quantity) * flt(self.rate), self.precision("amount"))
+	pass
