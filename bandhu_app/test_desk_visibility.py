@@ -26,7 +26,7 @@ def get_icon_roles(icon_name):
 def ensure_sidebar(title):
 	if frappe.db.exists("Workspace Sidebar", title):
 		return
-	frappe.get_doc({"doctype": "Workspace Sidebar", "title": title, "app": "bandhu_app"}).insert()
+	frappe.get_doc({"doctype": "Workspace Sidebar", "title": title, "app": "bandhu_app"}).db_insert()
 
 
 def ensure_icon(label, icon_type, link_to=None):
