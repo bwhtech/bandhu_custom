@@ -23,6 +23,12 @@ def get_icon_roles(icon_name):
 	)
 
 
+def ensure_sidebar(title):
+	if frappe.db.exists("Workspace Sidebar", title):
+		return
+	frappe.get_doc({"doctype": "Workspace Sidebar", "title": title, "app": "bandhu_app"}).insert()
+
+
 def ensure_icon(label, icon_type, link_to=None):
 	if frappe.db.exists("Desktop Icon", label):
 		return
@@ -34,7 +40,7 @@ def ensure_icon(label, icon_type, link_to=None):
 			"link_type": "Workspace Sidebar",
 			"link_to": link_to,
 		}
-	).insert(ignore_links=True)
+	).insert()
 
 
 def seed_roles(icon_name):
@@ -49,6 +55,7 @@ class IntegrationTestDeskVisibility(IntegrationTestCase):
 		developer_mode_off.start()
 		self.addCleanup(developer_mode_off.stop)
 
+		ensure_sidebar(PHARMACY_WORKSPACE)
 		ensure_icon(PHARMACY_WORKSPACE, "Link", link_to=PHARMACY_WORKSPACE)
 		ensure_icon(FOREIGN_ICON, "Folder")
 		seed_roles(PHARMACY_WORKSPACE)
