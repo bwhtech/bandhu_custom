@@ -34,7 +34,7 @@ def ensure_icon(label, icon_type, link_to=None):
 			"link_type": "Workspace Sidebar",
 			"link_to": link_to,
 		}
-	).insert()
+	).insert(ignore_links=True)
 
 
 def seed_roles(icon_name):
