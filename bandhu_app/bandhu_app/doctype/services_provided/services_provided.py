@@ -18,7 +18,7 @@ class ServicesProvided(Document):
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data
-		service_name: DF.Data | None
+		service_name: DF.Link | None
 	# end: auto-generated types
 
 	pass
