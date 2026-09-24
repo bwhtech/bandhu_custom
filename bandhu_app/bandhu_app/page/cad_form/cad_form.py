@@ -87,11 +87,11 @@ def get_form_options() -> dict:
 		"Sectors", filters={"is_major_sector": 1}, fields=["name"], order_by="name asc", pluck="name"
 	)
 	return {
+		"genders": get_offered_genders(),
 		"major_states": major_states,
 		"other_states": other_states,
 		"major_sectors": major_sectors,
 		"quick_countries": QUICK_COUNTRIES,
-		"genders": get_offered_genders(),
 	}
 
 
