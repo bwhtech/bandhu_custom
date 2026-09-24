@@ -94,9 +94,9 @@ def get_form_options() -> dict:
 	return {
 		"major_states": major_states,
 		"other_states": other_states,
-		"major_sectors": major_sectors,
 		"major_occupations": major_occupations,
 		"other_occupations": other_occupations,
+		"major_sectors": major_sectors,
 		"quick_countries": QUICK_COUNTRIES,
 	}
 
