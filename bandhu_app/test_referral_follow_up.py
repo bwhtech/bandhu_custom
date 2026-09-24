@@ -3,7 +3,6 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, getdate, today
 
 from bandhu_app.bandhu_app.page.referral_follow_up.referral_follow_up import get_follow_up_list, log_follow_up
-from bandhu_app.patches.create_helpline_staff_role import execute as create_helpline_staff_role
 
 HELPLINE_ROLE = "Helpline Staff"
 
@@ -21,7 +20,6 @@ class IntegrationTestHelpline(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		create_helpline_staff_role()
 		cls.helpline_user = make_user("test.helpline@bandhuapp.test", HELPLINE_ROLE)
 		cls.driver_user = make_user("test.helpline.driver@bandhuapp.test", "Clinic Assistant cum Driver")
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
