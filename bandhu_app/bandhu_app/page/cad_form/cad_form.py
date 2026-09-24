@@ -80,6 +80,7 @@ QUICK_COUNTRIES = ["India", "Nepal"]
 @frappe.whitelist()
 def get_form_options() -> dict:
 	require_cad_access()
+	companies = frappe.get_all("Bandhu Company", order_by="name asc", limit=COMPANY_LIST_LIMIT, pluck="name")
 	major_states = frappe.get_all(
 		"State", filters={"is_major_state": 1}, fields=["name"], order_by="name asc", pluck="name"
 	)
@@ -89,13 +90,12 @@ def get_form_options() -> dict:
 	major_sectors = frappe.get_all(
 		"Sectors", filters={"is_major_sector": 1}, fields=["name"], order_by="name asc", pluck="name"
 	)
-	companies = frappe.get_all("Bandhu Company", order_by="name asc", limit=COMPANY_LIST_LIMIT, pluck="name")
 	return {
 		"major_states": major_states,
+		"companies": companies,
 		"other_states": other_states,
 		"major_sectors": major_sectors,
 		"quick_countries": QUICK_COUNTRIES,
-		"companies": companies,
 	}
 
 
