@@ -182,3 +182,20 @@ def require_running_session(session_name: str) -> dict:
 		)
 
 	return session_doc
+
+
+def validate_practitioner_roles(doc, role_by_field: dict) -> None:
+	for fieldname, required_role in role_by_field.items():
+		practitioner = doc.get(fieldname)
+		if not practitioner:
+			continue
+		actual_role = frappe.get_cached_value("Healthcare Practitioner", practitioner, "custom_role")
+		if actual_role != required_role:
+			frappe.throw(
+				_("{0} must be a Healthcare Practitioner with role {1}, but {2} has role {3}.").format(
+					doc.meta.get_field(fieldname).label,
+					required_role,
+					practitioner,
+					actual_role or _("(none)"),
+				)
+			)
