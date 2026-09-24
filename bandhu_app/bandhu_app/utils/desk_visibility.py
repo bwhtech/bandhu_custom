@@ -5,6 +5,7 @@ ALLOWED_ROLES = ["Administrator"]
 DESK_ICON_IMAGE_BY_WORKSPACE = {
 	"CAD": "/assets/bandhu_app/images/desk_icons/cad.svg",
 	"Doctor": "/assets/bandhu_app/images/desk_icons/doctor.svg",
+	"Helpline": "/assets/bandhu_app/images/desk_icons/helpline.svg",
 	"Nurse": "/assets/bandhu_app/images/desk_icons/nurse.svg",
 	"Admin": "/assets/bandhu_app/images/desk_icons/admin.svg",
 }
