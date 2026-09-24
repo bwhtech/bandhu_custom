@@ -7,6 +7,10 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from bandhu_app.bandhu_app.utils.session import validate_practitioner_roles
+
+TEAM_ROLE_BY_FIELD = {"doctor": "Doctor", "nurse": "Nurse", "cad": "Clinic Assistant cum Driver"}
+
 
 class Unit(Document):
 	# begin: auto-generated types
@@ -29,6 +33,7 @@ class Unit(Document):
 		if self.unit_numeric_code and not re.fullmatch(r"\d", self.unit_numeric_code):
 			frappe.throw(_("Unit Numeric Code must be exactly one digit, for example 1."))
 
+		validate_practitioner_roles(self, TEAM_ROLE_BY_FIELD)
 		self.block_code_change_once_issued()
 
 	def block_code_change_once_issued(self):

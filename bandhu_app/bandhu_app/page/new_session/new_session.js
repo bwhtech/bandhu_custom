@@ -4,6 +4,13 @@ const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
 
 let options = {};
 let session = {};
+let team_source_unit = "";
+
+const TEAM_BY_UNIT_FIELD = {
+	doctor: { team_field: "assigned_doctor", choices: "doctors" },
+	nurse: { team_field: "assigned_nurse", choices: "nurses" },
+	cad: { team_field: "assigned_driver", choices: "drivers" },
+};
 
 function filteredByHistory(list, historyMap, key) {
 	if (!key) return list;
@@ -26,6 +33,7 @@ function resetForm() {
 		planned_end_time: defaults.planned_end_time,
 		project: defaults.project,
 	};
+	team_source_unit = "";
 }
 
 function requiredMark(required) {
@@ -181,7 +189,7 @@ function bind(page) {
 	page.main.on("change", ".new-session-field", function () {
 		const field = $(this).data("field");
 		applyFieldChange(field, $(this).val());
-		if (["project", "site", "clinic"].includes(field)) {
+		if (["project", "site", "clinic", "unit"].includes(field)) {
 			render(page);
 		}
 		scheduleClashCheck(page);
@@ -190,6 +198,21 @@ function bind(page) {
 
 function applyFieldChange(field, value) {
 	session[field] = value;
+
+	if (field === "unit" && value) {
+		const units = options.units || [];
+		const source_unit = units.find((item) => item.value === team_source_unit) || {};
+		const unit = units.find((item) => item.value === value) || {};
+		for (const [unit_field, { team_field, choices }] of Object.entries(TEAM_BY_UNIT_FIELD)) {
+			const offered = (options[choices] || []).some(
+				(item) => item.value === unit[unit_field]
+			);
+			if (!session[team_field] || session[team_field] === source_unit[unit_field]) {
+				session[team_field] = offered ? unit[unit_field] : "";
+			}
+		}
+		team_source_unit = value;
+	}
 
 	if (field === "clinic") {
 		const clinic = (options.clinics || []).find((item) => item.value === value);

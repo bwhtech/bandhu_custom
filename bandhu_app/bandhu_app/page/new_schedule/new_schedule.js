@@ -19,6 +19,7 @@ let schedule = {};
 let preview = { dates: [], total: 0, clashes: [], next_4_weeks: [] };
 let step = 0;
 let previewTimer = null;
+let team_source_unit = "";
 
 // No recorded history for a key is "nothing has run there yet", not "nothing is valid" —
 // an empty or missing map entry must fall through to the full list, never to zero options.
@@ -50,6 +51,7 @@ function resetWizard() {
 	};
 	preview = { dates: [], total: 0, clashes: [], next_4_weeks: [] };
 	step = 0;
+	team_source_unit = "";
 }
 
 function requiredMark(required) {
@@ -524,8 +526,29 @@ function bind(page) {
 	page.main.on("click", ".wizard-create", () => createSchedule(page));
 }
 
+const TEAM_BY_UNIT_FIELD = {
+	doctor: { team_field: "assigned_doctor", choices: "doctors" },
+	nurse: { team_field: "assigned_nurse", choices: "nurses" },
+	cad: { team_field: "assigned_driver", choices: "drivers" },
+};
+
 function applyFieldChange(field, value) {
 	schedule[field] = value;
+
+	if (field === "unit" && value) {
+		const units = options.units || [];
+		const source_unit = units.find((item) => item.value === team_source_unit) || {};
+		const unit = units.find((item) => item.value === value) || {};
+		for (const [unit_field, { team_field, choices }] of Object.entries(TEAM_BY_UNIT_FIELD)) {
+			const offered = (options[choices] || []).some(
+				(item) => item.value === unit[unit_field]
+			);
+			if (!schedule[team_field] || schedule[team_field] === source_unit[unit_field]) {
+				schedule[team_field] = offered ? unit[unit_field] : "";
+			}
+		}
+		team_source_unit = value;
+	}
 
 	// Clinic is the only master that already knows its project and vehicle.
 	if (field === "clinic") {

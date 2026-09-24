@@ -123,6 +123,25 @@ def get_or_create_unit() -> str:
 	)
 
 
+def make_unit_with_team(doctor: str, nurse: str, driver: str) -> str:
+	used_codes = set(frappe.get_all("Unit", pluck="unit_numeric_code"))
+	free_code = next(str(digit) for digit in range(10) if str(digit) not in used_codes)
+	return (
+		frappe.get_doc(
+			{
+				"doctype": "Unit",
+				"unit_name": f"Team Test Unit {free_code}",
+				"unit_numeric_code": free_code,
+				"doctor": doctor,
+				"nurse": nurse,
+				"cad": driver,
+			}
+		)
+		.insert(ignore_permissions=True)
+		.name
+	)
+
+
 def get_or_create_appointment_type() -> str:
 	seed_default_appointment_type()
 	return DEFAULT_APPOINTMENT_TYPE
