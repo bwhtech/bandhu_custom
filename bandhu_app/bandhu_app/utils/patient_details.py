@@ -17,6 +17,7 @@ PATIENT_DETAIL_FIELDS = [
 	"custom_native_state",
 	"custom_native_district",
 	"custom_native_country",
+	"custom_occupation",
 	"custom_sector_of_employment",
 	"custom_specify_employment_sector",
 	"custom_name_of_company",
