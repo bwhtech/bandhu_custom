@@ -33,7 +33,11 @@ PRACTITIONER_FIELD_BY_ROLE = {
 def get_form_options() -> dict:
 	require_scheduling_access()
 
-	sites = frappe.get_all("Site", fields=["name as value", "site_name as label"], order_by="site_name asc")
+	sites = frappe.get_all(
+		"Site",
+		fields=["name as value", "site_name as label", "location.lsg as lsg", "location.phcchc as phc_chc"],
+		order_by="site_name asc",
+	)
 	clinics = frappe.get_all("Clinic", fields=["name as value", "clinic_name as label", "project", "vehicle"])
 
 	return {
