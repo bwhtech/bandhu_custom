@@ -1,7 +1,7 @@
 import frappe
 from frappe import _
 from frappe.core.doctype.access_log.access_log import make_access_log
-from frappe.utils import flt
+from frappe.utils import flt, getdate
 
 from bandhu_app.bandhu_app.utils.clinic_test import get_enabled_tests
 from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
@@ -253,6 +253,16 @@ def apply_clinical_notes(doc, chief_complaint, past_history, allergy_history) ->
 		doc.custom_allergy_history = allergy_history
 
 
+def apply_follow_up_date(doc, follow_up_date: str | None) -> None:
+	if not follow_up_date:
+		return
+
+	follow_up_date = getdate(follow_up_date)
+	if not follow_up_date or follow_up_date <= getdate(doc.encounter_date):
+		frappe.throw(_("The follow-up date must be after the visit date."))
+	doc.custom_follow_up_date = follow_up_date
+
+
 @frappe.whitelist(methods=["POST"])
 def order_test(
 	encounter: str,
@@ -292,6 +302,7 @@ def prescribe_medicine(
 	chief_complaint: str | None = None,
 	past_history: str | None = None,
 	allergy_history: str | None = None,
+	follow_up_date: str | None = None,
 ) -> None:
 	require_doctor_access()
 	prescriptions = frappe.parse_json(prescriptions)
@@ -340,6 +351,7 @@ def prescribe_medicine(
 		)
 
 	apply_clinical_notes(doc, chief_complaint, past_history, allergy_history)
+	apply_follow_up_date(doc, follow_up_date)
 
 	doc.custom_workflow_state = "Awaiting Medicine"
 	doc.custom_called_at = None
@@ -393,6 +405,7 @@ def complete_encounter(
 	referred_to_practitioner: str | None = None,
 	referral_reason: str | None = None,
 	referral_priority: str | None = None,
+	follow_up_date: str | None = None,
 ) -> None:
 	require_doctor_access()
 
@@ -407,6 +420,7 @@ def complete_encounter(
 	if clinical_notes:
 		doc.custom_bandhu_clinical_notes = clinical_notes
 	apply_clinical_notes(doc, chief_complaint, past_history, allergy_history)
+	apply_follow_up_date(doc, follow_up_date)
 
 	if referred_to or referral_reason:
 		if not (referred_to and referral_reason):

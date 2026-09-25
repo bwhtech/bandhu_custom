@@ -602,14 +602,21 @@ function match_scanned_card(query, results) {
 	return exact.length === 1 ? exact[0] : null;
 }
 
+function format_follow_up(patient) {
+	if (!patient.follow_up_date) return "";
+
+	return __("Follow-up {0}", [frappe.datetime.str_to_user(patient.follow_up_date)]);
+}
+
 function queue_scanned_patient(page, patient) {
 	// frappe.confirm appends its message as HTML (frappe/public/js/frappe/ui/messages.js:48) and
 	// __() substitutes {0} verbatim, so a patient name is an injection point until it is escaped.
+	const follow_up = format_follow_up(patient);
 	frappe.confirm(
 		__("Add {0} ({1}) to today's queue?", [
 			frappe.utils.escape_html(patient.patient_name || ""),
 			frappe.utils.escape_html(patient.custom_bandhu_id || ""),
-		]),
+		]) + (follow_up ? "<br>" + frappe.utils.escape_html(follow_up) : ""),
 		async () => {
 			await addPatientToQueue(page, patient.name, () => {
 				clear_search_results(page);
@@ -638,6 +645,7 @@ function renderSearchResults(page, results, capped) {
 				bandhu.session_ui.group_clinic_id(patient.custom_bandhu_id),
 				patient.sex,
 				patient.age,
+				format_follow_up(patient),
 			]
 				.filter(Boolean)
 				.map(frappe.utils.escape_html)

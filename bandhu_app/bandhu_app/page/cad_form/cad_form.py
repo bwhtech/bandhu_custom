@@ -3,6 +3,7 @@ import re
 import frappe
 from frappe import _
 from frappe.core.doctype.access_log.access_log import make_access_log
+from frappe.query_builder.functions import Max
 from frappe.rate_limiter import rate_limit
 from frappe.utils import flt, getdate, validate_phone_number
 
@@ -96,6 +97,7 @@ def get_form_options() -> dict:
 SEARCH_LIMIT = 20
 
 MIN_SEARCH_LENGTH = 2
+FOLLOW_UP_SETTING_STATES = ("Awaiting Medicine", "Completed")
 
 
 @frappe.whitelist()
@@ -125,8 +127,10 @@ def search_patient(query: str) -> dict:
 	capped = len(results) > SEARCH_LIMIT
 	results = results[:SEARCH_LIMIT]
 
+	follow_up_dates = find_follow_up_dates([row.name for row in results])
 	for row in results:
 		row["age"] = compact_age(row.dob)
+		row["follow_up_date"] = follow_up_dates.get(row.name)
 
 	# The search reads the whole patient master by design (a CAD legitimately meets patients
 	# registered at another site), so the term is recorded rather than the search being narrowed.
@@ -136,6 +140,33 @@ def search_patient(query: str) -> dict:
 	make_access_log(doctype="Patient", method="CAD Patient Search", filters=query)
 
 	return {"results": results, "capped": capped}
+
+
+def find_follow_up_dates(patients: list) -> dict:
+	if not patients:
+		return {}
+
+	encounter = frappe.qb.DocType("Patient Encounter")
+	decided_visits = (
+		(encounter.patient.isin(patients))
+		& (encounter.docstatus < 2)
+		& (encounter.custom_workflow_state.isin(FOLLOW_UP_SETTING_STATES))
+	)
+	latest = (
+		frappe.qb.from_(encounter)
+		.select(encounter.patient, Max(encounter.creation).as_("creation"))
+		.where(decided_visits)
+		.groupby(encounter.patient)
+	)
+	visits = (
+		frappe.qb.from_(encounter)
+		.join(latest)
+		.on((latest.patient == encounter.patient) & (latest.creation == encounter.creation))
+		.select(encounter.patient, encounter.custom_follow_up_date)
+		.where(decided_visits & encounter.custom_follow_up_date.isnotnull())
+	).run(as_dict=True)
+
+	return {visit.patient: visit.custom_follow_up_date for visit in visits}
 
 
 @frappe.whitelist()

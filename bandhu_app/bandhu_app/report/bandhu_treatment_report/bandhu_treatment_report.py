@@ -29,6 +29,7 @@ VISIT_FIELDS = [
 	"encounter_date",
 	"practitioner_name",
 	"custom_workflow_state",
+	"custom_follow_up_date",
 	*(fieldname for fieldname, label in VITALS),
 	*(fieldname for fieldname, label in NOTES),
 ]
@@ -229,6 +230,12 @@ def describe_visit(patient, visit) -> str:
 		for fieldname, label in NOTES
 		if visit.get(fieldname)
 	)
+	if visit.custom_follow_up_date:
+		lines.append(
+			"<b>{0}:</b> {1}".format(
+				escape_html(_("Follow-up Date")), escape_html(formatdate(visit.custom_follow_up_date))
+			)
+		)
 	return "<br>".join(lines)
 
 

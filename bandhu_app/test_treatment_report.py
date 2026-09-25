@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import add_days, nowtime, today
+from frappe.utils import add_days, formatdate, nowtime, today
 
 from bandhu_app.bandhu_app.report.bandhu_treatment_report.bandhu_treatment_report import execute
 from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
@@ -169,6 +169,12 @@ class IntegrationTestTreatmentReport(IntegrationTestCase):
 		self.make_visit(custom_bandhu_diagnosis=[{"diagnosis_name": "Fever"}])
 
 		self.assertEqual([row["item"] for row in self.run_report()[1]], ["Fever"])
+
+	def test_summary_shows_the_follow_up_date(self):
+		follow_up = add_days(today(), 10)
+		self.make_visit(custom_follow_up_date=follow_up)
+
+		self.assertIn(f"Follow-up Date:</b> {formatdate(follow_up)}", self.run_report()[2])
 
 	def test_chosen_visit_must_belong_to_the_patient(self):
 		someone_else = self.make_visit(patient=self.make_patient())
