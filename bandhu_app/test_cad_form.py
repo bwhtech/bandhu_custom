@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import getdate, today
+from frappe.utils import add_days, getdate, nowtime, today
 
 from bandhu_app.bandhu_app.page.cad_form import cad_form
 from bandhu_app.bandhu_app.page.cad_form.cad_form import (
@@ -29,6 +29,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		super().setUpClass()
 
 		baseline = ensure_baseline_fixtures()
+		cls.appointment_type = baseline["appointment_type"]
 		cls.clinic = baseline["clinic"]
 		cls.site = baseline["site"]
 		cls.unit = baseline["unit"]
@@ -789,3 +790,55 @@ class IntegrationTestCadForm(IntegrationTestCase):
 
 		self.assertIsNone(match)
 		self.assertEqual(frappe.db.count("Access Log", log_filters), rows_before)
+
+	def make_visit(self, patient, days_ago, workflow_state="Completed", follow_up_date=None):
+		return frappe.get_doc(
+			{
+				"doctype": "Patient Encounter",
+				"patient": patient,
+				"practitioner": self.doctor_practitioner,
+				"encounter_date": add_days(today(), -days_ago),
+				"encounter_time": nowtime(),
+				"appointment_type": self.appointment_type,
+				"custom_clinic_session": self.session,
+				"custom_workflow_state": workflow_state,
+				"custom_follow_up_date": follow_up_date,
+			}
+		).insert(ignore_permissions=True)
+
+	def search_row(self, patient):
+		frappe.set_user(self.cad_user)
+		try:
+			results = search_patient(patient.patient_name)
+		finally:
+			frappe.set_user("Administrator")
+		return next(row for row in results["results"] if row["name"] == patient.name)
+
+	def test_search_shows_the_follow_up_date_from_the_last_visit(self):
+		patient = self._make_patient(f"Zfollowup {frappe.generate_hash(length=6)}")
+		self.make_visit(patient.name, 14, follow_up_date=today())
+
+		self.assertEqual(str(self.search_row(patient)["follow_up_date"]), today())
+
+	def test_a_later_visit_replaces_an_older_follow_up_date(self):
+		patient = self._make_patient(f"Zfollowup {frappe.generate_hash(length=6)}")
+		self.make_visit(patient.name, 20, follow_up_date=add_days(today(), -6))
+		self.make_visit(patient.name, 5)
+
+		self.assertIsNone(self.search_row(patient)["follow_up_date"])
+
+	def test_a_cancelled_visit_does_not_hide_the_follow_up_date(self):
+		patient = self._make_patient(f"Zfollowup {frappe.generate_hash(length=6)}")
+		follow_up = add_days(today(), -1)
+		self.make_visit(patient.name, 14, follow_up_date=follow_up)
+		self.make_visit(patient.name, 0, workflow_state="Cancelled")
+
+		self.assertEqual(str(self.search_row(patient)["follow_up_date"]), follow_up)
+
+	def test_a_visit_still_open_does_not_hide_the_follow_up_date(self):
+		patient = self._make_patient(f"Zfollowup {frappe.generate_hash(length=6)}")
+		follow_up = add_days(today(), -2)
+		self.make_visit(patient.name, 14, follow_up_date=follow_up)
+		self.make_visit(patient.name, 3, workflow_state="Waiting for Doctor")
+
+		self.assertEqual(str(self.search_row(patient)["follow_up_date"]), follow_up)
