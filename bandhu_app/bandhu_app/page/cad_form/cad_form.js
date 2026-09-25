@@ -195,30 +195,11 @@ function focus_scan_input(page) {
 async function print_patient_card(patient) {
 	if (!patient) return;
 
-	frappe.dom.freeze();
-	let card_html;
-	try {
-		const response = await frappe.call({
-			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_patient_card_html",
-			args: { patient },
-		});
-		card_html = response.message;
-	} finally {
-		frappe.dom.unfreeze();
-	}
-
-	if (!card_html) return;
-
-	const card_window = window.open("", "_blank");
-	if (!card_window) {
-		frappe.msgprint(__("Allow pop-ups for this site to print the patient card."));
-		return;
-	}
-
-	card_window.document.write(card_html);
-	card_window.document.close();
-	card_window.focus();
-	card_window.print();
+	await bandhu.session_ui.print_from_endpoint(
+		"bandhu_app.bandhu_app.page.cad_form.cad_form.get_patient_card_html",
+		{ patient },
+		__("Allow pop-ups for this site to print the patient card.")
+	);
 }
 
 function renderSearchSection() {

@@ -9,6 +9,7 @@ from bandhu_app.bandhu_app.page.nurse_form.nurse_form import (
 	dispense_medicine,
 	end_session,
 	get_patient_registration_details,
+	get_prescription_html,
 	get_session_progress,
 	record_vitals,
 	start_session,
@@ -521,3 +522,77 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 			"Awaiting Medicine",
 		)
 		self.assertFalse(frappe.db.get_value("Prescription", prescription_row, "dispensed"))
+
+	def test_prescription_print_lists_each_medicine_with_its_dose(self):
+		encounter = self._make_encounter(
+			self.session,
+			"Awaiting Medicine",
+			prescriptions=[
+				{
+					"medicines": self.item,
+					"dosage_frequency": "BD",
+					"duration_days": 3,
+					"quantity": 6,
+					"instructions": "After food & water",
+				}
+			],
+		)
+		item_name = frappe.db.get_value("Item", self.item, "item_name")
+
+		frappe.set_user(self.nurse_user)
+		try:
+			with self.change_settings("Print Settings", {"allow_print_for_draft": 1}):
+				html = get_prescription_html(encounter.name)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertIn(item_name, html)
+		self.assertIn("Twice a day", html)
+		self.assertIn("After food &amp; water", html)
+		self.assertIn(frappe.db.get_value("Patient", encounter.patient, "patient_name"), html)
+		self.assertTrue(
+			frappe.db.exists(
+				"Access Log",
+				{
+					"reference_document": encounter.name,
+					"method": "Nurse Prescription Print",
+					"user": self.nurse_user,
+				},
+			)
+		)
+
+	def test_prescription_print_is_refused_to_a_nurse_from_another_session(self):
+		encounter = self._make_encounter(
+			self.other_session,
+			"Awaiting Medicine",
+			practitioner=self.other_practitioner,
+			prescriptions=[{"medicines": self.item, "dosage_frequency": "OD", "quantity": 5}],
+		)
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(frappe.PermissionError, get_prescription_html, encounter.name)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_prescription_print_is_refused_for_a_cancelled_visit(self):
+		encounter = self._make_encounter(
+			self.session,
+			"Cancelled",
+			prescriptions=[{"medicines": self.item, "dosage_frequency": "OD", "quantity": 5}],
+		)
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(frappe.ValidationError, get_prescription_html, encounter.name)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_prescription_print_is_refused_when_nothing_is_prescribed(self):
+		encounter = self._make_encounter(self.session, "Completed")
+
+		frappe.set_user(self.nurse_user)
+		try:
+			self.assertRaises(frappe.DoesNotExistError, get_prescription_html, encounter.name)
+		finally:
+			frappe.set_user("Administrator")

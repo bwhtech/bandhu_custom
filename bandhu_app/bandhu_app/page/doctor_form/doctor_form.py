@@ -1,11 +1,11 @@
 import frappe
 from frappe import _
-from frappe.core.doctype.access_log.access_log import make_access_log
 from frappe.utils import flt
 
 from bandhu_app.bandhu_app.utils.clinic_test import get_enabled_tests
 from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
 from bandhu_app.bandhu_app.utils.patient_details import get_patient_details, get_session_encounters
+from bandhu_app.bandhu_app.utils.printing import render_print
 from bandhu_app.bandhu_app.utils.realtime import publish_board_update
 from bandhu_app.bandhu_app.utils.session import find_active_session, find_upcoming_sessions
 
@@ -434,15 +434,4 @@ def get_referral_letter_html(encounter: str) -> str:
 	if not referral:
 		frappe.throw(_("This patient has no referral on record."), frappe.DoesNotExistError)
 
-	make_access_log(doctype="Referral", document=referral, method="Doctor Referral Letter")
-
-	frappe.flags.ignore_print_permissions = True
-	try:
-		return frappe.get_print(
-			"Referral",
-			referral,
-			print_format=REFERRAL_LETTER_PRINT_FORMAT,
-			no_letterhead=True,
-		)
-	finally:
-		frappe.flags.ignore_print_permissions = False
+	return render_print("Referral", referral, REFERRAL_LETTER_PRINT_FORMAT, "Doctor Referral Letter")

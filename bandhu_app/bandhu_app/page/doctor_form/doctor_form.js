@@ -576,30 +576,11 @@ async function print_referral_letter(encounter) {
 async function print_through_endpoint(method, encounter, popup_blocked_message) {
 	if (!encounter) return;
 
-	frappe.dom.freeze();
-	let printable_html;
-	try {
-		const response = await frappe.call({
-			method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form." + method,
-			args: { encounter },
-		});
-		printable_html = response.message;
-	} finally {
-		frappe.dom.unfreeze();
-	}
-
-	if (!printable_html) return;
-
-	const print_window = window.open("", "_blank");
-	if (!print_window) {
-		frappe.msgprint(popup_blocked_message);
-		return;
-	}
-
-	print_window.document.write(printable_html);
-	print_window.document.close();
-	print_window.focus();
-	print_window.print();
+	await bandhu.session_ui.print_from_endpoint(
+		"bandhu_app.bandhu_app.page.doctor_form.doctor_form." + method,
+		{ encounter },
+		popup_blocked_message
+	);
 }
 
 function formatTestLine(tests) {
