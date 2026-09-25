@@ -1,7 +1,7 @@
 import frappe
 from frappe import _
 from frappe.core.doctype.access_log.access_log import make_access_log
-from frappe.utils import flt, getdate
+from frappe.utils import flt
 
 from bandhu_app.bandhu_app.utils.clinic_test import get_enabled_tests
 from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
@@ -257,8 +257,8 @@ def apply_follow_up_date(doc, follow_up_date: str | None) -> None:
 	if not follow_up_date:
 		return
 
-	follow_up_date = getdate(follow_up_date)
-	if not follow_up_date or follow_up_date <= getdate(doc.encounter_date):
+	follow_up_date = frappe.utils.getdate(follow_up_date)
+	if not follow_up_date or follow_up_date <= frappe.utils.getdate(doc.encounter_date):
 		frappe.throw(_("The follow-up date must be after the visit date."))
 	doc.custom_follow_up_date = follow_up_date
 

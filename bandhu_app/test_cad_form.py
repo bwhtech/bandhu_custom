@@ -29,11 +29,11 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		super().setUpClass()
 
 		baseline = ensure_baseline_fixtures()
+		cls.appointment_type = baseline["appointment_type"]
 		cls.clinic = baseline["clinic"]
 		cls.site = baseline["site"]
 		cls.unit = baseline["unit"]
 		cls.project = baseline["project"]
-		cls.appointment_type = baseline["appointment_type"]
 		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
 
 		cls.cad_practitioner = cls._make_practitioner("Test CAD Alpha", "Clinic Assistant cum Driver")
