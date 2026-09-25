@@ -5,7 +5,11 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import now_datetime
 
-from bandhu_app.bandhu_app.utils.custom_bandhu_id import UNKNOWN_LSG_CODE, UNKNOWN_UNIT_CODE
+from bandhu_app.bandhu_app.utils.custom_bandhu_id import (
+	UNKNOWN_LSG_CODE,
+	UNKNOWN_UNIT_CODE,
+	group_clinic_id,
+)
 
 
 class IntegrationTestCustomBandhuId(IntegrationTestCase):
@@ -99,3 +103,11 @@ class IntegrationTestCustomBandhuId(IntegrationTestCase):
 		qr_url = frappe.db.get_value("Patient", patient.name, "custom_qr_code")
 		self.assertTrue(qr_url)
 		self.assertIn(patient.custom_bandhu_id, qr_url)
+
+	def test_clinic_id_is_grouped_as_lsg_unit_year_serial(self):
+		self.assertEqual(group_clinic_id("0112600002"), "01 1 26 00002")
+
+	def test_ids_that_are_not_ten_digits_print_as_issued(self):
+		self.assertEqual(group_clinic_id("BMC-00121"), "BMC-00121")
+		self.assertEqual(group_clinic_id("01126000021"), "01126000021")
+		self.assertEqual(group_clinic_id(None), "")

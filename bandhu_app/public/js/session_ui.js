@@ -485,6 +485,30 @@ frappe.provide("bandhu.session_ui");
 		dialog.show();
 	}
 
+	async function print_from_endpoint(method, args, popup_blocked_message) {
+		frappe.dom.freeze();
+		let printable_html;
+		try {
+			const response = await frappe.call({ method, args });
+			printable_html = response.message;
+		} finally {
+			frappe.dom.unfreeze();
+		}
+
+		if (!printable_html) return;
+
+		const print_window = window.open("", "_blank");
+		if (!print_window) {
+			frappe.msgprint(popup_blocked_message);
+			return;
+		}
+
+		print_window.document.write(printable_html);
+		print_window.document.close();
+		print_window.focus();
+		print_window.print();
+	}
+
 	function format_action_button(button_class, encounter_name, action, label, is_primary) {
 		return (
 			'<button type="button" class="btn btn-sm ' +
@@ -533,6 +557,7 @@ frappe.provide("bandhu.session_ui");
 		format_badge,
 		format_patient_details,
 		open_patient_details_dialog,
+		print_from_endpoint,
 		format_action_button,
 		group_clinic_id,
 	});

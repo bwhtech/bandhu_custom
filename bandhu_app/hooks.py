@@ -82,7 +82,13 @@ doctype_js = {"Patient": "public/js/patient.js"}
 # ----------
 
 # add methods and filters to jinja environment
-jinja = {"methods": ["bandhu_app.bandhu_app.utils.custom_qr_code.get_qr_code_image_source"]}
+jinja = {
+	"methods": [
+		"bandhu_app.bandhu_app.utils.custom_qr_code.get_qr_code_image_source",
+		"bandhu_app.bandhu_app.utils.patient.compact_age",
+		"bandhu_app.bandhu_app.utils.custom_bandhu_id.group_clinic_id",
+	]
+}
 
 # Installation
 # ------------
