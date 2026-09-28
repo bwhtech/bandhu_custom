@@ -4,6 +4,7 @@ ALLOWED_ROLES = ["Administrator"]
 
 DESK_ICON_IMAGE_BY_WORKSPACE = {
 	"CAD": "/assets/bandhu_app/images/desk_icons/cad.svg",
+	"Pharmacist": "/assets/bandhu_app/images/desk_icons/pharmacist.svg",
 	"Doctor": "/assets/bandhu_app/images/desk_icons/doctor.svg",
 	"Nurse": "/assets/bandhu_app/images/desk_icons/nurse.svg",
 	"Admin": "/assets/bandhu_app/images/desk_icons/admin.svg",
@@ -11,12 +12,14 @@ DESK_ICON_IMAGE_BY_WORKSPACE = {
 
 
 def restrict_other_app_desktop_icons():
-	bandhu_workspaces = frappe.get_all("Workspace", filters={"module": "Bandhu App"}, pluck="name")
+	bandhu_workspaces = frappe.get_all(
+		"Workspace", filters={"module": ["in", frappe.get_module_list("bandhu_app")]}, pluck="name"
+	)
 	foreign_icons = frappe.get_all(
 		"Desktop Icon",
 		filters={
 			"parent_icon": ["in", ["", None]],
-			"link_to": ["not in", bandhu_workspaces or [""]],
+			"link_to": ["not in", bandhu_workspaces],
 		},
 		pluck="name",
 	)
@@ -44,7 +47,9 @@ def sync_bandhu_desktop_icons():
 		frappe.delete_doc("Desktop Icon", stale_app_tile, ignore_permissions=True)
 
 	workspaces = frappe.get_all(
-		"Workspace", filters={"module": "Bandhu App", "public": 1}, fields=["name", "icon"]
+		"Workspace",
+		filters={"module": ["in", frappe.get_module_list("bandhu_app")], "public": 1},
+		fields=["name", "icon"],
 	)
 	any_icon_changed = False
 	for workspace in workspaces:
