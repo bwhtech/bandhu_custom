@@ -85,9 +85,17 @@ def get_form_options() -> dict:
 	major_sectors = frappe.get_all(
 		"Sectors", filters={"is_major_sector": 1}, fields=["name"], order_by="name asc", pluck="name"
 	)
+	major_occupations = frappe.get_all(
+		"Occupation", filters={"is_major_occupation": 1}, order_by="name asc", pluck="name"
+	)
+	other_occupations = frappe.get_all(
+		"Occupation", filters={"is_major_occupation": 0}, order_by="name asc", pluck="name"
+	)
 	return {
 		"major_states": major_states,
 		"other_states": other_states,
+		"major_occupations": major_occupations,
+		"other_occupations": other_occupations,
 		"major_sectors": major_sectors,
 		"quick_countries": QUICK_COUNTRIES,
 	}
@@ -257,6 +265,7 @@ def register_patient(
 	native_state: str | None = None,
 	native_district: str | None = None,
 	occupation: str | None = None,
+	sector: str | None = None,
 	specify_sector: str | None = None,
 	company_name: str | None = None,
 	abha_id: str | None = None,
@@ -315,7 +324,8 @@ def register_patient(
 		"custom_specify_native_country": specify_native_country or None,
 		"custom_native_state": native_state or None,
 		"custom_native_district": native_district or None,
-		"custom_sector_of_employment": occupation or None,
+		"custom_occupation": occupation or None,
+		"custom_sector_of_employment": sector or None,
 		"custom_specify_employment_sector": specify_sector or None,
 		"custom_name_of_company": company_name or None,
 		"custom_abha_id": abha_id or None,

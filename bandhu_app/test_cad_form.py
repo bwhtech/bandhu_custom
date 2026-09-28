@@ -208,7 +208,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 				dob="1990-05-15",
 				sex=self.gender,
 				native_country="Nepal",
-				occupation="Other",
+				sector="Other",
 				specify_sector="Street vendor",
 				session=self.session,
 			)
