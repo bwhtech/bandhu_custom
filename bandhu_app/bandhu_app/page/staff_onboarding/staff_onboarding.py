@@ -4,19 +4,9 @@ import frappe
 from frappe import _
 from frappe.utils import validate_email_address, validate_phone_number
 
+from bandhu_app.bandhu_app.doctype.bandhu_settings.bandhu_settings import get_offered_genders
+
 PROVISIONABLE_ROLES = ["Doctor", "Nurse", "Clinic Assistant cum Driver"]
-
-OFFERED_GENDERS = ["Male", "Female", "Other"]
-
-
-def seed_default_genders() -> None:
-	existing = set(frappe.get_all("Gender", pluck="name"))
-
-	for gender in OFFERED_GENDERS:
-		if gender in existing:
-			continue
-
-		frappe.get_doc({"doctype": "Gender", "gender": gender}).insert(ignore_permissions=True)
 
 
 def require_system_manager() -> None:
@@ -30,11 +20,7 @@ def require_system_manager() -> None:
 @frappe.whitelist()
 def get_form_options() -> dict:
 	require_system_manager()
-	# Offer only what the master actually holds, so the form can never post a value that
-	# fails Link validation on save.
-	existing = set(frappe.get_all("Gender", pluck="name"))
-	genders = [gender for gender in OFFERED_GENDERS if gender in existing]
-	return {"roles": PROVISIONABLE_ROLES, "genders": genders}
+	return {"roles": PROVISIONABLE_ROLES, "genders": get_offered_genders()}
 
 
 @frappe.whitelist(methods=["POST"])
@@ -60,6 +46,8 @@ def provision_staff_member(
 	if not email:
 		frappe.throw(_("Email is required."))
 	validate_email_address(email, throw=True)
+	if gender and gender not in get_offered_genders():
+		frappe.throw(_("{0} is not one of the genders offered in Bandhu Settings.").format(gender))
 	if role not in PROVISIONABLE_ROLES:
 		frappe.throw(_("{0} is not a role this tool can provision.").format(role))
 	if frappe.db.exists("User", email):
