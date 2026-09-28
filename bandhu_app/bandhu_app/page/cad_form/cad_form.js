@@ -6,6 +6,7 @@ let cadSession = null;
 let cadPage = null;
 let formOptions = { major_states: [], other_states: [], major_sectors: [] };
 let log_book_save_pending = false;
+let log_book_menu_item = null;
 
 const QUICK_COUNTRIES = ["India", "Nepal"];
 
@@ -71,7 +72,7 @@ async function loadDashboard(page) {
 	}
 
 	const data = statusResult.message || {};
-	set_log_book_menu(page, data.has_session ? data.status : null);
+	set_log_book_menu(data.has_session ? data.status : null);
 
 	if (!data.has_session) {
 		renderNoSession(page, data);
@@ -1077,13 +1078,8 @@ function format_stage_badge(stage) {
 	return bandhu.session_ui.format_badge(__(stage), badge.theme, badge.variant);
 }
 
-function set_log_book_menu(page, status) {
-	if (LOG_BOOK_OPEN_STATUSES.includes(status)) {
-		page.add_menu_item(__("Log Book"), open_log_book_dialog);
-		return;
-	}
-	page.clear_menu();
-	page.hide_menu();
+function set_log_book_menu(status) {
+	log_book_menu_item.parent().toggleClass("hide", !LOG_BOOK_OPEN_STATUSES.includes(status));
 }
 
 async function open_log_book_dialog() {
@@ -1159,6 +1155,16 @@ frappe.pages["cad-form"].on_page_load = function (wrapper) {
 		() => frappe.set_route("my-schedule"),
 		"calendar"
 	);
+	log_book_menu_item = page.add_custom_menu_item(
+		page.menu,
+		__("Log Book"),
+		open_log_book_dialog,
+		false,
+		null,
+		"book-open"
+	);
+	page.add_custom_menu_item(page.menu, __("Refresh"), refresh_board, false, null, "refresh");
+	set_log_book_menu(null);
 
 	cadPage = page;
 };
@@ -1168,7 +1174,6 @@ frappe.pages["cad-form"].on_page_load = function (wrapper) {
 // when the front desk is already up -- a full re-render would wipe a half-typed registration.
 async function refresh_board() {
 	await frappe.require(SESSION_UI_ASSET);
-	bandhu.session_ui.add_refresh_icon(cadPage, refresh_board);
 	const load = cadPage.main.find(".cad-queue-body").length ? loadQueue : loadDashboard;
 	await bandhu.session_ui.refresh_page(cadPage, load);
 	bandhu.session_ui.subscribe_to_board_updates(
