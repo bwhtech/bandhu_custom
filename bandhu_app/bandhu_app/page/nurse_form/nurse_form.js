@@ -5,6 +5,17 @@ const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
 let nurseSession = null;
 let encountersByName = {};
 let nursePage = null;
+let intervention_options = null;
+
+const VITAL_FIELDS = [
+	"height_cm",
+	"weight_kg",
+	"temperature",
+	"pulse_rate",
+	"spo2",
+	"bp_systolic",
+	"bp_diastolic",
+];
 
 async function loadDashboard(page) {
 	bandhu.session_ui.freeze();
@@ -163,15 +174,15 @@ async function loadQueues(page) {
 		frappe.set_route("Form", "Patient Encounter", $(this).data("name"));
 	});
 
-	page.main.on("click", ".nurse-action-btn", function (event) {
+	page.main.on("click", ".nurse-action-btn", async function (event) {
 		event.stopPropagation();
 		const encounter = $(this).data("encounter");
 		const action = $(this).data("action");
-		dispatchNurseAction(page, encounter, action);
+		await dispatch_nurse_action(page, encounter, action);
 	});
 }
 
-function dispatchNurseAction(page, encounter, action) {
+async function dispatch_nurse_action(page, encounter, action) {
 	switch (action) {
 		case "details":
 			bandhu.session_ui.open_patient_details_dialog(
@@ -187,7 +198,7 @@ function dispatchNurseAction(page, encounter, action) {
 			openDispenseDialog(page, encounter);
 			break;
 		case "vitals":
-			open_vitals_dialog(page, encounter);
+			await open_vitals_dialog(page, encounter);
 			break;
 	}
 }
@@ -384,8 +395,22 @@ function openDispenseDialog(page, encounter) {
 	dialog.show();
 }
 
-function open_vitals_dialog(page, encounter) {
+async function get_intervention_options() {
+	if (!intervention_options) {
+		const response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_intervention_options",
+		});
+		intervention_options = response.message || [];
+	}
+	return intervention_options;
+}
+
+async function open_vitals_dialog(page, encounter) {
 	const row = encountersByName[encounter] || {};
+	const interventions = await get_intervention_options();
+	const recorded_interventions = (row.interventions || []).map(
+		(recorded) => recorded.intervention
+	);
 	const [bpSystolic, bpDiastolic] = (row.custom_blood_pressure || "").split("/");
 
 	const dialog = new frappe.ui.Dialog({
@@ -436,20 +461,33 @@ function open_vitals_dialog(page, encounter) {
 				label: __("BP Diastolic"),
 				default: bpDiastolic || null,
 			},
+			...(interventions.length
+				? [
+						{ fieldtype: "Section Break" },
+						{
+							fieldtype: "MultiCheck",
+							fieldname: "other_interventions",
+							label: __("Other Interventions"),
+							options: interventions.map((intervention) => ({
+								label: intervention,
+								value: intervention,
+								checked: recorded_interventions.includes(intervention),
+							})),
+							columns: 2,
+						},
+				  ]
+				: []),
 		],
 		primary_action_label: __("Save Vitals"),
 		primary_action: async (values) => {
 			dialog.hide();
-			await submitNurseAction(page, "record_vitals", {
-				encounter,
-				height_cm: values.height_cm || null,
-				weight_kg: values.weight_kg || null,
-				temperature: values.temperature || null,
-				pulse_rate: values.pulse_rate || null,
-				spo2: values.spo2 || null,
-				bp_systolic: values.bp_systolic || null,
-				bp_diastolic: values.bp_diastolic || null,
-			});
+			const args = { encounter };
+			for (const fieldname of VITAL_FIELDS) {
+				if (values[fieldname]) args[fieldname] = values[fieldname];
+			}
+			if (interventions.length) args.other_interventions = values.other_interventions || [];
+
+			await submitNurseAction(page, "record_vitals", args);
 		},
 	});
 	dialog.show();

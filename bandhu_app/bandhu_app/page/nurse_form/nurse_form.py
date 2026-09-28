@@ -12,16 +12,21 @@ from bandhu_app.bandhu_app.utils.session import (
 )
 
 
-def require_session_access(session_name: str) -> None:
-	user = frappe.session.user
-	roles = frappe.get_roles(user)
-	if "System Manager" in roles:
-		return
-	if "Nurse" not in roles:
+def require_nurse_access() -> None:
+	roles = frappe.get_roles()
+	if "Nurse" not in roles and "System Manager" not in roles:
 		frappe.throw(
-			_("You do not have permission to access this clinic session."),
+			_("You do not have permission to access this page."),
 			frappe.PermissionError,
 		)
+
+
+def require_session_access(session_name: str) -> None:
+	user = frappe.session.user
+	require_nurse_access()
+	if "System Manager" in frappe.get_roles(user):
+		return
+
 	practitioner = frappe.db.get_value("Healthcare Practitioner", {"user_id": user}, "name")
 	if not practitioner:
 		frappe.throw(
@@ -34,6 +39,18 @@ def require_session_access(session_name: str) -> None:
 			_("You are not assigned to this clinic session."),
 			frappe.PermissionError,
 		)
+
+
+INTERVENTION_LIST_LIMIT = 500
+
+
+@frappe.whitelist()
+def get_intervention_options() -> list:
+	require_nurse_access()
+
+	return frappe.get_list(
+		"Other Intervention", order_by="name asc", limit=INTERVENTION_LIST_LIMIT, pluck="name"
+	)
 
 
 def get_nurse_practitioner():
@@ -235,6 +252,7 @@ def record_vitals(
 	spo2: int | None = None,
 	bp_systolic: int | None = None,
 	bp_diastolic: int | None = None,
+	other_interventions: list | str | None = None,
 ) -> None:
 	doc = load_session_encounter(encounter)
 	require_running_session(doc.custom_clinic_session)
@@ -250,8 +268,12 @@ def record_vitals(
 		(_("BP systolic"), bp_systolic, 50, 300),
 		(_("BP diastolic"), bp_diastolic, 30, 200),
 	]
-	if not any(value is not None for _label, value, _low, _high in measurements):
-		frappe.throw(_("Enter at least one vital sign."))
+	interventions = frappe.parse_json(other_interventions) if other_interventions is not None else None
+	if interventions is not None and not isinstance(interventions, list):
+		frappe.throw(_("Send the ticked options as a list."))
+
+	if not interventions and not any(value is not None for _label, value, _low, _high in measurements):
+		frappe.throw(_("Enter at least one vital sign or tick an intervention."))
 
 	for label, value, low, high in measurements:
 		if value is None:
@@ -284,6 +306,9 @@ def record_vitals(
 	if doc.custom_height and doc.custom_weight:
 		height_m = flt(doc.custom_height) / 100
 		doc.custom_bmi = round(flt(doc.custom_weight) / (height_m * height_m), 2)
+
+	if interventions is not None:
+		doc.set("custom_other_interventions", [{"intervention": value} for value in interventions])
 
 	doc.save(ignore_permissions=True)
 
