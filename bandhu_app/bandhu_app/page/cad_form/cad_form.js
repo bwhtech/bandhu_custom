@@ -11,6 +11,8 @@ const QUICK_COUNTRIES = ["India", "Nepal"];
 
 const MAX_PLAUSIBLE_AGE = 120;
 
+const LOG_BOOK_OPEN_STATUSES = ["Planned", "In Progress"];
+
 const MIN_SEARCH_LENGTH = 2;
 
 const NAME_FIELD = {
@@ -69,6 +71,7 @@ async function loadDashboard(page) {
 	}
 
 	const data = statusResult.message || {};
+	set_log_book_menu(page, data.has_session ? data.status : null);
 
 	if (!data.has_session) {
 		renderNoSession(page, data);
@@ -83,7 +86,7 @@ async function loadDashboard(page) {
 	}
 
 	if (data.status === "Planned") {
-		await render_waiting_for_nurse(page, data);
+		render_waiting_for_nurse(page, data);
 		return;
 	}
 
@@ -111,12 +114,11 @@ function renderNoSession(page, data) {
 	);
 }
 
-async function render_waiting_for_nurse(page, data) {
+function render_waiting_for_nurse(page, data) {
 	page.main.html(
 		'<div class="cad-dash">' +
 			bandhu.session_ui.format_welcome() +
 			bandhu.session_ui.format_session_info(data) +
-			render_log_book_section() +
 			'<div class="empty-state">' +
 			frappe.utils.icon("hourglass", "xl", "", "", "current-color empty-state-icon") +
 			'<span class="empty-state-text">' +
@@ -125,7 +127,6 @@ async function render_waiting_for_nurse(page, data) {
 			) +
 			"</span></div></div>"
 	);
-	await load_log_book(page);
 }
 
 function render_completed(page, data) {
@@ -178,7 +179,6 @@ async function renderFrontDesk(page, data) {
 		"</tr></thead>" +
 		'<tbody class="cad-queue-body"></tbody>' +
 		"</table></div></div>" +
-		render_log_book_section() +
 		"</div>";
 
 	page.main.html(html);
@@ -186,7 +186,6 @@ async function renderFrontDesk(page, data) {
 	bindRegisterEvents(page);
 	await loadQueue(page);
 	focus_scan_input(page);
-	await load_log_book(page);
 }
 
 // A USB barcode scanner is a keyboard: it types the Clinic ID and presses Enter. That only
@@ -1078,78 +1077,57 @@ function format_stage_badge(stage) {
 	return bandhu.session_ui.format_badge(__(stage), badge.theme, badge.variant);
 }
 
-function render_log_book_section() {
-	return '<div class="cad-log-book-section"></div>';
+function set_log_book_menu(page, status) {
+	if (LOG_BOOK_OPEN_STATUSES.includes(status)) {
+		page.add_menu_item(__("Log Book"), open_log_book_dialog);
+		return;
+	}
+	page.clear_menu();
+	page.hide_menu();
 }
 
-async function load_log_book(page) {
+async function open_log_book_dialog() {
+	const session_name = cadSession.session_name;
 	const response = await frappe.call({
 		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_log_book",
-		args: { session: cadSession.session_name },
+		args: { session: session_name },
 	});
-	if (!response.message) return;
-	render_log_book(page, response.message);
+	const log_book = response.message || {};
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Log Book"),
+		fields: [
+			{
+				fieldname: "departure_time",
+				fieldtype: "Time",
+				label: __("Departure Time"),
+				default: log_book.departure_time,
+			},
+			{
+				fieldname: "arrival_time",
+				fieldtype: "Time",
+				label: __("Arrival Time"),
+				default: log_book.arrival_time,
+			},
+			{
+				fieldname: "distance_travelled_km",
+				fieldtype: "Float",
+				label: __("Distance Travelled (km)"),
+				precision: 1,
+				non_negative: 1,
+				default: log_book.distance_travelled_km,
+			},
+		],
+		primary_action_label: __("Save"),
+		primary_action: (values) => save_log_book(dialog, session_name, values),
+	});
+	dialog.show();
 }
 
-function time_input_value(value) {
-	if (!value) return "";
-	const [hours, minutes] = String(value).split(":");
-	return hours.padStart(2, "0") + ":" + (minutes || "00").padStart(2, "0");
-}
-
-function render_log_book_field(label, input) {
-	return '<label class="log-book-field">' + label + input + "</label>";
-}
-
-function render_log_book(page, log_book) {
-	page.main
-		.find(".cad-log-book-section")
-		.html(
-			'<h4 class="queue-head">' +
-				__("Log Book") +
-				"</h4>" +
-				'<div class="log-book-row">' +
-				render_log_book_field(
-					__("Departure Time"),
-					'<input type="time" class="form-control log-book-departure" value="' +
-						time_input_value(log_book.departure_time) +
-						'">'
-				) +
-				render_log_book_field(
-					__("Arrival Time"),
-					'<input type="time" class="form-control log-book-arrival" value="' +
-						time_input_value(log_book.arrival_time) +
-						'">'
-				) +
-				render_log_book_field(
-					__("Distance Travelled (km)"),
-					'<input type="number" min="0" step="0.1" inputmode="decimal" class="form-control log-book-distance" value="' +
-						frappe.utils.escape_html(log_book.distance_travelled_km || "") +
-						'">'
-				) +
-				'<button class="btn btn-default log-book-save">' +
-				__("Save") +
-				"</button>" +
-				"</div>"
-		);
-
-	page.main
-		.off("click", ".log-book-save")
-		.on("click", ".log-book-save", () => save_log_book(page));
-}
-
-async function save_log_book(page) {
+async function save_log_book(dialog, session_name, values) {
 	if (log_book_save_pending) return;
 
-	const args = { session: cadSession.session_name };
-	const departure_time = page.main.find(".log-book-departure").val();
-	const arrival_time = page.main.find(".log-book-arrival").val();
-	const distance_travelled_km = page.main.find(".log-book-distance").val();
-	if (departure_time) args.departure_time = departure_time;
-	if (arrival_time) args.arrival_time = arrival_time;
-	if (distance_travelled_km !== "") args.distance_travelled_km = flt(distance_travelled_km);
-
-	if (Object.keys(args).length === 1) {
+	if (!Object.keys(values).length) {
 		frappe.show_alert({ message: __("Fill in the log book first."), indicator: "orange" });
 		return;
 	}
@@ -1159,13 +1137,13 @@ async function save_log_book(page) {
 	try {
 		response = await frappe.call({
 			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.save_log_book",
-			args,
+			args: { session: session_name, ...values },
 		});
 	} finally {
 		log_book_save_pending = false;
 	}
 	if (!response.message) return;
-	render_log_book(page, response.message);
+	dialog.hide();
 	frappe.show_alert({ message: __("Log book saved"), indicator: "green" });
 }
 
