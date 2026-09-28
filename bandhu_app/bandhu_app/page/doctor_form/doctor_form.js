@@ -257,6 +257,25 @@ function history_fields(encounter) {
 	];
 }
 
+function follow_up_date_field() {
+	return {
+		fieldtype: "Date",
+		fieldname: "follow_up_date",
+		label: __("Follow-up Date (optional)"),
+		min_date: frappe.datetime.str_to_obj(
+			frappe.datetime.add_days(frappe.datetime.get_today(), 1)
+		),
+	};
+}
+
+function follow_up_date_is_too_early(values) {
+	if (!values.follow_up_date || values.follow_up_date > frappe.datetime.get_today())
+		return false;
+
+	frappe.msgprint(__("The follow-up date must be after the visit date."));
+	return true;
+}
+
 function allergy_warning_fields(encounter) {
 	const allergy = allergy_history_of(encounter);
 	if (!allergy) return [];
@@ -364,6 +383,7 @@ function openPrescribeDialog(page, encounter) {
 				],
 				data: [{}],
 			},
+			follow_up_date_field(),
 			...history_fields(encounter),
 		],
 		primary_action_label: __("Prescribe"),
@@ -373,6 +393,7 @@ function openPrescribeDialog(page, encounter) {
 				frappe.msgprint(__("Add at least one medicine."));
 				return;
 			}
+			if (follow_up_date_is_too_early(values)) return;
 			dialog.hide();
 			await submitDoctorAction(page, "prescribe_medicine", {
 				encounter,
@@ -380,6 +401,7 @@ function openPrescribeDialog(page, encounter) {
 				chief_complaint: values.chief_complaint,
 				past_history: values.past_history,
 				allergy_history: values.allergy_history,
+				follow_up_date: values.follow_up_date,
 			});
 		},
 	});
@@ -426,6 +448,7 @@ async function openCompleteDialog(page, encounter) {
 				fieldname: "clinical_notes",
 				label: __("Observations and Notes on Examination"),
 			},
+			follow_up_date_field(),
 			{ fieldtype: "Section Break" },
 			{ fieldtype: "Check", fieldname: "refer_patient", label: __("Refer this patient") },
 			{
@@ -465,6 +488,7 @@ async function openCompleteDialog(page, encounter) {
 				frappe.msgprint(__("A referral needs both where the patient is going and why."));
 				return;
 			}
+			if (follow_up_date_is_too_early(values)) return;
 			dialog.hide();
 			await submitDoctorAction(page, "complete_encounter", {
 				encounter,
@@ -481,6 +505,7 @@ async function openCompleteDialog(page, encounter) {
 					: null,
 				referral_reason: values.refer_patient ? values.referral_reason : null,
 				referral_priority: values.refer_patient ? values.referral_priority : null,
+				follow_up_date: values.follow_up_date,
 			});
 		},
 	});

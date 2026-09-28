@@ -55,7 +55,13 @@ def fetch_visits(patient: str, filters) -> list:
 	return frappe.get_all(
 		"Patient Encounter",
 		filters=visit_filters,
-		fields=["name", "encounter_date", "custom_clinic_session", "custom_workflow_state"],
+		fields=[
+			"name",
+			"encounter_date",
+			"custom_clinic_session",
+			"custom_workflow_state",
+			"custom_follow_up_date",
+		],
 		order_by="encounter_date desc, creation desc",
 	)
 
@@ -117,6 +123,7 @@ def build_rows(visits: list, filters) -> list:
 				"medicines_prescribed": cint(medicine_counts.prescribed),
 				"medicines_dispensed": cint(medicine_counts.dispensed),
 				"referral": "; ".join(referrals.get(visit.name, [])),
+				"follow_up_date": visit.custom_follow_up_date,
 			}
 		)
 	return rows
@@ -274,4 +281,5 @@ def get_columns() -> list:
 			"width": 150,
 		},
 		{"fieldname": "referral", "label": _("Referral"), "fieldtype": "Data", "width": 220, "align": "left"},
+		{"fieldname": "follow_up_date", "label": _("Follow-up Date"), "fieldtype": "Date", "width": 120},
 	]
