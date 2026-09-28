@@ -30,7 +30,10 @@ class BandhuClinicSession(Document):
 		departure_time: DF.Time | None
 		distance_travelled_km: DF.Data | None
 		end_time: DF.Datetime | None
+		location: DF.Link | None
+		lsg: DF.Data | None
 		notes: DF.SmallText | None
+		phc_chc: DF.Data | None
 		planned_end_time: DF.Time | None
 		planned_start_time: DF.Time | None
 		project: DF.Link

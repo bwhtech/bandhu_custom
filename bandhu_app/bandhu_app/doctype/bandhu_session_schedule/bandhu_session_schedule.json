@@ -8,6 +8,9 @@
  "field_order": [
   "enabled",
   "site",
+  "location",
+  "lsg",
+  "phc_chc",
   "clinic",
   "project",
   "unit",
@@ -50,6 +53,29 @@
    "label": "Site",
    "options": "Site",
    "reqd": 1
+  },
+  {
+   "fetch_from": "site.location",
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Location",
+   "options": "Bandhu Location",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "location.lsg",
+   "fieldname": "lsg",
+   "fieldtype": "Data",
+   "label": "LSG",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "location.phcchc",
+   "fieldname": "phc_chc",
+   "fieldtype": "Data",
+   "label": "PHC/CHC",
+   "read_only": 1
   },
   {
    "fieldname": "clinic",
@@ -218,7 +244,7 @@
    "link_fieldname": "session_schedule"
   }
  ],
- "modified": "2026-08-14 09:00:00.000000",
+ "modified": "2026-09-25 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Bandhu Session Schedule",

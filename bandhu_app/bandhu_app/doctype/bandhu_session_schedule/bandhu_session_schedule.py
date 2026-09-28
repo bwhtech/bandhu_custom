@@ -82,7 +82,10 @@ class BandhuSessionSchedule(Document):
 		frequency: DF.Literal["Weekly", "Fortnightly", "Monthly"]
 		holiday_list: DF.Link | None
 		last_generated_upto: DF.Date | None
+		location: DF.Link | None
+		lsg: DF.Data | None
 		monthly_mode: DF.Literal["Day of Week", "Day of Month"]
+		phc_chc: DF.Data | None
 		planned_end_time: DF.Time | None
 		planned_start_time: DF.Time | None
 		project: DF.Link | None

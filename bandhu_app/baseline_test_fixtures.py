@@ -181,3 +181,19 @@ def get_or_create_practitioner(custom_role: str) -> str:
 		.insert(ignore_permissions=True)
 		.name
 	)
+
+
+def make_site_in_location(site_name: str, lsg: str, phc_chc: str) -> str:
+	location = frappe.get_doc(
+		{
+			"doctype": "Bandhu Location",
+			"location_name": f"{site_name} Location",
+			"lsg": lsg,
+			"phcchc": phc_chc,
+		}
+	).insert(ignore_permissions=True)
+	return (
+		frappe.get_doc({"doctype": "Site", "site_name": site_name, "location": location.name})
+		.insert(ignore_permissions=True)
+		.name
+	)
