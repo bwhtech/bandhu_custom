@@ -60,7 +60,7 @@ ENCOUNTER_CLINICAL_TABLES = {
 		],
 	),
 	"diagnosis": ("Bandhu Diagnosis", ["diagnosis_name", "notes"]),
-	"interventions": ("Bandhu Other Intervention", ["intervention"]),
+	"interventions": ("Encounter Intervention", ["intervention"]),
 }
 
 

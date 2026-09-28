@@ -1,5 +1,5 @@
 from frappe.model.document import Document
 
 
-class BandhuOtherIntervention(Document):
+class EncounterIntervention(Document):
 	pass

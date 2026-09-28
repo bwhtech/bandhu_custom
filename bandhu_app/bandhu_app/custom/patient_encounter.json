@@ -509,7 +509,7 @@
    "name": "Patient Encounter-custom_other_interventions",
    "no_copy": 0,
    "non_negative": 0,
-   "options": "Bandhu Other Intervention",
+   "options": "Encounter Intervention",
    "owner": "Administrator",
    "permlevel": 0,
    "placeholder": null,
