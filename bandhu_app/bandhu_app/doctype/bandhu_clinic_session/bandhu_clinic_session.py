@@ -5,6 +5,8 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from bandhu_app.bandhu_app.utils.session import validate_practitioner_roles
+
 ASSIGNMENT_ROLE_BY_FIELD = {
 	"assigned_doctor": "Doctor",
 	"assigned_nurse": "Nurse",
@@ -46,17 +48,4 @@ class BandhuClinicSession(Document):
 		self.validate_assignment_roles()
 
 	def validate_assignment_roles(self):
-		for fieldname, required_role in ASSIGNMENT_ROLE_BY_FIELD.items():
-			practitioner = self.get(fieldname)
-			if not practitioner:
-				continue
-			actual_role = frappe.get_cached_value("Healthcare Practitioner", practitioner, "custom_role")
-			if actual_role != required_role:
-				frappe.throw(
-					_("{0} must be a Healthcare Practitioner with role {1}, but {2} has role {3}.").format(
-						self.meta.get_field(fieldname).label,
-						required_role,
-						practitioner,
-						actual_role or _("(none)"),
-					),
-				)
+		validate_practitioner_roles(self, ASSIGNMENT_ROLE_BY_FIELD)
