@@ -9,6 +9,7 @@ from frappe.utils import add_days, get_time, getdate, today
 from bandhu_app.bandhu_app.doctype.bandhu_clinic_session.bandhu_clinic_session import (
 	ASSIGNMENT_ROLE_BY_FIELD,
 )
+from bandhu_app.bandhu_app.utils.session import validate_practitioner_roles
 
 PATTERN_FIELDS = (
 	"frequency",
@@ -143,20 +144,7 @@ class BandhuSessionSchedule(Document):
 				frappe.throw(_("Planned End Time must be after Planned Start Time."))
 
 	def validate_assignment_roles(self):
-		for fieldname, required_role in ASSIGNMENT_ROLE_BY_FIELD.items():
-			practitioner = self.get(fieldname)
-			if not practitioner:
-				continue
-			actual_role = frappe.get_cached_value("Healthcare Practitioner", practitioner, "custom_role")
-			if actual_role != required_role:
-				frappe.throw(
-					_("{0} must be a Healthcare Practitioner with role {1}, but {2} has role {3}.").format(
-						self.meta.get_field(fieldname).label,
-						required_role,
-						practitioner,
-						actual_role or _("(none)"),
-					)
-				)
+		validate_practitioner_roles(self, ASSIGNMENT_ROLE_BY_FIELD)
 
 	def clear_generated_upto_on_pattern_change(self):
 		if self.is_new() or not self.last_generated_upto:

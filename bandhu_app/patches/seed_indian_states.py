@@ -40,6 +40,10 @@ def execute():
 	if not frappe.db.has_column("State", "is_major_state"):
 		return
 
+	for state in frappe.get_all("State", fields=["name", "state_name"]):
+		if state.state_name and state.name != state.state_name:
+			frappe.rename_doc("State", state.name, state.state_name)
+
 	for state_name in MAJOR_STATES:
 		if frappe.db.exists("State", state_name):
 			continue

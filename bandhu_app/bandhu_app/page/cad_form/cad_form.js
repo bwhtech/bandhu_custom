@@ -6,8 +6,6 @@ let cadSession = null;
 let cadPage = null;
 let formOptions = { major_states: [], other_states: [], major_sectors: [] };
 
-const QUICK_COUNTRIES = ["India", "Nepal"];
-
 const MAX_PLAUSIBLE_AGE = 120;
 
 const MIN_SEARCH_LENGTH = 2;
@@ -93,6 +91,7 @@ async function loadDashboard(page) {
 		major_states: [],
 		other_states: [],
 		major_sectors: [],
+		quick_countries: [],
 	};
 
 	await renderFrontDesk(page, data);
@@ -379,19 +378,20 @@ function render_sex_group() {
 	return render_tab_group({
 		field: "sex",
 		label: __("Sex"),
-		options: ["Male", "Female", "Other"],
+		options: formOptions.genders || [],
 		mode: "direct",
 		required: true,
 	});
 }
 
 function render_country_group() {
+	const quick_countries = formOptions.quick_countries || [];
 	return render_tab_group({
 		field: "native_country",
 		label: __("Country"),
-		options: QUICK_COUNTRIES.concat(["Other"]),
+		options: quick_countries.concat(["Other"]),
 		mode: "picker",
-		defaultValue: "India",
+		defaultValue: quick_countries[0],
 		detailFieldHtml:
 			'<input type="text" class="form-control cad-field detail-field" data-field="specify_native_country" placeholder="' +
 			frappe.utils.escape_html(__("Specify country")) +
@@ -412,9 +412,29 @@ function render_state_group() {
 	});
 }
 
-function render_sector_group() {
+function render_occupation_group() {
+	if (
+		!(formOptions.major_occupations || []).length &&
+		!(formOptions.other_occupations || []).length
+	) {
+		return "";
+	}
+
 	return render_tab_group({
 		field: "occupation",
+		label: __("Occupation"),
+		options: (formOptions.major_occupations || []).concat(["Other"]),
+		mode: "picker",
+		otherPickerHtml: render_other_picker(
+			formOptions.other_occupations || [],
+			__("-- Select Occupation --")
+		),
+	});
+}
+
+function render_sector_group() {
+	return render_tab_group({
+		field: "sector",
 		label: __("Sector of Employment"),
 		options: (formOptions.major_sectors || []).concat(["Other"]),
 		mode: "direct",
@@ -436,6 +456,7 @@ function renderRegisterForm() {
 		render_country_group() +
 		render_state_group() +
 		render_district_field() +
+		render_occupation_group() +
 		render_sector_group() +
 		render_fields(CONTACT_FIELDS) +
 		"</div>" +
@@ -602,14 +623,21 @@ function match_scanned_card(query, results) {
 	return exact.length === 1 ? exact[0] : null;
 }
 
+function format_follow_up(patient) {
+	if (!patient.follow_up_date) return "";
+
+	return __("Follow-up {0}", [frappe.datetime.str_to_user(patient.follow_up_date)]);
+}
+
 function queue_scanned_patient(page, patient) {
 	// frappe.confirm appends its message as HTML (frappe/public/js/frappe/ui/messages.js:48) and
 	// __() substitutes {0} verbatim, so a patient name is an injection point until it is escaped.
+	const follow_up = format_follow_up(patient);
 	frappe.confirm(
 		__("Add {0} ({1}) to today's queue?", [
 			frappe.utils.escape_html(patient.patient_name || ""),
 			frappe.utils.escape_html(patient.custom_bandhu_id || ""),
-		]),
+		]) + (follow_up ? "<br>" + frappe.utils.escape_html(follow_up) : ""),
 		async () => {
 			await addPatientToQueue(page, patient.name, () => {
 				clear_search_results(page);
@@ -638,6 +666,7 @@ function renderSearchResults(page, results, capped) {
 				bandhu.session_ui.group_clinic_id(patient.custom_bandhu_id),
 				patient.sex,
 				patient.age,
+				format_follow_up(patient),
 			]
 				.filter(Boolean)
 				.map(frappe.utils.escape_html)
@@ -859,6 +888,7 @@ async function submitRegistration(page) {
 	if (values.native_state) args.native_state = values.native_state;
 	if (values.native_district) args.native_district = values.native_district;
 	if (values.occupation) args.occupation = values.occupation;
+	if (values.sector) args.sector = values.sector;
 	if (values.specify_sector) args.specify_sector = values.specify_sector;
 	if (values.company_name) args.company_name = values.company_name;
 	if (values.abha_id) args.abha_id = values.abha_id;

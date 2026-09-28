@@ -125,6 +125,12 @@ class IntegrationTestPatientHistoryReport(IntegrationTestCase):
 		rows = self.run_report()
 		self.assertEqual([row["date"] for row in rows], [getdate(today()), getdate(yesterday)])
 
+	def test_shows_the_follow_up_date_the_doctor_set(self):
+		follow_up = add_days(today(), 10)
+		self.make_encounter(self.make_session(), custom_follow_up_date=follow_up)
+
+		self.assertEqual(self.run_report()[0]["follow_up_date"], getdate(follow_up))
+
 	def test_counts_tests_and_medicines_for_each_visit(self):
 		self.make_encounter(
 			self.make_session(),

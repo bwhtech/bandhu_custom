@@ -121,6 +121,8 @@
    "label": "Team"
   },
   {
+   "fetch_from": "unit.doctor",
+   "fetch_if_empty": 1,
    "fieldname": "assigned_doctor",
    "fieldtype": "Link",
    "label": "Assigned Doctor",
@@ -132,6 +134,8 @@
    "fieldtype": "Column Break"
   },
   {
+   "fetch_from": "unit.nurse",
+   "fetch_if_empty": 1,
    "fieldname": "assigned_nurse",
    "fieldtype": "Link",
    "label": "Assigned Nurse",
@@ -139,6 +143,8 @@
    "options": "Healthcare Practitioner"
   },
   {
+   "fetch_from": "unit.cad",
+   "fetch_if_empty": 1,
    "fieldname": "assigned_driver",
    "fieldtype": "Link",
    "label": "Assigned Driver",

@@ -3,8 +3,9 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import getdate, today
+from frappe.utils import add_days, getdate, nowtime, today
 
+from bandhu_app.bandhu_app.doctype.bandhu_settings.test_bandhu_settings import set_offered_genders
 from bandhu_app.bandhu_app.page.cad_form import cad_form
 from bandhu_app.bandhu_app.page.cad_form.cad_form import (
 	cancel_visit,
@@ -18,6 +19,7 @@ from bandhu_app.bandhu_app.page.cad_form.cad_form import (
 	search_patient,
 )
 from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
+from bandhu_app.patches.seed_quick_countries import execute as seed_quick_countries
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -29,11 +31,12 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		super().setUpClass()
 
 		baseline = ensure_baseline_fixtures()
+		cls.appointment_type = baseline["appointment_type"]
 		cls.clinic = baseline["clinic"]
 		cls.site = baseline["site"]
 		cls.unit = baseline["unit"]
 		cls.project = baseline["project"]
-		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
+		cls.gender = "Male"
 
 		cls.cad_practitioner = cls._make_practitioner("Test CAD Alpha", "Clinic Assistant cum Driver")
 		cls.doctor_practitioner = cls._make_practitioner("Test Doctor For CAD", "Doctor")
@@ -208,7 +211,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 				dob="1990-05-15",
 				sex=self.gender,
 				native_country="Nepal",
-				occupation="Other",
+				sector="Other",
 				specify_sector="Street vendor",
 				session=self.session,
 			)
@@ -290,8 +293,61 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		self.assertIn("Bihar", options["major_states"])
 		self.assertNotIn("Kerala", options["major_states"])
 		self.assertIn("Construction", options["major_sectors"])
-		self.assertIn("India", options["quick_countries"])
-		self.assertIn("Nepal", options["quick_countries"])
+
+	def test_get_form_options_returns_quick_countries_in_settings_order(self):
+		self.set_quick_countries(["Nepal", "Bangladesh"])
+
+		with self.set_user(self.cad_user):
+			options = get_form_options()
+
+		self.assertEqual(options["quick_countries"], ["Nepal", "Bangladesh"])
+
+	def set_quick_countries(self, countries):
+		settings = frappe.get_single("Bandhu Settings")
+		settings.set("quick_countries", [{"country": country} for country in countries])
+		settings.save()
+
+	def saved_quick_countries(self):
+		return [row.country for row in frappe.get_single("Bandhu Settings").quick_countries]
+
+	def test_seed_quick_countries_fills_an_empty_list(self):
+		self.set_quick_countries([])
+
+		seed_quick_countries()
+
+		self.assertEqual(self.saved_quick_countries(), ["India", "Nepal"])
+
+	def test_seed_quick_countries_keeps_the_list_an_admin_set(self):
+		self.set_quick_countries(["Bangladesh"])
+
+		seed_quick_countries()
+
+		self.assertEqual(self.saved_quick_countries(), ["Bangladesh"])
+
+	def test_same_quick_country_twice_is_rejected(self):
+		self.assertRaises(frappe.ValidationError, self.set_quick_countries, ["Nepal", "Nepal"])
+
+	def test_get_form_options_returns_genders_in_settings_order(self):
+		set_offered_genders(self, ["Female", "Male"])
+
+		with self.set_user(self.cad_user):
+			options = get_form_options()
+
+		self.assertEqual(options["genders"], ["Female", "Male"])
+
+	def test_register_patient_rejects_a_gender_not_offered(self):
+		set_offered_genders(self, ["Female", "Male"])
+
+		with self.set_user(self.cad_user):
+			self.assertRaisesRegex(
+				frappe.ValidationError,
+				"not one of the genders offered",
+				register_patient,
+				full_name="Retired Gender Patient",
+				dob="1990-05-15",
+				sex="Other",
+				session=self.session,
+			)
 
 	def test_register_patient_rejects_state_not_in_master(self):
 		frappe.set_user(self.cad_user)
@@ -789,3 +845,55 @@ class IntegrationTestCadForm(IntegrationTestCase):
 
 		self.assertIsNone(match)
 		self.assertEqual(frappe.db.count("Access Log", log_filters), rows_before)
+
+	def make_visit(self, patient, days_ago, workflow_state="Completed", follow_up_date=None):
+		return frappe.get_doc(
+			{
+				"doctype": "Patient Encounter",
+				"patient": patient,
+				"practitioner": self.doctor_practitioner,
+				"encounter_date": add_days(today(), -days_ago),
+				"encounter_time": nowtime(),
+				"appointment_type": self.appointment_type,
+				"custom_clinic_session": self.session,
+				"custom_workflow_state": workflow_state,
+				"custom_follow_up_date": follow_up_date,
+			}
+		).insert(ignore_permissions=True)
+
+	def search_row(self, patient):
+		frappe.set_user(self.cad_user)
+		try:
+			results = search_patient(patient.patient_name)
+		finally:
+			frappe.set_user("Administrator")
+		return next(row for row in results["results"] if row["name"] == patient.name)
+
+	def test_search_shows_the_follow_up_date_from_the_last_visit(self):
+		patient = self._make_patient(f"Zfollowup {frappe.generate_hash(length=6)}")
+		self.make_visit(patient.name, 14, follow_up_date=today())
+
+		self.assertEqual(str(self.search_row(patient)["follow_up_date"]), today())
+
+	def test_a_later_visit_replaces_an_older_follow_up_date(self):
+		patient = self._make_patient(f"Zfollowup {frappe.generate_hash(length=6)}")
+		self.make_visit(patient.name, 20, follow_up_date=add_days(today(), -6))
+		self.make_visit(patient.name, 5)
+
+		self.assertIsNone(self.search_row(patient)["follow_up_date"])
+
+	def test_a_cancelled_visit_does_not_hide_the_follow_up_date(self):
+		patient = self._make_patient(f"Zfollowup {frappe.generate_hash(length=6)}")
+		follow_up = add_days(today(), -1)
+		self.make_visit(patient.name, 14, follow_up_date=follow_up)
+		self.make_visit(patient.name, 0, workflow_state="Cancelled")
+
+		self.assertEqual(str(self.search_row(patient)["follow_up_date"]), follow_up)
+
+	def test_a_visit_still_open_does_not_hide_the_follow_up_date(self):
+		patient = self._make_patient(f"Zfollowup {frappe.generate_hash(length=6)}")
+		follow_up = add_days(today(), -2)
+		self.make_visit(patient.name, 14, follow_up_date=follow_up)
+		self.make_visit(patient.name, 3, workflow_state="Waiting for Doctor")
+
+		self.assertEqual(str(self.search_row(patient)["follow_up_date"]), follow_up)

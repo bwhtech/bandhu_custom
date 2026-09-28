@@ -39,7 +39,9 @@ def get_form_options() -> dict:
 		"sites": sites,
 		"clinics": clinics,
 		"projects": frappe.get_all("Bandhu Projects", pluck="name"),
-		"units": frappe.get_all("Unit", fields=["name as value", "unit_name as label"]),
+		"units": frappe.get_all(
+			"Unit", fields=["name as value", "unit_name as label", "doctor", "nurse", "cad"]
+		),
 		"vehicles": frappe.get_all("Vehicle", pluck="name"),
 		"doctors": practitioners_by_role("Doctor"),
 		"nurses": practitioners_by_role("Nurse"),

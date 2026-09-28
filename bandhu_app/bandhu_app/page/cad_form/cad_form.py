@@ -3,9 +3,11 @@ import re
 import frappe
 from frappe import _
 from frappe.core.doctype.access_log.access_log import make_access_log
+from frappe.query_builder.functions import Max
 from frappe.rate_limiter import rate_limit
 from frappe.utils import flt, getdate, validate_phone_number
 
+from bandhu_app.bandhu_app.doctype.bandhu_settings.bandhu_settings import get_offered_genders
 from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
 from bandhu_app.bandhu_app.utils.patient_encounter import (
 	ENCOUNTER_TO_QUEUE_STAGE,
@@ -70,9 +72,6 @@ def get_session_status() -> dict:
 	}
 
 
-QUICK_COUNTRIES = ["India", "Nepal"]
-
-
 @frappe.whitelist()
 def get_form_options() -> dict:
 	require_cad_access()
@@ -85,17 +84,27 @@ def get_form_options() -> dict:
 	major_sectors = frappe.get_all(
 		"Sectors", filters={"is_major_sector": 1}, fields=["name"], order_by="name asc", pluck="name"
 	)
+	major_occupations = frappe.get_all(
+		"Occupation", filters={"is_major_occupation": 1}, order_by="name asc", pluck="name"
+	)
+	other_occupations = frappe.get_all(
+		"Occupation", filters={"is_major_occupation": 0}, order_by="name asc", pluck="name"
+	)
 	return {
+		"genders": get_offered_genders(),
 		"major_states": major_states,
 		"other_states": other_states,
+		"major_occupations": major_occupations,
+		"other_occupations": other_occupations,
 		"major_sectors": major_sectors,
-		"quick_countries": QUICK_COUNTRIES,
+		"quick_countries": [row.country for row in frappe.get_single("Bandhu Settings").quick_countries],
 	}
 
 
 SEARCH_LIMIT = 20
 
 MIN_SEARCH_LENGTH = 2
+FOLLOW_UP_SETTING_STATES = ("Awaiting Medicine", "Completed")
 
 
 @frappe.whitelist()
@@ -125,8 +134,10 @@ def search_patient(query: str) -> dict:
 	capped = len(results) > SEARCH_LIMIT
 	results = results[:SEARCH_LIMIT]
 
+	follow_up_dates = find_follow_up_dates([row.name for row in results])
 	for row in results:
 		row["age"] = compact_age(row.dob)
+		row["follow_up_date"] = follow_up_dates.get(row.name)
 
 	# The search reads the whole patient master by design (a CAD legitimately meets patients
 	# registered at another site), so the term is recorded rather than the search being narrowed.
@@ -136,6 +147,33 @@ def search_patient(query: str) -> dict:
 	make_access_log(doctype="Patient", method="CAD Patient Search", filters=query)
 
 	return {"results": results, "capped": capped}
+
+
+def find_follow_up_dates(patients: list) -> dict:
+	if not patients:
+		return {}
+
+	encounter = frappe.qb.DocType("Patient Encounter")
+	decided_visits = (
+		(encounter.patient.isin(patients))
+		& (encounter.docstatus < 2)
+		& (encounter.custom_workflow_state.isin(FOLLOW_UP_SETTING_STATES))
+	)
+	latest = (
+		frappe.qb.from_(encounter)
+		.select(encounter.patient, Max(encounter.creation).as_("creation"))
+		.where(decided_visits)
+		.groupby(encounter.patient)
+	)
+	visits = (
+		frappe.qb.from_(encounter)
+		.join(latest)
+		.on((latest.patient == encounter.patient) & (latest.creation == encounter.creation))
+		.select(encounter.patient, encounter.custom_follow_up_date)
+		.where(decided_visits & encounter.custom_follow_up_date.isnotnull())
+	).run(as_dict=True)
+
+	return {visit.patient: visit.custom_follow_up_date for visit in visits}
 
 
 @frappe.whitelist()
@@ -257,6 +295,7 @@ def register_patient(
 	native_state: str | None = None,
 	native_district: str | None = None,
 	occupation: str | None = None,
+	sector: str | None = None,
 	specify_sector: str | None = None,
 	company_name: str | None = None,
 	abha_id: str | None = None,
@@ -278,6 +317,8 @@ def register_patient(
 		frappe.throw(_("Full name is required."))
 	if not sex:
 		frappe.throw(_("Sex is required."))
+	if sex not in get_offered_genders():
+		frappe.throw(_("{0} is not one of the genders offered in Bandhu Settings.").format(sex))
 
 	dob = resolve_dob(dob, age)
 
@@ -315,7 +356,8 @@ def register_patient(
 		"custom_specify_native_country": specify_native_country or None,
 		"custom_native_state": native_state or None,
 		"custom_native_district": native_district or None,
-		"custom_sector_of_employment": occupation or None,
+		"custom_occupation": occupation or None,
+		"custom_sector_of_employment": sector or None,
 		"custom_specify_employment_sector": specify_sector or None,
 		"custom_name_of_company": company_name or None,
 		"custom_abha_id": abha_id or None,
