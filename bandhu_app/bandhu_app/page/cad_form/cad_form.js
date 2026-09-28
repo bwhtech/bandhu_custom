@@ -45,8 +45,9 @@ const MEASUREMENT_FIELDS = [
 	},
 ];
 
+const ADD_COMPANY_VALUE = "__add_company__";
+
 const CONTACT_FIELDS = [
-	{ name: "company_name", label: __("Name of Company"), type: "text" },
 	{
 		name: "mobile",
 		label: __("Mobile Number"),
@@ -294,6 +295,63 @@ function render_fields(fields) {
 	return fields.map(render_field).join("");
 }
 
+function render_company_select() {
+	const options = (formOptions.companies || [])
+		.map(
+			(company) =>
+				'<option value="' +
+				frappe.utils.escape_html(company) +
+				'">' +
+				frappe.utils.escape_html(company) +
+				"</option>"
+		)
+		.join("");
+	return (
+		'<select class="form-control cad-field company-select" data-field="company_name">' +
+		'<option value="">' +
+		__("-- Select Company --") +
+		"</option>" +
+		options +
+		'<option value="' +
+		ADD_COMPANY_VALUE +
+		'">' +
+		__("+ Add a new company") +
+		"</option></select>"
+	);
+}
+
+function render_company_field() {
+	return (
+		'<div class="form-group"><label>' +
+		__("Name of Company") +
+		"</label>" +
+		render_company_select() +
+		"</div>"
+	);
+}
+
+function add_company(page) {
+	page.main.find(".company-select").val("");
+	frappe.prompt(
+		{ fieldname: "company_name", fieldtype: "Data", label: __("Name of Company"), reqd: 1 },
+		async (values) => {
+			const response = await frappe.call({
+				method: "bandhu_app.bandhu_app.page.cad_form.cad_form.add_company",
+				args: { company_name: values.company_name },
+			});
+			if (!response.message) return;
+
+			formOptions.companies = [
+				...new Set([...(formOptions.companies || []), response.message]),
+			].sort();
+			page.main.find(".company-select").replaceWith(render_company_select());
+			page.main.find(".company-select").val(response.message);
+		},
+		__("Add a New Company"),
+		__("Add")
+	);
+}
+
 function render_field_note(text) {
 	return (
 		'<div class="form-group field-wide field-note">' +
@@ -437,6 +495,7 @@ function renderRegisterForm() {
 		render_state_group() +
 		render_district_field() +
 		render_sector_group() +
+		render_company_field() +
 		render_fields(CONTACT_FIELDS) +
 		"</div>" +
 		'<div class="register-actions">' +
@@ -688,6 +747,10 @@ function renderSearchResults(page, results, capped) {
 }
 
 function bindRegisterEvents(page) {
+	page.main.off("change", ".company-select").on("change", ".company-select", function () {
+		if ($(this).val() === ADD_COMPANY_VALUE) add_company(page);
+	});
+
 	page.main
 		.off("click", ".cad-register-toggle-btn")
 		.on("click", ".cad-register-toggle-btn", function () {
