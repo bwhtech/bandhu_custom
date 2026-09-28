@@ -10,6 +10,7 @@ from bandhu_app.bandhu_app.utils.realtime import publish_board_update
 from bandhu_app.bandhu_app.utils.session import find_active_session, find_upcoming_sessions
 
 REFERRAL_PRIORITIES = {"Low", "Medium", "High"}
+CLINICAL_LIST_LIMIT = 500
 REFERRAL_LETTER_PRINT_FORMAT = "Bandhu Referral Letter"
 
 
@@ -381,10 +382,35 @@ def create_referral(
 	doc.custom_has_referral = 1
 
 
+@frappe.whitelist()
+def get_clinical_options() -> dict:
+	require_doctor_access()
+
+	return {
+		"diagnosis_categories": frappe.get_list(
+			"Diagnosis Category", order_by="name asc", limit=CLINICAL_LIST_LIMIT, pluck="name"
+		),
+		"services": frappe.get_list(
+			"Bandhu Service", order_by="name asc", limit=CLINICAL_LIST_LIMIT, pluck="name"
+		),
+	}
+
+
+def add_selected_rows(doc, fieldname: str, row_fieldname: str, selected) -> None:
+	selected = frappe.parse_json(selected) or []
+	if not isinstance(selected, list):
+		frappe.throw(_("Send the ticked options as a list."))
+
+	for value in selected:
+		doc.append(fieldname, {row_fieldname: value})
+
+
 @frappe.whitelist(methods=["POST"])
 def complete_encounter(
 	encounter: str,
 	diagnosis: str | None = None,
+	diagnosis_categories: list | str | None = None,
+	services_provided: list | str | None = None,
 	clinical_notes: str | None = None,
 	chief_complaint: str | None = None,
 	past_history: str | None = None,
@@ -404,6 +430,8 @@ def complete_encounter(
 
 	if diagnosis:
 		doc.append("custom_bandhu_diagnosis", {"diagnosis_name": diagnosis})
+	add_selected_rows(doc, "custom_diagnosis_categories", "diagnosis_category", diagnosis_categories)
+	add_selected_rows(doc, "custom_bandhu_services_provided", "service_name", services_provided)
 	if clinical_notes:
 		doc.custom_bandhu_clinical_notes = clinical_notes
 	apply_clinical_notes(doc, chief_complaint, past_history, allergy_history)

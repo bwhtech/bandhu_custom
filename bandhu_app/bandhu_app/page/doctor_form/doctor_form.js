@@ -5,6 +5,7 @@ const MAX_PATIENTS_WITH_DOCTOR = 3;
 
 let encountersByName = {};
 let testOptions = null;
+let clinical_options = null;
 let doctorSession = null;
 let doctorPage = null;
 
@@ -211,7 +212,7 @@ async function dispatchDoctorAction(page, encounter, action) {
 			openPrescribeDialog(page, encounter);
 			break;
 		case "complete":
-			openCompleteDialog(page, encounter);
+			await openCompleteDialog(page, encounter);
 			break;
 	}
 }
@@ -385,11 +386,41 @@ function openPrescribeDialog(page, encounter) {
 	dialog.show();
 }
 
-function openCompleteDialog(page, encounter) {
+async function get_clinical_options() {
+	if (!clinical_options) {
+		const response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form.get_clinical_options",
+		});
+		clinical_options = response.message || { diagnosis_categories: [], services: [] };
+	}
+	return clinical_options;
+}
+
+function multi_check_field(fieldname, label, values) {
+	if (!values.length) return [];
+	return [
+		{
+			fieldtype: "MultiCheck",
+			fieldname,
+			label,
+			options: values.map((value) => ({ label: value, value })),
+			columns: 2,
+		},
+	];
+}
+
+async function openCompleteDialog(page, encounter) {
+	const options = await get_clinical_options();
 	const dialog = new frappe.ui.Dialog({
 		title: __("Mark Complete"),
 		fields: [
 			{ fieldtype: "Data", fieldname: "diagnosis", label: __("Diagnosis (optional)") },
+			...multi_check_field(
+				"diagnosis_categories",
+				__("Diagnosis Category"),
+				options.diagnosis_categories
+			),
+			...multi_check_field("services_provided", __("Services Provided"), options.services),
 			{
 				fieldtype: "Small Text",
 				fieldname: "clinical_notes",
@@ -438,6 +469,8 @@ function openCompleteDialog(page, encounter) {
 			await submitDoctorAction(page, "complete_encounter", {
 				encounter,
 				diagnosis: values.diagnosis,
+				diagnosis_categories: values.diagnosis_categories,
+				services_provided: values.services_provided,
 				clinical_notes: values.clinical_notes,
 				chief_complaint: values.chief_complaint,
 				past_history: values.past_history,
