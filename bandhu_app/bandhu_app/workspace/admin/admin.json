@@ -1,7 +1,7 @@
 {
  "app": "bandhu_app",
  "charts": [],
- "content": "[{\"id\": \"adminHeader\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h2\\\">Admin</span>\", \"col\": 12}}, {\"id\": \"adminGroup0\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Boards</span>\", \"col\": 12}}, {\"id\": \"sCADFrontDesk\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CAD\", \"col\": 4}}, {\"id\": \"sDoctor\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Doctor\", \"col\": 4}}, {\"id\": \"sNurse\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Nurse\", \"col\": 4}}, {\"id\": \"adminGroup1\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Create</span>\", \"col\": 12}}, {\"id\": \"sNewSession\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"New Session\", \"col\": 4}}, {\"id\": \"sNewSchedule\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"New Schedule\", \"col\": 4}}, {\"id\": \"sOnboardStaff\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Onboard Staff\", \"col\": 4}}, {\"id\": \"adminGroup2\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Sessions and Schedules</span>\", \"col\": 12}}, {\"id\": \"sSessionsRunningNow\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sessions Running Now\", \"col\": 4}}, {\"id\": \"sClinicSchedules\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Clinic Schedules\", \"col\": 4}}, {\"id\": \"adminGroup3\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Masters</span>\", \"col\": 12}}, {\"id\": \"sProject\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Project\", \"col\": 4}}, {\"id\": \"sUnit\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Unit\", \"col\": 4}}, {\"id\": \"sSite\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Site\", \"col\": 4}}, {\"id\": \"sLocation\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Location\", \"col\": 4}}, {\"id\": \"sHealthcarePractitioner\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Healthcare Practitioner\", \"col\": 4}}, {\"id\": \"sVehicle\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Vehicle\", \"col\": 4}}, {\"id\": \"adminGroup4\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Access</span>\", \"col\": 12}}, {\"id\": \"sUsers\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Users\", \"col\": 4}}, {\"id\": \"sRoles\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Roles\", \"col\": 4}}]",
+ "content": "[{\"id\":\"adminHeader\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h2\\\">Admin</span>\",\"col\":12}},{\"id\":\"adminGroup0\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Boards</span>\",\"col\":12}},{\"id\":\"sCADFrontDesk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"CAD\",\"col\":4}},{\"id\":\"sDoctor\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Doctor\",\"col\":4}},{\"id\":\"sNurse\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Nurse\",\"col\":4}},{\"id\":\"adminGroup1\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Create</span>\",\"col\":12}},{\"id\":\"sNewSession\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Session\",\"col\":4}},{\"id\":\"sNewSchedule\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Schedule\",\"col\":4}},{\"id\":\"sOnboardStaff\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Onboard Staff\",\"col\":4}},{\"id\":\"adminGroup2\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Sessions and Schedules</span>\",\"col\":12}},{\"id\":\"sSessionsRunningNow\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sessions Running Now\",\"col\":4}},{\"id\":\"sClinicSchedules\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Clinic Schedules\",\"col\":4}},{\"id\":\"adminGroupRecords\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Records</span>\",\"col\":12}},{\"id\":\"sPatient\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patient\",\"col\":4}},{\"id\":\"sPatientQueue\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patient Queue\",\"col\":4}},{\"id\":\"sReferral\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Referral\",\"col\":4}},{\"id\":\"sVehicleRefuelLog\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle Refuel Log\",\"col\":4}},{\"id\":\"sVehicleUsageLog\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle Usage Log\",\"col\":4}},{\"id\":\"adminGroup3\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Masters</span>\",\"col\":12}},{\"id\":\"sProject\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project\",\"col\":4}},{\"id\":\"sUnit\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Unit\",\"col\":4}},{\"id\":\"sSite\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Site\",\"col\":4}},{\"id\":\"sClinic\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Clinic\",\"col\":4}},{\"id\":\"sLocation\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Location\",\"col\":4}},{\"id\":\"sHealthcarePractitioner\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Healthcare Practitioner\",\"col\":4}},{\"id\":\"sVehicle\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle\",\"col\":4}},{\"id\":\"adminGroup4\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Access</span>\",\"col\":12}},{\"id\":\"sUsers\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Users\",\"col\":4}},{\"id\":\"sRoles\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Roles\",\"col\":4}}]",
  "creation": "2026-04-16 23:27:02.949058",
  "custom_blocks": [],
  "docstatus": 0,
@@ -15,7 +15,7 @@
  "label": "Admin",
  "link_type": "DocType",
  "links": [],
- "modified": "2026-08-11 15:30:00.000000",
+ "modified": "2026-09-19 12:03:21.000000",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Admin",
@@ -148,6 +148,54 @@
    "doc_view": "List",
    "label": "Clinic Schedules",
    "link_to": "Bandhu Session Schedule",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Patient",
+   "link_to": "Patient",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Patient Queue",
+   "link_to": "Patient Queue",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Referral",
+   "link_to": "Referral",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Vehicle Refuel Log",
+   "link_to": "Vehicle Refuel Log",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Vehicle Usage Log",
+   "link_to": "Vehicle Usage Log",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Clinic",
+   "link_to": "Clinic",
+   "stats_filter": "[]",
    "type": "DocType"
   }
  ],
