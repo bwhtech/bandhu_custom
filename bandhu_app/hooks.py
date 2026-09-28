@@ -276,4 +276,7 @@ doc_events = {
 			"bandhu_app.bandhu_app.utils.realtime.broadcast_encounter_change",
 		],
 	},
+	"Stock Entry": {
+		"validate": "bandhu_app.bandhu_pharmacy.stock_entry.validate_funding_source_and_clinic",
+	},
 }
