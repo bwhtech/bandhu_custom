@@ -1,7 +1,8 @@
 # Copyright (c) 2026, CMID and contributors
 # For license information, please see license.txt
 
-# import frappe
+import frappe
+from frappe import _
 from frappe.model.document import Document
 
 
@@ -14,8 +15,26 @@ class District(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
-		district_name: DF.Data | None
-		state: DF.Link | None
+		district_name: DF.Data
+		state: DF.Link
 	# end: auto-generated types
 
-	pass
+	def autoname(self):
+		self.name = self.district_name
+		if frappe.db.exists("District", self.name):
+			self.name = f"{self.district_name} ({self.state})"
+
+	def validate(self):
+		duplicate = frappe.db.exists(
+			"District",
+			{"district_name": self.district_name, "state": self.state, "name": ("!=", self.name)},
+		)
+		if duplicate:
+			frappe.throw(
+				_("District {0} already exists in {1}.").format(self.district_name, self.state),
+				frappe.DuplicateEntryError,
+			)
+
+
+def on_doctype_update():
+	frappe.db.add_unique("District", ["district_name", "state"])
