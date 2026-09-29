@@ -750,6 +750,8 @@ function renderClinicalSummary(encounter) {
 				medicines +
 				(dispensed === prescriptions.length
 					? " \u00b7 " + __("dispensed")
+					: encounter.custom_workflow_state === "Completed"
+					? " \u00b7 " + __("{0} of {1} dispensed", [dispensed, prescriptions.length])
 					: " \u00b7 " + __("awaiting pharmacy"))
 		);
 	}
