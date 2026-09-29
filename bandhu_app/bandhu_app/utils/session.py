@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import frappe
 from frappe import _
 from frappe.utils import add_days, cint, today
@@ -150,16 +152,15 @@ def find_active_session(practitioner_field: str, practitioner: str) -> dict | No
 			practitioner_field: practitioner,
 			"status": ["in", _ACTIVE_STATUS_PRIORITY],
 		},
-		fields=["name", "status", "clinic", "site", "creation"],
-		order_by="creation desc",
+		fields=["name", "status", "clinic", "site", "planned_start_time", "creation"],
 	)
-	if not candidates:
-		return None
-
-	by_status = {row.status: row for row in reversed(candidates)}
+	candidates.sort(
+		key=lambda row: (row.planned_start_time is None, row.planned_start_time or timedelta(0), row.creation)
+	)
 	for status in _ACTIVE_STATUS_PRIORITY:
-		if status in by_status:
-			return label_sites([by_status[status]])[0]
+		for row in candidates:
+			if row.status == status:
+				return label_sites([row])[0]
 	return None
 
 
