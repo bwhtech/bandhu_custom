@@ -200,3 +200,13 @@ def validate_practitioner_roles(doc, role_by_field: dict) -> None:
 					actual_role or _("(none)"),
 				)
 			)
+
+
+def no_session_message(practitioner_field: str, practitioner: str) -> str:
+	closed_today = frappe.db.exists(
+		"Bandhu Clinic Session",
+		{"date": today(), practitioner_field: practitioner, "status": "Completed"},
+	)
+	if closed_today:
+		return _("Today's session has ended.")
+	return _("No session scheduled for today. Please contact Programme Manager.")

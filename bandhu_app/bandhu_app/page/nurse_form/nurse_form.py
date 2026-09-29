@@ -8,6 +8,7 @@ from bandhu_app.bandhu_app.utils.realtime import publish_board_update
 from bandhu_app.bandhu_app.utils.session import (
 	find_active_session,
 	find_upcoming_sessions,
+	no_session_message,
 	require_running_session,
 )
 
@@ -68,7 +69,7 @@ def get_session_status() -> dict:
 	if not session:
 		return {
 			"has_session": False,
-			"message": _("No session scheduled for today. Please contact Programme Manager."),
+			"message": no_session_message("assigned_nurse", practitioner),
 		}
 
 	return {

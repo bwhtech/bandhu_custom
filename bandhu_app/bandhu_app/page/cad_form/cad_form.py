@@ -13,7 +13,11 @@ from bandhu_app.bandhu_app.utils.patient_encounter import (
 	ENCOUNTER_TO_QUEUE_STAGE,
 	TERMINAL_WORKFLOW_STATES,
 )
-from bandhu_app.bandhu_app.utils.session import find_active_session, require_running_session
+from bandhu_app.bandhu_app.utils.session import (
+	find_active_session,
+	no_session_message,
+	require_running_session,
+)
 
 
 def require_cad_access() -> None:
@@ -60,7 +64,7 @@ def get_session_status() -> dict:
 	if not session:
 		return {
 			"has_session": False,
-			"message": _("No session scheduled for today. Please contact Programme Manager."),
+			"message": no_session_message("assigned_driver", practitioner),
 		}
 
 	return {
