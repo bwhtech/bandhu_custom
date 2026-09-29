@@ -709,6 +709,19 @@ function formatTestLine(tests) {
 	return parts.join(" \u00b7 ");
 }
 
+function format_vitals_line(encounter) {
+	return [
+		[__("Temp"), encounter.custom_temperature, "\u00b0F"],
+		[__("SpO2"), encounter.custom_spo2, "%"],
+		[__("Pulse"), encounter.custom_pulse_rate, ""],
+		[__("BP"), encounter.custom_blood_pressure, ""],
+		[__("BMI"), encounter.custom_bmi, ""],
+	]
+		.filter(([, value]) => value)
+		.map(([label, value, unit]) => label + " " + value + unit)
+		.join(" \u00b7 ");
+}
+
 // A doctor reads what was ordered and what came back, not how many rows a child table holds --
 // "2 test(s) done" says nothing they can act on.
 function renderClinicalSummary(encounter) {
@@ -716,6 +729,10 @@ function renderClinicalSummary(encounter) {
 	const prescriptions = encounter.prescriptions || [];
 	const lines = [];
 
+	const vitals = format_vitals_line(encounter);
+	if (vitals) {
+		lines.push(__("Vitals") + ": " + vitals);
+	}
 	if (tests.length) {
 		lines.push(__("Tests") + ": " + formatTestLine(tests));
 	}
