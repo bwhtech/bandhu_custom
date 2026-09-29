@@ -1020,7 +1020,8 @@ async function loadQueue(page) {
 }
 
 function renderQueueTable(page, rows) {
-	page.main.find(".cad-queue-count").text(" (" + rows.length + ")");
+	const visiting = rows.filter((row) => row.current_stage !== "Cancelled").length;
+	page.main.find(".cad-queue-count").text(" (" + visiting + ")");
 	const body = page.main.find(".cad-queue-body");
 
 	if (!rows.length) {
