@@ -741,7 +741,7 @@ function renderClinicalSummary(encounter) {
 	if (prescriptions.length) {
 		const dispensed = prescriptions.filter((prescription) => prescription.dispensed).length;
 		const medicines = prescriptions
-			.map((prescription) => prescription.medicines)
+			.map((prescription) => prescription.medicine_name)
 			.filter(Boolean)
 			.join(", ");
 		lines.push(
