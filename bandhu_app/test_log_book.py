@@ -84,6 +84,15 @@ class IntegrationTestLogBook(IntegrationTestCase):
 		self.assertEqual(saved.distance_travelled_km, "18.5")
 		self.assertEqual(result["distance_travelled_km"], "18.5")
 
+	def test_saved_times_come_back_zero_padded_for_the_time_picker(self):
+		frappe.set_user(self.driver_user)
+		save_log_book(self.session, departure_time="05:00", arrival_time="09:20")
+
+		log_book = get_log_book(self.session)
+
+		self.assertEqual(log_book["departure_time"], "05:00:00")
+		self.assertEqual(log_book["arrival_time"], "09:20:00")
+
 	def test_saving_the_arrival_later_keeps_the_departure(self):
 		frappe.set_user(self.driver_user)
 		save_log_book(self.session, departure_time="08:15")

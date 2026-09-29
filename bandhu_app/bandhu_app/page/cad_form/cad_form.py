@@ -447,7 +447,11 @@ def parse_log_book_time(value: str) -> str:
 @frappe.whitelist()
 def get_log_book(session: str) -> dict:
 	require_session_access(session)
-	return frappe.db.get_value("Bandhu Clinic Session", session, LOG_BOOK_FIELDS, as_dict=True) or {}
+	log_book = frappe.db.get_value("Bandhu Clinic Session", session, LOG_BOOK_FIELDS, as_dict=True) or {}
+	for fieldname in ("departure_time", "arrival_time"):
+		if log_book.get(fieldname) is not None:
+			log_book[fieldname] = get_time(log_book[fieldname]).strftime("%H:%M:%S")
+	return log_book
 
 
 @frappe.whitelist(methods=["POST"])
