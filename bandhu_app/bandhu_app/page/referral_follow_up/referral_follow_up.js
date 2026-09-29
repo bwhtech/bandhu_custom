@@ -28,7 +28,7 @@ function format_referral_row(referral, index) {
 		'<td><div class="patient-name">' +
 		frappe.utils.escape_html(referral.patient_name || "") +
 		'</div><div class="patient-meta">' +
-		frappe.utils.escape_html(referral.clinic_id || "") +
+		frappe.utils.escape_html(bandhu.session_ui.group_clinic_id(referral.clinic_id)) +
 		"</div></td>" +
 		"<td>" +
 		format_phone(referral.mobile) +
