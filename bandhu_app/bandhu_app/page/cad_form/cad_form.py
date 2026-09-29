@@ -416,6 +416,14 @@ def create_encounter(patient: str, session: str) -> str:
 			"encounter_date": frappe.utils.today(),
 		}
 	)
+	if getdate(patient_doc.creation) == getdate(frappe.utils.today()):
+		encounter.update(
+			{
+				"custom_height": flt(flt(patient_doc.custom_height_m) * 100, 1) or None,
+				"custom_weight": flt(patient_doc.custom_weight_kg) or None,
+				"custom_bmi": patient_doc.custom_bmi,
+			}
+		)
 	encounter.insert(ignore_permissions=True)
 
 	return encounter.name
