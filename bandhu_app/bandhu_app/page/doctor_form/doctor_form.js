@@ -324,7 +324,6 @@ async function openOrderTestDialog(page, encounter) {
 				frappe.msgprint(__("Select at least one test."));
 				return;
 			}
-			dialog.hide();
 			await submitDoctorAction(page, "order_test", {
 				encounter,
 				tests: values.tests,
@@ -399,7 +398,6 @@ async function open_prescribe_dialog(page, encounter) {
 			}
 			if (referral_is_incomplete(values)) return;
 			if (follow_up_date_is_too_early(values)) return;
-			dialog.hide();
 			await submitDoctorAction(page, "prescribe_medicine", {
 				encounter,
 				prescriptions: rows,
@@ -524,7 +522,6 @@ async function openCompleteDialog(page, encounter) {
 		primary_action: async (values) => {
 			if (referral_is_incomplete(values)) return;
 			if (follow_up_date_is_too_early(values)) return;
-			dialog.hide();
 			await submitDoctorAction(page, "complete_encounter", {
 				encounter,
 				chief_complaint: values.chief_complaint,
@@ -539,15 +536,20 @@ async function openCompleteDialog(page, encounter) {
 }
 
 async function submitDoctorAction(page, method, args, alertMessage = __("Saved")) {
+	const dialog = cur_dialog;
 	frappe.dom.freeze();
 	try {
 		await frappe.call({
 			method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form." + method,
 			args,
 		});
+	} catch (error) {
+		if (dialog) return;
+		throw error;
 	} finally {
 		frappe.dom.unfreeze();
 	}
+	dialog?.hide();
 
 	if (alertMessage) {
 		frappe.show_alert({ message: alertMessage, indicator: "green" });
