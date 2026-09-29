@@ -561,6 +561,22 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 			)
 		)
 
+	def test_prescription_print_tells_the_patient_when_to_come_back(self):
+		encounter = self._make_encounter(
+			self.session, "Awaiting Medicine", prescriptions=[{"medicines": self.item, "quantity": 6}]
+		)
+		follow_up = add_days(today(), 7)
+		frappe.db.set_value("Patient Encounter", encounter.name, "custom_follow_up_date", follow_up)
+
+		frappe.set_user(self.nurse_user)
+		try:
+			with self.change_settings("Print Settings", {"allow_print_for_draft": 1}):
+				html = get_prescription_html(encounter.name)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertIn(frappe.utils.formatdate(follow_up), html)
+
 	def test_prescription_print_is_refused_to_a_nurse_from_another_session(self):
 		encounter = self._make_encounter(
 			self.other_session,
