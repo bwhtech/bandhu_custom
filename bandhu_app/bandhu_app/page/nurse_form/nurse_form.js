@@ -312,7 +312,7 @@ function openDispenseDialog(page, encounter) {
 				fields: [
 					{
 						fieldtype: "Data",
-						fieldname: "medicines",
+						fieldname: "medicine_name",
 						label: __("Medicine"),
 						in_list_view: 1,
 						read_only: 1,
@@ -519,7 +519,7 @@ function render_queue_order(encounter, action) {
 	const items =
 		action === "test"
 			? (encounter.tests || []).map((test) => test.test_name)
-			: (encounter.prescriptions || []).map((prescription) => prescription.medicines);
+			: (encounter.prescriptions || []).map((prescription) => prescription.medicine_name);
 	const named = items.filter(Boolean);
 	if (!named.length) return "";
 

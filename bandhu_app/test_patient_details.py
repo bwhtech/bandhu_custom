@@ -5,7 +5,12 @@ import frappe
 from frappe.tests import IntegrationTestCase
 
 from bandhu_app.bandhu_app.utils.clinic_test import seed_default_tests
-from bandhu_app.bandhu_app.utils.patient_details import attach_test_shapes, shared_test_note
+from bandhu_app.bandhu_app.utils.patient_details import (
+	attach_medicine_names,
+	attach_test_shapes,
+	shared_test_note,
+)
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
 
 class TestPatientDetails(IntegrationTestCase):
@@ -44,3 +49,12 @@ class TestPatientDetails(IntegrationTestCase):
 		attach_test_shapes(tests)
 
 		self.assertIsNone(tests[0].result_shape)
+
+	def test_attach_medicine_names_gives_each_row_the_item_name(self):
+		item = ensure_baseline_fixtures()["item"]
+		prescriptions = [frappe._dict({"medicines": item}), frappe._dict({"medicines": "Retired Code"})]
+
+		attach_medicine_names(prescriptions)
+
+		self.assertEqual(prescriptions[0].medicine_name, frappe.db.get_value("Item", item, "item_name"))
+		self.assertEqual(prescriptions[1].medicine_name, "Retired Code")

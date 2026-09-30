@@ -209,7 +209,7 @@ async function dispatchDoctorAction(page, encounter, action) {
 			await openOrderTestDialog(page, encounter);
 			break;
 		case "prescribe":
-			openPrescribeDialog(page, encounter);
+			await open_prescribe_dialog(page, encounter);
 			break;
 		case "complete":
 			await openCompleteDialog(page, encounter);
@@ -324,7 +324,6 @@ async function openOrderTestDialog(page, encounter) {
 				frappe.msgprint(__("Select at least one test."));
 				return;
 			}
-			dialog.hide();
 			await submitDoctorAction(page, "order_test", {
 				encounter,
 				tests: values.tests,
@@ -338,7 +337,8 @@ async function openOrderTestDialog(page, encounter) {
 	dialog.show();
 }
 
-function openPrescribeDialog(page, encounter) {
+async function open_prescribe_dialog(page, encounter) {
+	const options = await get_clinical_options();
 	const dialog = new frappe.ui.Dialog({
 		title: __("Prescribe Medicine"),
 		size: "large",
@@ -384,6 +384,9 @@ function openPrescribeDialog(page, encounter) {
 				data: [{}],
 			},
 			follow_up_date_field(),
+			{ fieldtype: "Section Break" },
+			...diagnosis_fields(options),
+			...referral_fields(),
 			...history_fields(encounter),
 		],
 		primary_action_label: __("Prescribe"),
@@ -393,8 +396,8 @@ function openPrescribeDialog(page, encounter) {
 				frappe.msgprint(__("Add at least one medicine."));
 				return;
 			}
+			if (referral_is_incomplete(values)) return;
 			if (follow_up_date_is_too_early(values)) return;
-			dialog.hide();
 			await submitDoctorAction(page, "prescribe_medicine", {
 				encounter,
 				prescriptions: rows,
@@ -402,6 +405,7 @@ function openPrescribeDialog(page, encounter) {
 				past_history: values.past_history,
 				allergy_history: values.allergy_history,
 				follow_up_date: values.follow_up_date,
+				...assessment_args(values),
 			});
 		},
 	});
@@ -431,81 +435,100 @@ function multi_check_field(fieldname, label, values) {
 	];
 }
 
+function diagnosis_fields(options) {
+	return [
+		{ fieldtype: "Data", fieldname: "diagnosis", label: __("Diagnosis (optional)") },
+		...multi_check_field(
+			"diagnosis_categories",
+			__("Diagnosis Category"),
+			options.diagnosis_categories
+		),
+		...multi_check_field("services_provided", __("Services Provided"), options.services),
+		{
+			fieldtype: "Small Text",
+			fieldname: "clinical_notes",
+			label: __("Observations and Notes on Examination"),
+		},
+	];
+}
+
+function referral_fields() {
+	return [
+		{ fieldtype: "Section Break" },
+		{ fieldtype: "Check", fieldname: "refer_patient", label: __("Refer this patient") },
+		{
+			fieldtype: "Data",
+			fieldname: "referred_to",
+			label: __("Referred To"),
+			depends_on: "eval:doc.refer_patient",
+			mandatory_depends_on: "eval:doc.refer_patient",
+		},
+		{
+			fieldtype: "Link",
+			fieldname: "referred_to_practitioner",
+			options: "Healthcare Practitioner",
+			label: __("Referred Practitioner (optional)"),
+			depends_on: "eval:doc.refer_patient",
+		},
+		{
+			fieldtype: "Select",
+			fieldname: "referral_priority",
+			label: __("Priority"),
+			options: "Low\nMedium\nHigh",
+			default: "Medium",
+			depends_on: "eval:doc.refer_patient",
+		},
+		{
+			fieldtype: "Small Text",
+			fieldname: "referral_reason",
+			label: __("Referral Reason"),
+			depends_on: "eval:doc.refer_patient",
+			mandatory_depends_on: "eval:doc.refer_patient",
+		},
+	];
+}
+
+function referral_is_incomplete(values) {
+	if (!values.refer_patient || (values.referred_to && values.referral_reason)) return false;
+
+	frappe.msgprint(__("A referral needs both where the patient is going and why."));
+	return true;
+}
+
+function assessment_args(values) {
+	return {
+		diagnosis: values.diagnosis,
+		diagnosis_categories: values.diagnosis_categories,
+		services_provided: values.services_provided,
+		clinical_notes: values.clinical_notes,
+		referred_to: values.refer_patient ? values.referred_to : null,
+		referred_to_practitioner: values.refer_patient ? values.referred_to_practitioner : null,
+		referral_reason: values.refer_patient ? values.referral_reason : null,
+		referral_priority: values.refer_patient ? values.referral_priority : null,
+	};
+}
+
 async function openCompleteDialog(page, encounter) {
 	const options = await get_clinical_options();
 	const dialog = new frappe.ui.Dialog({
 		title: __("Mark Complete"),
 		fields: [
-			{ fieldtype: "Data", fieldname: "diagnosis", label: __("Diagnosis (optional)") },
-			...multi_check_field(
-				"diagnosis_categories",
-				__("Diagnosis Category"),
-				options.diagnosis_categories
-			),
-			...multi_check_field("services_provided", __("Services Provided"), options.services),
-			{
-				fieldtype: "Small Text",
-				fieldname: "clinical_notes",
-				label: __("Observations and Notes on Examination"),
-			},
+			...diagnosis_fields(options),
 			follow_up_date_field(),
-			{ fieldtype: "Section Break" },
-			{ fieldtype: "Check", fieldname: "refer_patient", label: __("Refer this patient") },
-			{
-				fieldtype: "Data",
-				fieldname: "referred_to",
-				label: __("Referred To"),
-				depends_on: "eval:doc.refer_patient",
-				mandatory_depends_on: "eval:doc.refer_patient",
-			},
-			{
-				fieldtype: "Link",
-				fieldname: "referred_to_practitioner",
-				options: "Healthcare Practitioner",
-				label: __("Referred Practitioner (optional)"),
-				depends_on: "eval:doc.refer_patient",
-			},
-			{
-				fieldtype: "Select",
-				fieldname: "referral_priority",
-				label: __("Priority"),
-				options: "Low\nMedium\nHigh",
-				default: "Medium",
-				depends_on: "eval:doc.refer_patient",
-			},
-			{
-				fieldtype: "Small Text",
-				fieldname: "referral_reason",
-				label: __("Referral Reason"),
-				depends_on: "eval:doc.refer_patient",
-				mandatory_depends_on: "eval:doc.refer_patient",
-			},
+			...referral_fields(),
 			...history_fields(encounter),
 		],
 		primary_action_label: __("Mark Complete"),
 		primary_action: async (values) => {
-			if (values.refer_patient && (!values.referred_to || !values.referral_reason)) {
-				frappe.msgprint(__("A referral needs both where the patient is going and why."));
-				return;
-			}
+			if (referral_is_incomplete(values)) return;
 			if (follow_up_date_is_too_early(values)) return;
-			dialog.hide();
 			await submitDoctorAction(page, "complete_encounter", {
 				encounter,
-				diagnosis: values.diagnosis,
-				diagnosis_categories: values.diagnosis_categories,
-				services_provided: values.services_provided,
-				clinical_notes: values.clinical_notes,
 				chief_complaint: values.chief_complaint,
 				past_history: values.past_history,
 				allergy_history: values.allergy_history,
-				referred_to: values.refer_patient ? values.referred_to : null,
-				referred_to_practitioner: values.refer_patient
-					? values.referred_to_practitioner
-					: null,
-				referral_reason: values.refer_patient ? values.referral_reason : null,
-				referral_priority: values.refer_patient ? values.referral_priority : null,
 				follow_up_date: values.follow_up_date,
+				...assessment_args(values),
 			});
 		},
 	});
@@ -513,15 +536,20 @@ async function openCompleteDialog(page, encounter) {
 }
 
 async function submitDoctorAction(page, method, args, alertMessage = __("Saved")) {
+	const dialog = cur_dialog;
 	frappe.dom.freeze();
 	try {
 		await frappe.call({
 			method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form." + method,
 			args,
 		});
+	} catch (error) {
+		if (dialog) return;
+		throw error;
 	} finally {
 		frappe.dom.unfreeze();
 	}
+	dialog?.hide();
 
 	if (alertMessage) {
 		frappe.show_alert({ message: alertMessage, indicator: "green" });
@@ -683,6 +711,19 @@ function formatTestLine(tests) {
 	return parts.join(" \u00b7 ");
 }
 
+function format_vitals_line(encounter) {
+	return [
+		[__("Temp"), encounter.custom_temperature, "\u00b0F"],
+		[__("SpO2"), encounter.custom_spo2, "%"],
+		[__("Pulse"), encounter.custom_pulse_rate, ""],
+		[__("BP"), encounter.custom_blood_pressure, ""],
+		[__("BMI"), encounter.custom_bmi, ""],
+	]
+		.filter(([, value]) => value)
+		.map(([label, value, unit]) => label + " " + value + unit)
+		.join(" \u00b7 ");
+}
+
 // A doctor reads what was ordered and what came back, not how many rows a child table holds --
 // "2 test(s) done" says nothing they can act on.
 function renderClinicalSummary(encounter) {
@@ -690,13 +731,17 @@ function renderClinicalSummary(encounter) {
 	const prescriptions = encounter.prescriptions || [];
 	const lines = [];
 
+	const vitals = format_vitals_line(encounter);
+	if (vitals) {
+		lines.push(__("Vitals") + ": " + vitals);
+	}
 	if (tests.length) {
 		lines.push(__("Tests") + ": " + formatTestLine(tests));
 	}
 	if (prescriptions.length) {
 		const dispensed = prescriptions.filter((prescription) => prescription.dispensed).length;
 		const medicines = prescriptions
-			.map((prescription) => prescription.medicines)
+			.map((prescription) => prescription.medicine_name)
 			.filter(Boolean)
 			.join(", ");
 		lines.push(
@@ -705,6 +750,8 @@ function renderClinicalSummary(encounter) {
 				medicines +
 				(dispensed === prescriptions.length
 					? " \u00b7 " + __("dispensed")
+					: encounter.custom_workflow_state === "Completed"
+					? " \u00b7 " + __("{0} of {1} dispensed", [dispensed, prescriptions.length])
 					: " \u00b7 " + __("awaiting pharmacy"))
 		);
 	}
