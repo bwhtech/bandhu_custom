@@ -227,7 +227,12 @@ frappe.provide("bandhu.session_ui");
 	// counting across columns to find the one being asked.
 	function format_identity_details(patient) {
 		return format_detail_row(
-			format_detail_field(__("Clinic ID"), patient.custom_bandhu_id, "id-card", true) +
+			format_detail_field(
+				__("Clinic ID"),
+				group_clinic_id(patient.custom_bandhu_id),
+				"id-card",
+				true
+			) +
 				format_detail_field(__("ABHA ID"), patient.custom_abha_id, "badge-check", true) +
 				format_detail_field(__("Mobile Number"), patient.mobile, "phone", true) +
 				// The endpoint returns the stored date; every other Bandhu screen shows dates
@@ -269,7 +274,8 @@ frappe.provide("bandhu.session_ui");
 		return format_detail_row(
 			// State and District took the same map-pin, which told a reader nothing about which
 			// of the two they were looking at.
-			format_detail_field(__("Native State"), patient.custom_native_state, "map") +
+			format_detail_field(__("Country"), patient.custom_native_country, "globe") +
+				format_detail_field(__("Native State"), patient.custom_native_state, "map") +
 				format_detail_field(
 					__("Native District"),
 					patient.custom_native_district,
