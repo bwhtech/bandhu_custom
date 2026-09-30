@@ -526,22 +526,34 @@ function confirm_add_to_queue(page, patient) {
 // would only bring it back on the encounter's next save — sync_to_queue rebuilds it from the
 // encounter, so the encounter is what has to end.
 function cancel_queued_visit(page, encounter, patient_name) {
-	frappe.confirm(
-		__("End {0}'s visit without treatment? They will drop off the doctor and nurse boards.", [
-			frappe.utils.escape_html(patient_name || __("this patient")),
-		]),
-		async () => {
+	frappe.prompt(
+		{
+			fieldtype: "Small Text",
+			fieldname: "reason",
+			label: __("Why is the visit ending?"),
+			description: __("They will drop off the doctor and nurse boards."),
+			reqd: 1,
+		},
+		async (values) => {
 			frappe.dom.freeze();
 			try {
 				await frappe.call({
 					method: "bandhu_app.bandhu_app.page.cad_form.cad_form.cancel_visit",
-					args: { encounter: encounter, session: cadSession.session_name },
+					args: {
+						encounter: encounter,
+						session: cadSession.session_name,
+						reason: values.reason,
+					},
 				});
 			} finally {
 				frappe.dom.unfreeze();
 			}
 			await loadQueue(page);
-		}
+		},
+		__("End {0}'s visit without treatment", [
+			frappe.utils.escape_html(patient_name || __("this patient")),
+		]),
+		__("End Visit")
 	);
 }
 
@@ -1008,7 +1020,8 @@ async function loadQueue(page) {
 }
 
 function renderQueueTable(page, rows) {
-	page.main.find(".cad-queue-count").text(" (" + rows.length + ")");
+	const visiting = rows.filter((row) => row.current_stage !== "Cancelled").length;
+	page.main.find(".cad-queue-count").text(" (" + visiting + ")");
 	const body = page.main.find(".cad-queue-body");
 
 	if (!rows.length) {
