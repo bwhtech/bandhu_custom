@@ -158,13 +158,23 @@ let uploaded_documents = [];
 function renderCreated(page, result, values) {
 	uploaded_documents = [];
 
-	const fullName = [values.first_name, values.last_name]
-		.map((part) => (part || "").trim())
-		.filter(Boolean)
-		.join(" ");
-	const emailLine = result.email_sent
+	const full_name = frappe.utils.escape_html(
+		[values.first_name, values.last_name]
+			.map((part) => (part || "").trim())
+			.filter(Boolean)
+			.join(" ")
+	);
+	const headline = result.email_sent
+		? __("{0} can now sign in", [full_name])
+		: __("{0} cannot sign in until a password is set", [full_name]);
+	const email_line = result.email_sent
 		? __("A set-password email has been sent to them.")
-		: __("The set-password email could not be sent. Set a password for them manually.");
+		: __("The set-password email could not be sent.") +
+		  ' <a href="' +
+		  frappe.utils.get_form_link("User", result.user) +
+		  '">' +
+		  __("Open their user record to set a password.") +
+		  "</a>";
 
 	page.main.find(".onboarding-form").hide();
 	page.main
@@ -174,20 +184,21 @@ function renderCreated(page, result, values) {
 		.html(
 			'<div class="onboarding-created">' +
 				frappe.utils.icon(
-					"solid-success",
+					result.email_sent ? "solid-success" : "solid-warning",
 					"lg",
 					"",
 					"",
-					"current-color onboarding-created-icon"
+					"current-color onboarding-created-icon" +
+						(result.email_sent ? "" : " is-warning")
 				) +
 				"<div><strong>" +
-				__("{0} can now sign in", [frappe.utils.escape_html(fullName)]) +
+				headline +
 				'</strong><div class="onboarding-created-detail">' +
 				frappe.utils.escape_html(result.user) +
 				" &middot; " +
 				frappe.utils.escape_html(result.practitioner) +
 				"<br>" +
-				emailLine +
+				email_line +
 				"</div></div></div>" +
 				'<div class="onboarding-documents"></div>' +
 				'<div class="onboarding-done-actions">' +
