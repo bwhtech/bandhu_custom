@@ -23,6 +23,10 @@ class IntegrationTestPatient(IntegrationTestCase):
 	def test_newborn_reads_in_days(self):
 		self.assertEqual(compact_age(add_days(today(), -12)), "12d")
 
+	def test_age_is_taken_on_the_given_day(self):
+		self.assertEqual(compact_age("1990-06-15", "2026-06-14"), "35y")
+		self.assertEqual(compact_age("1990-06-15", "2026-06-15"), "36y")
+
 	def test_missing_or_future_dob_is_blank(self):
 		self.assertEqual(compact_age(None), "")
 		self.assertEqual(compact_age(""), "")
