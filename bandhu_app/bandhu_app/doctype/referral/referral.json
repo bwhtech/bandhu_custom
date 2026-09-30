@@ -172,7 +172,7 @@
    "link_fieldname": "patient"
   }
  ],
- "modified": "2026-06-27 20:20:40.234244",
+ "modified": "2026-09-22 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "Bandhu App",
  "name": "Referral",
@@ -189,6 +189,11 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Helpline Staff",
    "write": 1
   }
  ],
