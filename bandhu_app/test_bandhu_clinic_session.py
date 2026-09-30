@@ -89,6 +89,30 @@ class IntegrationTestBandhuClinicSession(IntegrationTestCase):
 		self.assertEqual(result.name, in_progress.name)
 		self.assertEqual(result.status, "In Progress")
 
+	def test_find_active_session_picks_the_earlier_planned_session(self):
+		driver = self._make_practitioner("Two Session Test Driver", "Clinic Assistant cum Driver")
+		morning = frappe.get_doc(
+			self._session_fields(assigned_driver=driver, planned_start_time="09:30:00")
+		).insert(ignore_permissions=True)
+		frappe.get_doc(self._session_fields(assigned_driver=driver, planned_start_time="14:30:00")).insert(
+			ignore_permissions=True
+		)
+
+		result = find_active_session("assigned_driver", driver)
+
+		self.assertEqual(result.name, morning.name)
+
+	def test_find_active_session_puts_a_session_with_no_planned_time_last(self):
+		driver = self._make_practitioner("Untimed Session Test Driver", "Clinic Assistant cum Driver")
+		frappe.get_doc(self._session_fields(assigned_driver=driver)).insert(ignore_permissions=True)
+		timed = frappe.get_doc(
+			self._session_fields(assigned_driver=driver, planned_start_time="14:30:00")
+		).insert(ignore_permissions=True)
+
+		result = find_active_session("assigned_driver", driver)
+
+		self.assertEqual(result.name, timed.name)
+
 	def test_find_active_session_ignores_completed(self):
 		driver = self._make_practitioner("Completed Test Driver", "Clinic Assistant cum Driver")
 		frappe.get_doc(self._session_fields(assigned_driver=driver, status="Completed")).insert(

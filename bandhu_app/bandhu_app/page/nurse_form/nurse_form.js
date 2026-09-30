@@ -88,8 +88,20 @@ async function startSession(page) {
 	await loadDashboard(page);
 }
 
-function endSession(page) {
-	frappe.confirm(__("End the current session?"), async () => {
+async function end_nurse_session(page) {
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_open_patients",
+		args: { session_name: nurseSession.session_name },
+	});
+	const open_patients = response.message || [];
+	const question = open_patients.length
+		? __(
+				"Not finished yet: {0}. Their visits will be cancelled when the session ends. End the session anyway?",
+				[open_patients.map(frappe.utils.escape_html).join(", ")]
+		  )
+		: __("End the current session?");
+
+	frappe.confirm(question, async () => {
 		frappe.dom.freeze();
 		try {
 			await frappe.call({
@@ -157,7 +169,7 @@ async function loadQueues(page) {
 
 	page.main.off("click");
 
-	page.main.on("click", ".nurse-end-session", () => endSession(page));
+	page.main.on("click", ".nurse-end-session", () => end_nurse_session(page));
 
 	page.main.on("click", ".nurse-queue-row", function () {
 		frappe.set_route("Form", "Patient Encounter", $(this).data("name"));

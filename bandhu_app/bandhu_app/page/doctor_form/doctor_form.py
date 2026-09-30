@@ -7,7 +7,11 @@ from bandhu_app.bandhu_app.utils.clinic_test import get_enabled_tests
 from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
 from bandhu_app.bandhu_app.utils.patient_details import get_patient_details, get_session_encounters
 from bandhu_app.bandhu_app.utils.realtime import publish_board_update
-from bandhu_app.bandhu_app.utils.session import find_active_session, find_upcoming_sessions
+from bandhu_app.bandhu_app.utils.session import (
+	find_active_session,
+	find_upcoming_sessions,
+	no_session_message,
+)
 
 REFERRAL_PRIORITIES = {"Low", "Medium", "High"}
 CLINICAL_LIST_LIMIT = 500
@@ -68,7 +72,7 @@ def get_session_status() -> dict:
 	if not session:
 		return {
 			"has_session": False,
-			"message": _("No session scheduled for today. Please contact Programme Manager."),
+			"message": no_session_message("assigned_doctor", practitioner),
 		}
 
 	return {

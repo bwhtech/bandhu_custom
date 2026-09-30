@@ -8,6 +8,7 @@ from frappe.utils import add_days, flt, nowtime, today
 from bandhu_app.bandhu_app.page.nurse_form.nurse_form import (
 	dispense_medicine,
 	end_session,
+	get_open_patients,
 	get_patient_registration_details,
 	get_session_progress,
 	record_vitals,
@@ -488,6 +489,81 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 			frappe.set_user("Administrator")
 
 		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Completed")
+
+	def test_ending_a_session_cancels_the_visits_nobody_finished(self):
+		session = self._make_session_with("In Progress", today())
+		waiting = self._make_encounter(session, "Waiting for Doctor")
+		back_with_doctor = self._make_encounter(session, "Awaiting Doctor Review")
+		finished = self._make_encounter(session, "Completed")
+
+		frappe.set_user(self.nurse_user)
+		try:
+			end_session(session)
+		finally:
+			frappe.set_user("Administrator")
+
+		for visit in (waiting, back_with_doctor):
+			self.assertEqual(
+				frappe.db.get_value("Patient Encounter", visit.name, "custom_workflow_state"), "Cancelled"
+			)
+			self.assertTrue(
+				frappe.db.exists(
+					"Comment", {"reference_doctype": "Patient Encounter", "reference_name": visit.name}
+				)
+			)
+		self.assertEqual(
+			frappe.db.get_value("Patient Encounter", finished.name, "custom_workflow_state"), "Completed"
+		)
+
+	def test_ending_a_session_leaves_the_patients_later_visit_on_the_board(self):
+		morning = self._make_session_with("In Progress", today())
+		afternoon = self._make_session_with("In Progress", today())
+		left_open = self._make_encounter(morning, "Awaiting Doctor Review")
+		frappe.get_doc(
+			{
+				"doctype": "Patient Encounter",
+				"patient": left_open.patient,
+				"practitioner": self.nurse_practitioner,
+				"encounter_date": today(),
+				"encounter_time": nowtime(),
+				"appointment_type": self.appointment_type,
+				"custom_clinic_session": afternoon,
+				"custom_workflow_state": "Waiting for Doctor",
+			}
+		).insert(ignore_permissions=True)
+
+		frappe.set_user(self.nurse_user)
+		try:
+			end_session(morning)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(
+			frappe.db.get_value("Patient Queue", {"patient": left_open.patient}, "current_stage"), "Waiting"
+		)
+
+	def test_open_patients_lists_only_unfinished_visits(self):
+		session = self._make_session_with("In Progress", today())
+		waiting = self._make_encounter(session, "Waiting for Doctor")
+		back_with_doctor = self._make_encounter(session, "Awaiting Doctor Review")
+		self._make_encounter(session, "Completed")
+		self._make_encounter(session, "Cancelled")
+
+		frappe.set_user(self.nurse_user)
+		try:
+			open_patients = get_open_patients(session)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(open_patients, [waiting.patient_name, back_with_doctor.patient_name])
+
+	def test_open_patients_is_refused_to_a_nurse_of_another_session(self):
+		frappe.set_user(self.other_nurse_user)
+		try:
+			with self.assertRaises(frappe.PermissionError):
+				get_open_patients(self.session)
+		finally:
+			frappe.set_user("Administrator")
 
 	def test_writes_are_refused_once_the_session_is_completed(self):
 		session = self._make_session_with("In Progress", today())

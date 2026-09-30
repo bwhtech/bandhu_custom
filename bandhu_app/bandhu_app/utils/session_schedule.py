@@ -6,7 +6,7 @@ from datetime import date, timedelta
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, create_batch, getdate, today
+from frappe.utils import add_days, create_batch, get_time, getdate, today
 
 from bandhu_app.bandhu_app.utils.session import label_sites
 
@@ -319,7 +319,15 @@ def find_assignment_clashes(schedule, dates: list) -> list:
 		"Bandhu Clinic Session",
 		filters={"date": ["in", dates], "status": ["!=", "Cancelled"]},
 		or_filters=assigned,
-		fields=["name", "date", "site", "session_schedule", *ASSIGNMENT_LABELS],
+		fields=[
+			"name",
+			"date",
+			"site",
+			"session_schedule",
+			"planned_start_time",
+			"planned_end_time",
+			*ASSIGNMENT_LABELS,
+		],
 	)
 
 	practitioner_names = dict(
@@ -339,6 +347,8 @@ def find_assignment_clashes(schedule, dates: list) -> list:
 	for session in sessions:
 		if schedule.get("name") and session.session_schedule == schedule.get("name"):
 			continue
+		if not planned_times_overlap(schedule, session):
+			continue
 		for field, value in assigned.items():
 			if session.get(field) != value:
 				continue
@@ -352,6 +362,19 @@ def find_assignment_clashes(schedule, dates: list) -> list:
 				}
 			)
 	return clashes
+
+
+def planned_times_overlap(first, second) -> bool:
+	times = [
+		first.get("planned_start_time"),
+		first.get("planned_end_time"),
+		second.get("planned_start_time"),
+		second.get("planned_end_time"),
+	]
+	if not all(times):
+		return True
+	first_start, first_end, second_start, second_end = (get_time(value) for value in times)
+	return first_start < second_end and second_start < first_end
 
 
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
