@@ -5,8 +5,12 @@ const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
 let cadSession = null;
 let cadPage = null;
 let formOptions = { major_states: [], other_states: [], major_sectors: [] };
+let log_book_save_pending = false;
+let log_book_menu_item = null;
 
 const MAX_PLAUSIBLE_AGE = 120;
+
+const LOG_BOOK_OPEN_STATUSES = ["Planned", "In Progress"];
 
 const MIN_SEARCH_LENGTH = 2;
 
@@ -66,6 +70,7 @@ async function loadDashboard(page) {
 	}
 
 	const data = statusResult.message || {};
+	set_log_book_menu(data.has_session ? data.status : null);
 
 	if (!data.has_session) {
 		renderNoSession(page, data);
@@ -75,12 +80,12 @@ async function loadDashboard(page) {
 	cadSession = data;
 
 	if (data.status === "Completed") {
-		renderCompleted(page, data);
+		render_completed(page, data);
 		return;
 	}
 
 	if (data.status === "Planned") {
-		renderWaitingForNurse(page, data);
+		render_waiting_for_nurse(page, data);
 		return;
 	}
 
@@ -109,7 +114,7 @@ function renderNoSession(page, data) {
 	);
 }
 
-function renderWaitingForNurse(page, data) {
+function render_waiting_for_nurse(page, data) {
 	page.main.html(
 		'<div class="cad-dash">' +
 			bandhu.session_ui.format_welcome() +
@@ -124,7 +129,7 @@ function renderWaitingForNurse(page, data) {
 	);
 }
 
-function renderCompleted(page, data) {
+function render_completed(page, data) {
 	page.main.html(
 		'<div class="cad-dash">' +
 			bandhu.session_ui.format_welcome() +
@@ -1084,6 +1089,71 @@ function format_stage_badge(stage) {
 	return bandhu.session_ui.format_badge(__(stage), badge.theme, badge.variant);
 }
 
+function set_log_book_menu(status) {
+	log_book_menu_item.parent().toggleClass("hide", !LOG_BOOK_OPEN_STATUSES.includes(status));
+}
+
+async function open_log_book_dialog() {
+	const session_name = cadSession.session_name;
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_log_book",
+		args: { session: session_name },
+	});
+	const log_book = response.message || {};
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Log Book"),
+		fields: [
+			{
+				fieldname: "departure_time",
+				fieldtype: "Time",
+				label: __("Departure Time"),
+				default: log_book.departure_time,
+			},
+			{
+				fieldname: "arrival_time",
+				fieldtype: "Time",
+				label: __("Arrival Time"),
+				default: log_book.arrival_time,
+			},
+			{
+				fieldname: "distance_travelled_km",
+				fieldtype: "Float",
+				label: __("Distance Travelled (km)"),
+				precision: 1,
+				non_negative: 1,
+				default: log_book.distance_travelled_km,
+			},
+		],
+		primary_action_label: __("Save"),
+		primary_action: (values) => save_log_book(dialog, session_name, values),
+	});
+	dialog.show();
+}
+
+async function save_log_book(dialog, session_name, values) {
+	if (log_book_save_pending) return;
+
+	if (!Object.keys(values).length) {
+		frappe.show_alert({ message: __("Fill in the log book first."), indicator: "orange" });
+		return;
+	}
+
+	log_book_save_pending = true;
+	let response;
+	try {
+		response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.save_log_book",
+			args: { session: session_name, ...values },
+		});
+	} finally {
+		log_book_save_pending = false;
+	}
+	if (!response.message) return;
+	dialog.hide();
+	frappe.show_alert({ message: __("Log book saved"), indicator: "green" });
+}
+
 frappe.pages["cad-form"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -1096,6 +1166,16 @@ frappe.pages["cad-form"].on_page_load = function (wrapper) {
 		() => frappe.set_route("my-schedule"),
 		"calendar"
 	);
+	log_book_menu_item = page.add_custom_menu_item(
+		page.menu,
+		__("Log Book"),
+		open_log_book_dialog,
+		false,
+		null,
+		"book-open"
+	);
+	page.add_custom_menu_item(page.menu, __("Refresh"), refresh_board, false, null, "refresh");
+	set_log_book_menu(null);
 
 	cadPage = page;
 };
@@ -1105,7 +1185,6 @@ frappe.pages["cad-form"].on_page_load = function (wrapper) {
 // when the front desk is already up -- a full re-render would wipe a half-typed registration.
 async function refresh_board() {
 	await frappe.require(SESSION_UI_ASSET);
-	bandhu.session_ui.add_refresh_icon(cadPage, refresh_board);
 	const load = cadPage.main.find(".cad-queue-body").length ? loadQueue : loadDashboard;
 	await bandhu.session_ui.refresh_page(cadPage, load);
 	bandhu.session_ui.subscribe_to_board_updates(
