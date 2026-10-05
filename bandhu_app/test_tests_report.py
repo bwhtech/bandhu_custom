@@ -2,6 +2,7 @@
 # See license.txt
 
 import frappe
+from frappe.desk.query_report import run as run_report
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, add_years, nowtime, today
 
@@ -193,3 +194,34 @@ class IntegrationTestTestsReport(IntegrationTestCase):
 		self.assertEqual(summary["Positive"], 1)
 		self.assertEqual(summary["Awaiting Result"], 1)
 		self.assertEqual(summary["Patients Tested"], 1)
+
+	def _user_with_role(self, email, role):
+		if not frappe.db.exists("User", email):
+			frappe.get_doc(
+				{"doctype": "User", "email": email, "first_name": role, "send_welcome_email": 0}
+			).insert(ignore_permissions=True)
+		frappe.get_doc("User", email).add_roles(role)
+		return email
+
+	def _run_as(self, user):
+		frappe.set_user(user)
+		try:
+			return run_report(
+				"Bandhu Tests Report", filters={"from_date": today(), "to_date": today(), "site": self.site}
+			)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_a_director_can_run_the_report(self):
+		self._make_encounter(self._make_session(), [{"test_name": "Malaria", "result_type": "Negative"}])
+		director = self._user_with_role("tests.report.director@bandhuapp.test", "Director")
+
+		rows = self._run_as(director)["result"]
+
+		self.assertEqual([row["test_name"] for row in rows], ["Malaria"])
+
+	def test_a_nurse_cannot_run_the_report(self):
+		nurse = self._user_with_role("tests.report.nurse@bandhuapp.test", "Nurse")
+
+		with self.assertRaises(frappe.PermissionError):
+			self._run_as(nurse)
