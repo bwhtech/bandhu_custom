@@ -17,7 +17,7 @@ from bandhu_app.bandhu_app.utils.session_schedule import (
 	occurrence_dates,
 	preview_occurrences,
 )
-from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures, make_site_in_location
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -164,6 +164,15 @@ class IntegrationTestSessionSchedule(IntegrationTestCase):
 		self.assertEqual(session.clinic, self.clinic)
 		self.assertEqual(session.status, "Planned")
 		self.assertEqual(str(session.planned_start_time), "9:00:00")
+
+	def test_schedule_and_its_sessions_show_the_lsg_and_phc_chc_of_the_site(self):
+		site = make_site_in_location("LSG Test Pathadipalam", "Kalamassery Municipality", "UPHC Kalamassery")
+
+		schedule = self.build_schedule(weekdays=all_weekday_names(), valid_from=today(), site=site, save=True)
+		session = frappe.get_doc("Bandhu Clinic Session", self.sessions_of(schedule.name)[0])
+
+		self.assertEqual((schedule.lsg, schedule.phc_chc), ("Kalamassery Municipality", "UPHC Kalamassery"))
+		self.assertEqual((session.lsg, session.phc_chc), ("Kalamassery Municipality", "UPHC Kalamassery"))
 
 	def test_rebuild_leaves_a_session_that_has_an_encounter(self):
 		schedule = self.build_schedule(weekdays=all_weekday_names(), valid_from=today(), save=True)
