@@ -189,6 +189,9 @@ function dispatchNurseAction(page, encounter, action) {
 		case "vitals":
 			open_vitals_dialog(page, encounter);
 			break;
+		case "print_prescription":
+			print_prescription(encounter);
+			break;
 	}
 }
 
@@ -354,6 +357,8 @@ function openDispenseDialog(page, encounter) {
 				data: (row.prescriptions || []).map((prescription) => ({ ...prescription })),
 			},
 		],
+		secondary_action_label: __("Print Prescription"),
+		secondary_action: () => print_prescription(encounter),
 		primary_action_label: __("Complete"),
 		primary_action: async (values) => {
 			const dispensedRows = (values.prescriptions || [])
@@ -455,6 +460,14 @@ function open_vitals_dialog(page, encounter) {
 	dialog.show();
 }
 
+async function print_prescription(encounter) {
+	await bandhu.session_ui.print_from_endpoint(
+		"bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_prescription_html",
+		{ encounter },
+		__("Allow pop-ups for this site to print the prescription.")
+	);
+}
+
 async function submitNurseAction(page, method, args) {
 	frappe.dom.freeze();
 	try {
@@ -508,6 +521,16 @@ function renderQueueActionButtons(encounter, action) {
 				encounter.name,
 				"dispense",
 				__("Dispense"),
+				false
+			)
+		);
+	} else if ((encounter.prescriptions || []).length) {
+		buttons.push(
+			bandhu.session_ui.format_action_button(
+				"nurse-action-btn",
+				encounter.name,
+				"print_prescription",
+				__("Print Prescription"),
 				false
 			)
 		);

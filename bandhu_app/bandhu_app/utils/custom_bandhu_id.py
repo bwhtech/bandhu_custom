@@ -3,6 +3,7 @@ from frappe import _
 from frappe.model.naming import getseries
 from frappe.utils import now_datetime
 
+CLINIC_ID_LENGTH = 10
 SERIAL_DIGITS = 5
 SERIAL_CEILING = 10**SERIAL_DIGITS - 1
 
@@ -32,6 +33,13 @@ def make_clinic_id(location: str | None, unit: str | None) -> str:
 	year = now_datetime().strftime("%y")
 
 	return f"{lsg_code}{unit_code}{year}{next_serial(year)}"
+
+
+def group_clinic_id(clinic_id: str | None) -> str:
+	if not clinic_id or len(clinic_id) != CLINIC_ID_LENGTH or not clinic_id.isdigit():
+		return clinic_id or ""
+
+	return f"{clinic_id[:2]} {clinic_id[2]} {clinic_id[3:5]} {clinic_id[5:]}"
 
 
 def next_serial(year: str) -> str:
