@@ -30,7 +30,7 @@ required_apps = ["erpnext", "healthcare"]
 app_include_css = ["/assets/bandhu_app/css/desk.css?v=12"]
 app_include_js = [
 	"/assets/bandhu_app/js/session_ui.js?v=3",
-	"/assets/bandhu_app/js/workspace_redirect.js?v=2",
+	"/assets/bandhu_app/js/workspace_redirect.js?v=3",
 ]
 
 # include js, css files in header of web template
