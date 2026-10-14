@@ -25,15 +25,28 @@ frappe.provide("bandhu.session_ui");
 	const BOARD_UPDATE_DELAY = 500;
 
 	let background_refresh_depth = 0;
+	let held_freezes = 0;
+	let skipped_freezes = 0;
 	const subscribed_routes = new Set();
 	const subscribed_rooms = new Map();
 
 	function freeze() {
-		if (!background_refresh_depth) frappe.dom.freeze();
+		if (background_refresh_depth) {
+			skipped_freezes += 1;
+			return;
+		}
+		held_freezes += 1;
+		frappe.dom.freeze();
 	}
 
 	function unfreeze() {
-		if (!background_refresh_depth) frappe.dom.unfreeze();
+		if (background_refresh_depth && skipped_freezes) {
+			skipped_freezes -= 1;
+			return;
+		}
+		if (!held_freezes) return;
+		held_freezes -= 1;
+		frappe.dom.unfreeze();
 	}
 
 	function join_session_room(route, session) {
