@@ -4,12 +4,16 @@ from frappe.query_builder.functions import Count
 from frappe.utils import flt
 
 from bandhu_app.bandhu_app.utils.patient_details import get_patient_details, get_session_encounters
+from bandhu_app.bandhu_app.utils.printing import render_print
 from bandhu_app.bandhu_app.utils.realtime import publish_board_update
 from bandhu_app.bandhu_app.utils.session import (
 	find_active_session,
 	find_upcoming_sessions,
 	require_running_session,
 )
+
+PRESCRIPTION_PRINT_FORMAT = "Bandhu Prescription"
+PRINTABLE_PRESCRIPTION_STATES = ("Awaiting Medicine", "Completed")
 
 
 def require_session_access(session_name: str) -> None:
@@ -307,3 +311,16 @@ def dispense_medicine(encounter: str, dispensed_rows: list | str | None = None) 
 
 	doc.custom_workflow_state = "Completed"
 	doc.save(ignore_permissions=True)
+
+
+@frappe.whitelist()
+def get_prescription_html(encounter: str) -> str:
+	doc = load_session_encounter(encounter)
+	if doc.custom_workflow_state not in PRINTABLE_PRESCRIPTION_STATES:
+		frappe.throw(
+			_("A prescription can only be printed once the doctor has sent the patient for medicine.")
+		)
+	if not doc.custom_bandhu_prescription:
+		frappe.throw(_("No medicine is prescribed for this patient."), frappe.DoesNotExistError)
+
+	return render_print("Patient Encounter", doc.name, PRESCRIPTION_PRINT_FORMAT, "Nurse Prescription Print")
