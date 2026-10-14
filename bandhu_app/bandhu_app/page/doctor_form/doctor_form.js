@@ -541,7 +541,7 @@ async function submitDoctorAction(page, method, args, alertMessage = __("Saved")
 	try {
 		await frappe.call({
 			method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form." + method,
-			args,
+			args: with_cleared_history(args),
 		});
 	} catch (error) {
 		if (dialog) return;
@@ -555,6 +555,16 @@ async function submitDoctorAction(page, method, args, alertMessage = __("Saved")
 		frappe.show_alert({ message: alertMessage, indicator: "green" });
 	}
 	await bandhu.session_ui.refresh_page(page, loadQueues);
+}
+
+const HISTORY_FIELDNAMES = ["chief_complaint", "past_history", "allergy_history"];
+
+function with_cleared_history(args) {
+	const cleared = { ...args };
+	for (const fieldname of HISTORY_FIELDNAMES) {
+		if (fieldname in cleared && cleared[fieldname] === undefined) cleared[fieldname] = "";
+	}
+	return cleared;
 }
 
 const WAITING_ORDER = {
