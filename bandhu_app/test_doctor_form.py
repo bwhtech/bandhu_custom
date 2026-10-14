@@ -215,6 +215,15 @@ class TestDoctorForm(IntegrationTestCase):
 		self.encounter.reload()
 		self.assertFalse(self.encounter.custom_bandhu_prescription[0].dispensed_by)
 
+	def test_prescribe_medicine_keeps_a_blank_frequency_blank(self):
+		frappe.set_user(self.doctor_user_1)
+		prescribe_medicine(
+			self.encounter.name, [{"medicines": self.item, "duration_days": 5, "quantity": 10}]
+		)
+
+		self.encounter.reload()
+		self.assertFalse(self.encounter.custom_bandhu_prescription[0].dosage_frequency)
+
 	def test_prescribe_medicine_rejects_row_without_medicine(self):
 		frappe.set_user(self.doctor_user_1)
 		with self.assertRaises(frappe.ValidationError):
