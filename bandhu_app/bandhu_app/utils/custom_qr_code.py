@@ -36,7 +36,7 @@ def generate_qr_code_file(doc, data: str, field_name="custom_qr_code"):
 	# Clinic IDs are sequential, so a public /files/<clinic_id>.png is trivially enumerable
 	# by an unauthenticated visitor. Keep patient QR images behind permission checks.
 	file_doc.is_private = 1
-	file_doc.insert()
+	file_doc.insert(ignore_permissions=True)
 
 	return file_doc.file_url
 
