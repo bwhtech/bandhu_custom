@@ -4,12 +4,12 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import add_days, get_time, getdate, today
+from frappe.utils import add_days, getdate, today
 
 from bandhu_app.bandhu_app.doctype.bandhu_clinic_session.bandhu_clinic_session import (
 	ASSIGNMENT_ROLE_BY_FIELD,
 )
-from bandhu_app.bandhu_app.utils.session import validate_practitioner_roles
+from bandhu_app.bandhu_app.utils.session import validate_planned_times, validate_practitioner_roles
 
 PATTERN_FIELDS = (
 	"frequency",
@@ -100,7 +100,7 @@ class BandhuSessionSchedule(Document):
 		self.derive_project_from_clinic()
 		self.validate_validity_window()
 		self.validate_pattern()
-		self.validate_planned_times()
+		validate_planned_times(self)
 		self.validate_assignment_roles()
 		self.clear_generated_upto_on_pattern_change()
 		self.warn_about_assignment_clashes()
@@ -134,14 +134,6 @@ class BandhuSessionSchedule(Document):
 		chosen = [row.weekday for row in self.weekdays]
 		if len(chosen) != len(set(chosen)):
 			frappe.throw(_("The same weekday is listed more than once."))
-
-	def validate_planned_times(self):
-		if self.planned_start_time and self.planned_end_time:
-			# A Time read from the DB is a timedelta, but one arriving from a client save is a
-			# string — and "13:30:00" <= "8:00:00" is True lexicographically, so every schedule
-			# with a single-digit start hour became unsavable from the Desk form.
-			if get_time(self.planned_end_time) <= get_time(self.planned_start_time):
-				frappe.throw(_("Planned End Time must be after Planned Start Time."))
 
 	def validate_assignment_roles(self):
 		validate_practitioner_roles(self, ASSIGNMENT_ROLE_BY_FIELD)

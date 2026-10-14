@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import today
+from frappe.utils import add_days, today
 
 from bandhu_app.bandhu_app.page.new_session.new_session import (
 	as_session_draft,
@@ -81,6 +81,18 @@ class IntegrationTestNewSession(IntegrationTestCase):
 	def test_create_rejects_a_payload_with_no_date(self):
 		with self.assertRaises(frappe.ValidationError):
 			create_session(self.session_values(date=""))
+
+	def test_create_rejects_a_session_with_no_unit(self):
+		with self.assertRaises(frappe.ValidationError):
+			create_session(self.session_values(unit=""))
+
+	def test_create_rejects_a_date_in_the_past(self):
+		with self.assertRaises(frappe.ValidationError):
+			create_session(self.session_values(date=add_days(today(), -1)))
+
+	def test_create_rejects_an_end_time_before_the_start(self):
+		with self.assertRaises(frappe.ValidationError):
+			create_session(self.session_values(planned_start_time="17:00:00", planned_end_time="9:00:00"))
 
 	def test_check_clashes_reports_a_doctor_already_booked_that_day(self):
 		booked = create_session(self.session_values(assigned_doctor=self.doctor))

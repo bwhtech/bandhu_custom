@@ -107,7 +107,7 @@ function renderWhere() {
 		selectField("project", __("Project"), options.projects, true) +
 		selectField("site", __("Site"), sites, true) +
 		selectField("clinic", __("Clinic"), clinics, true) +
-		selectField("unit", __("Unit"), units, false) +
+		selectField("unit", __("Unit"), units, true) +
 		"</div></div>"
 	);
 }
@@ -273,6 +273,7 @@ function missingField() {
 	if (!session.project) return __("Pick a project.");
 	if (!session.site) return __("Pick a site.");
 	if (!session.clinic) return __("Pick a clinic.");
+	if (!session.unit) return __("Pick a unit.");
 	if (!session.date) return __("Set the session date.");
 	return null;
 }
