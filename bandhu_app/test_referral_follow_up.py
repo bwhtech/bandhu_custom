@@ -16,6 +16,27 @@ def make_user(email: str, role: str) -> str:
 	return email
 
 
+def make_practitioner(first_name: str, custom_role: str, user: str | None = None) -> str:
+	existing = frappe.db.get_value(
+		"Healthcare Practitioner", {"user_id": user} if user else {"first_name": first_name}
+	)
+	if existing:
+		return existing
+	return (
+		frappe.get_doc(
+			{
+				"doctype": "Healthcare Practitioner",
+				"first_name": first_name,
+				"status": "Active",
+				"custom_role": custom_role,
+				"user_id": user,
+			}
+		)
+		.insert(ignore_permissions=True)
+		.name
+	)
+
+
 class IntegrationTestHelpline(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
@@ -98,6 +119,28 @@ class IntegrationTestHelpline(IntegrationTestCase):
 		new_case = self.make_referral()
 		names = self.listed_names()
 		self.assertLess(names.index(new_case), names.index(referral))
+
+	def test_onboarded_staff_can_follow_up_a_referral_that_names_a_doctor(self):
+		onboarded_user = make_user("test.helpline.onboarded@bandhuapp.test", HELPLINE_ROLE)
+		make_practitioner("Helpline Onboarded", "Helpline Staff", onboarded_user)
+		referral = self.make_referral()
+		frappe.db.set_value(
+			"Referral",
+			referral,
+			"referred_to_practitioner",
+			make_practitioner("Referral Specialist", "Doctor"),
+		)
+
+		self.assertTrue(
+			frappe.db.exists("User Permission", {"user": onboarded_user, "allow": "Healthcare Practitioner"})
+		)
+
+		frappe.set_user(onboarded_user)
+		log_follow_up(
+			referral, summary="Patient reached the specialist.", next_followup_date=add_days(today(), 3)
+		)
+
+		self.assertEqual(len(frappe.get_doc("Referral", referral).referral_followup), 1)
 
 	def test_closing_a_case_takes_it_off_the_list_and_stops_further_calls(self):
 		referral = self.make_referral()
