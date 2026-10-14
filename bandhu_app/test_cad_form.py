@@ -865,14 +865,15 @@ class IntegrationTestCadForm(IntegrationTestCase):
 			frappe.set_user("Administrator")
 
 		self.assertTrue(
-			frappe.db.exists(
+			frappe.get_all(
 				"Access Log",
-				{
+				filters={
 					"user": self.cad_user,
 					"export_from": "Patient",
 					"method": "CAD Patient Search",
 					"filters": bandhu_id,
 				},
+				limit=1,
 			)
 		)
 
@@ -886,14 +887,15 @@ class IntegrationTestCadForm(IntegrationTestCase):
 			frappe.set_user("Administrator")
 
 		self.assertTrue(
-			frappe.db.exists(
+			frappe.get_all(
 				"Access Log",
-				{
+				filters={
 					"user": self.cad_user,
 					"export_from": "Patient",
 					"method": "CAD Patient Card",
 					"reference_document": patient.name,
 				},
+				limit=1,
 			)
 		)
 
@@ -906,7 +908,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		finally:
 			frappe.set_user("Administrator")
 
-		self.assertFalse(frappe.db.exists("Access Log", {"reference_document": patient.name}))
+		self.assertFalse(frappe.get_all("Access Log", filters={"reference_document": patient.name}, limit=1))
 
 	def test_duplicate_check_match_is_recorded_against_the_patient(self):
 		frappe.set_user(self.cad_user)
@@ -923,20 +925,21 @@ class IntegrationTestCadForm(IntegrationTestCase):
 			frappe.set_user("Administrator")
 
 		self.assertTrue(
-			frappe.db.exists(
+			frappe.get_all(
 				"Access Log",
-				{
+				filters={
 					"user": self.cad_user,
 					"export_from": "Patient",
 					"method": "CAD Duplicate Check",
 					"reference_document": existing,
 				},
+				limit=1,
 			)
 		)
 
 	def test_duplicate_check_with_no_match_leaves_no_access_log_row(self):
 		log_filters = {"user": self.cad_user, "method": "CAD Duplicate Check"}
-		rows_before = frappe.db.count("Access Log", log_filters)
+		rows_before = len(frappe.get_all("Access Log", filters=log_filters, pluck="name"))
 
 		frappe.set_user(self.cad_user)
 		try:
@@ -947,7 +950,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 			frappe.set_user("Administrator")
 
 		self.assertIsNone(match)
-		self.assertEqual(frappe.db.count("Access Log", log_filters), rows_before)
+		self.assertEqual(len(frappe.get_all("Access Log", filters=log_filters, pluck="name")), rows_before)
 
 	def make_visit(self, patient, days_ago, workflow_state="Completed", follow_up_date=None):
 		return frappe.get_doc(
