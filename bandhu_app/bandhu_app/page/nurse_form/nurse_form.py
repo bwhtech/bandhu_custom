@@ -7,6 +7,7 @@ from bandhu_app.bandhu_app.utils.patient_details import get_patient_details, get
 from bandhu_app.bandhu_app.utils.realtime import publish_board_update
 from bandhu_app.bandhu_app.utils.session import (
 	find_active_session,
+	find_session_left_open,
 	find_upcoming_sessions,
 	no_session_message,
 	require_running_session,
@@ -64,7 +65,8 @@ def get_session_status() -> dict:
 	if not practitioner:
 		return {"has_session": False, "message": _("No Healthcare Practitioner linked to your account.")}
 
-	session = find_active_session("assigned_nurse", practitioner)
+	left_open = find_session_left_open("assigned_nurse", practitioner)
+	session = left_open or find_active_session("assigned_nurse", practitioner)
 
 	if not session:
 		return {
@@ -78,6 +80,7 @@ def get_session_status() -> dict:
 		"status": session.status,
 		"clinic": session.clinic,
 		"site": session.site,
+		"left_open_on": str(left_open.date) if left_open else None,
 	}
 
 

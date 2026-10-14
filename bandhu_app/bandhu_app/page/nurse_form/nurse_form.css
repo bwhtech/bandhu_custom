@@ -81,6 +81,10 @@
 	font-size: var(--text-sm);
 }
 
+.nurse-dash .empty-state .nurse-end-left-open {
+	margin-top: var(--margin-md);
+}
+
 .nurse-dash .queue-section .table-wrap {
 	margin-top: 0;
 }

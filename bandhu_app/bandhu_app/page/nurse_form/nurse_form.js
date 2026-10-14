@@ -38,6 +38,11 @@ async function loadDashboard(page) {
 
 	nurseSession = data;
 
+	if (data.left_open_on) {
+		render_session_left_open(page, data);
+		return;
+	}
+
 	if (data.status === "Planned") {
 		page.main.html(
 			'<div class="nurse-dash">' +
@@ -71,6 +76,29 @@ async function loadDashboard(page) {
 				"</span></div></div>"
 		);
 	}
+}
+
+function render_session_left_open(page, data) {
+	page.main.html(
+		'<div class="nurse-dash">' +
+			bandhu.session_ui.format_welcome() +
+			bandhu.session_ui.format_session_info(data) +
+			'<div class="empty-state">' +
+			frappe.utils.icon("triangle-alert", "xl", "", "", "current-color empty-state-icon") +
+			'<span class="empty-state-text">' +
+			frappe.utils.escape_html(
+				__("This session on {0} was never closed. End it to open today's session.", [
+					frappe.datetime.str_to_user(data.left_open_on),
+				])
+			) +
+			"</span>" +
+			'<button class="btn btn-primary nurse-end-left-open">' +
+			frappe.utils.icon("circle-stop", "xs", "", "", "current-color") +
+			__("End Session") +
+			"</button></div></div>"
+	);
+
+	page.main.off("click").on("click", ".nurse-end-left-open", () => end_nurse_session(page));
 }
 
 async function startSession(page) {

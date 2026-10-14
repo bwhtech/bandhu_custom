@@ -11,6 +11,7 @@ from bandhu_app.bandhu_app.page.nurse_form.nurse_form import (
 	get_open_patients,
 	get_patient_registration_details,
 	get_session_progress,
+	get_session_status,
 	record_vitals,
 	start_session,
 	submit_test_results,
@@ -489,6 +490,33 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 			frappe.set_user("Administrator")
 
 		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", session, "status"), "Completed")
+
+	def test_a_session_left_open_from_an_earlier_day_comes_first_so_the_nurse_can_end_it(self):
+		left_open = self._make_session_with("In Progress", add_days(today(), -1))
+
+		frappe.set_user(self.nurse_user)
+		try:
+			status = get_session_status()
+			end_session(left_open)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(status["session_name"], left_open)
+		self.assertEqual(status["left_open_on"], add_days(today(), -1))
+		self.assertEqual(frappe.db.get_value("Bandhu Clinic Session", left_open, "status"), "Completed")
+
+	def test_writes_are_refused_on_a_session_left_open_from_an_earlier_day(self):
+		left_open = self._make_session_with("In Progress", add_days(today(), -1))
+		encounter = self._make_encounter(left_open, "Awaiting Medicine")
+
+		frappe.set_user(self.nurse_user)
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				record_vitals(encounter.name, pulse_rate=72)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertFalse(frappe.db.get_value("Patient Encounter", encounter.name, "custom_pulse_rate"))
 
 	def test_ending_a_session_cancels_the_visits_nobody_finished(self):
 		session = self._make_session_with("In Progress", today())

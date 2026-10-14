@@ -1126,12 +1126,25 @@ async function refresh_board() {
 	await frappe.require(SESSION_UI_ASSET);
 	bandhu.session_ui.add_refresh_icon(cadPage, refresh_board);
 	const load = cadPage.main.find(".cad-queue-body").length ? loadQueue : loadDashboard;
-	await bandhu.session_ui.refresh_page(cadPage, load);
+	await bandhu.session_ui.refresh_page(
+		cadPage,
+		(await session_is_unchanged()) ? load : loadDashboard
+	);
 	bandhu.session_ui.subscribe_to_board_updates(
 		"cad-form",
 		() => (cadSession ? cadSession.session_name : null),
 		refresh_board
 	);
+}
+
+async function session_is_unchanged() {
+	if (!cadSession) return true;
+
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_session_status",
+	});
+	const status = response.message || {};
+	return status.session_name === cadSession.session_name && status.status === cadSession.status;
 }
 
 frappe.pages["cad-form"].on_page_show = refresh_board;
