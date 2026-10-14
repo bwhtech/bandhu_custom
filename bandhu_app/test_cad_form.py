@@ -18,6 +18,7 @@ from bandhu_app.bandhu_app.page.cad_form.cad_form import (
 	register_patient,
 	search_patient,
 )
+from bandhu_app.bandhu_app.page.doctor_form.doctor_form import count_patients_with_doctor
 from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.patches.seed_quick_countries import execute as seed_quick_countries
 
@@ -478,6 +479,37 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		self.assertIn("Supervisor called him back", comment)
 		self.assertNotIn("<b>", comment)
 		self.assertIn("&lt;b&gt;now&lt;/b&gt;", comment)
+
+	def test_cancelling_a_called_patient_frees_the_doctors_place(self):
+		patient = self._make_patient("Test Called Then Left Patient")
+
+		frappe.set_user(self.cad_user)
+		try:
+			encounter_name = create_encounter(patient.name, self.session)
+			frappe.db.set_value(
+				"Patient Encounter", encounter_name, "custom_called_at", frappe.utils.now_datetime()
+			)
+			cancel_visit(encounter_name, self.session, reason="Left before the doctor saw him")
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(count_patients_with_doctor(self.session), 0)
+
+	def test_a_visit_ended_outside_the_board_does_not_hold_the_doctors_place(self):
+		patient = self._make_patient("Test Cancelled From Desk Patient")
+
+		frappe.set_user(self.cad_user)
+		try:
+			encounter_name = create_encounter(patient.name, self.session)
+		finally:
+			frappe.set_user("Administrator")
+		frappe.db.set_value(
+			"Patient Encounter",
+			encounter_name,
+			{"custom_called_at": frappe.utils.now_datetime(), "custom_workflow_state": "Cancelled"},
+		)
+
+		self.assertEqual(count_patients_with_doctor(self.session), 0)
 
 	def test_cancel_visit_needs_a_reason(self):
 		patient = self._make_patient("Test No Reason Patient")

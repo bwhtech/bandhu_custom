@@ -488,4 +488,5 @@ def cancel_visit(encounter: str, session: str, reason: str | None = None) -> Non
 	encounter_doc.add_comment("Comment", _("Visit cancelled: {0}").format(frappe.utils.escape_html(reason)))
 
 	encounter_doc.custom_workflow_state = "Cancelled"
+	encounter_doc.custom_called_at = None
 	encounter_doc.save(ignore_permissions=True)
