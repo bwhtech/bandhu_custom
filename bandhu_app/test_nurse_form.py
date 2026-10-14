@@ -655,13 +655,14 @@ class IntegrationTestNurseForm(IntegrationTestCase):
 		self.assertIn("After food &amp; water", html)
 		self.assertIn(frappe.db.get_value("Patient", encounter.patient, "patient_name"), html)
 		self.assertTrue(
-			frappe.db.exists(
+			frappe.get_all(
 				"Access Log",
-				{
+				filters={
 					"reference_document": encounter.name,
 					"method": "Nurse Prescription Print",
 					"user": self.nurse_user,
 				},
+				limit=1,
 			)
 		)
 
