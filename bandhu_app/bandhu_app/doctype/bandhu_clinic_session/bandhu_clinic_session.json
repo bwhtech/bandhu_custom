@@ -125,6 +125,7 @@
    "fetch_if_empty": 1,
    "fieldname": "assigned_doctor",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Assigned Doctor",
    "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Doctor\"]]",
    "options": "Healthcare Practitioner"
@@ -138,6 +139,7 @@
    "fetch_if_empty": 1,
    "fieldname": "assigned_nurse",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Assigned Nurse",
    "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Nurse\"]]",
    "options": "Healthcare Practitioner"
@@ -147,6 +149,7 @@
    "fetch_if_empty": 1,
    "fieldname": "assigned_driver",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Assigned Driver",
    "link_filters": "[[\"Healthcare Practitioner\",\"custom_role\",\"=\",\"Clinic Assistant cum Driver\"]]",
    "options": "Healthcare Practitioner"
