@@ -803,7 +803,7 @@ function bindRegisterEvents(page) {
 
 	page.main
 		.off("click", ".cad-register-submit")
-		.on("click", ".cad-register-submit", () => submitRegistration(page));
+		.on("click", ".cad-register-submit", () => submit_registration_once(page));
 }
 
 async function loadDistrictSuggestions(page, state) {
@@ -851,6 +851,18 @@ function years_since(date_string) {
 	if (before_birthday) age -= 1;
 
 	return age < 0 ? null : age;
+}
+
+let registration_in_flight = false;
+
+async function submit_registration_once(page) {
+	if (registration_in_flight) return;
+	registration_in_flight = true;
+	try {
+		await submitRegistration(page);
+	} finally {
+		registration_in_flight = false;
+	}
 }
 
 async function submitRegistration(page) {
