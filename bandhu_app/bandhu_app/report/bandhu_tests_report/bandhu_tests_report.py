@@ -234,11 +234,5 @@ def get_columns() -> list:
 			"options": "Bandhu Clinic Session",
 			"width": 150,
 		},
-		{
-			"fieldname": "encounter",
-			"label": _("Encounter"),
-			"fieldtype": "Link",
-			"options": "Patient Encounter",
-			"width": 150,
-		},
+		{"fieldname": "encounter", "label": _("Encounter"), "fieldtype": "Data", "width": 150},
 	]
