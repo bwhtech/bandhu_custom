@@ -444,14 +444,15 @@ def remove_unused_future_sessions(schedule: str) -> list:
 	return removed
 
 
-def rebuild_sessions(schedule: str, regenerate: bool = False) -> None:
+def rebuild_sessions(schedule: str, regenerate: bool = False, generate: bool = True) -> None:
 	"""Background entry point for session generation on save."""
 	if regenerate:
 		remove_unused_future_sessions(schedule)
-	generate_sessions_for_schedule(schedule)
+	if generate:
+		generate_sessions_for_schedule(schedule)
 
 
-def enqueue_session_generation(schedule: str, regenerate: bool = False) -> None:
+def enqueue_session_generation(schedule: str, regenerate: bool = False, generate: bool = True) -> None:
 	# A daily schedule against the 730-day horizon ceiling is 730 inserts, each taking the
 	# naming series lock — far too much to hang off the user's save request.
 	# Deliberately not deduplicated: frappe.enqueue answers a duplicate job_id by dropping the
@@ -464,6 +465,7 @@ def enqueue_session_generation(schedule: str, regenerate: bool = False) -> None:
 		now=frappe.in_test,
 		schedule=schedule,
 		regenerate=regenerate,
+		generate=generate,
 	)
 
 

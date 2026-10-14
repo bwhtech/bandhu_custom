@@ -147,14 +147,17 @@ class BandhuSessionSchedule(Document):
 		validate_practitioner_roles(self, ASSIGNMENT_ROLE_BY_FIELD)
 
 	def clear_generated_upto_on_pattern_change(self):
-		if self.is_new() or not self.last_generated_upto:
+		if self.is_new():
 			return
 
 		before = self.get_doc_before_save()
 		if not before:
 			return
 
-		pattern_changed = any(self.get(field) != before.get(field) for field in PATTERN_FIELDS)
+		pattern_changed = any(
+			self.has_value_changed(field) and (self.get(field) or before.get(field))
+			for field in PATTERN_FIELDS
+		)
 		weekdays_changed = [row.weekday for row in self.weekdays] != [row.weekday for row in before.weekdays]
 		if pattern_changed or weekdays_changed:
 			self.last_generated_upto = None
@@ -186,17 +189,19 @@ class BandhuSessionSchedule(Document):
 		)
 
 	def generate_sessions_on_save(self):
-		# nightly job means an empty list and a support call.
 		from bandhu_app.bandhu_app.utils.session_schedule import (
 			enqueue_session_generation,
 			is_auto_generation_enabled,
 		)
 
-		if not self.enabled or not is_auto_generation_enabled():
+		regenerate = bool(self.flags.pattern_changed)
+		generate = bool(self.enabled) and is_auto_generation_enabled()
+		if not regenerate and not generate:
 			return
 
-		enqueue_session_generation(self.name, regenerate=bool(self.flags.pattern_changed))
-		frappe.msgprint(_("Sessions are being created in the background."), alert=True)
+		enqueue_session_generation(self.name, regenerate=regenerate, generate=generate)
+		if generate:
+			frappe.msgprint(_("Sessions are being created in the background."), alert=True)
 
 
 @frappe.whitelist(methods=["POST"])
