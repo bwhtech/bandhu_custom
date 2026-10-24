@@ -20,10 +20,6 @@ from bandhu_app.bandhu_app.utils.session import (
 	require_running_session,
 )
 
-COMPANY_LIST_LIMIT = 500
-ADD_COMPANY_LIMIT = 60
-ADD_COMPANY_WINDOW_SECONDS = 60 * 60
-
 
 def require_cad_access() -> None:
 	roles = frappe.get_roles()
@@ -84,7 +80,6 @@ def get_session_status() -> dict:
 @frappe.whitelist()
 def get_form_options() -> dict:
 	require_cad_access()
-	companies = frappe.get_all("Bandhu Company", order_by="name asc", limit=COMPANY_LIST_LIMIT, pluck="name")
 	major_states = frappe.get_all(
 		"State", filters={"is_major_state": 1}, fields=["name"], order_by="name asc", pluck="name"
 	)
@@ -103,29 +98,12 @@ def get_form_options() -> dict:
 	return {
 		"genders": get_offered_genders(),
 		"major_states": major_states,
-		"companies": companies,
 		"other_states": other_states,
 		"major_occupations": major_occupations,
 		"other_occupations": other_occupations,
 		"major_sectors": major_sectors,
 		"quick_countries": [row.country for row in frappe.get_single("Bandhu Settings").quick_countries],
 	}
-
-
-@frappe.whitelist(methods=["POST"])
-@rate_limit(limit=ADD_COMPANY_LIMIT, seconds=ADD_COMPANY_WINDOW_SECONDS)
-def add_company(company_name: str) -> str:
-	require_cad_access()
-
-	company_name = (company_name or "").strip()
-	if not company_name:
-		frappe.throw(_("Enter the name of the company."))
-
-	existing = frappe.db.get_value("Bandhu Company", {"company_name": company_name}, "name")
-	if existing:
-		return existing
-
-	return frappe.get_doc({"doctype": "Bandhu Company", "company_name": company_name}).insert().name
 
 
 SEARCH_LIMIT = 20
