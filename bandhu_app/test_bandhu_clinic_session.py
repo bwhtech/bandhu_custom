@@ -6,7 +6,7 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import today
 
 from bandhu_app.bandhu_app.utils.session import find_active_session
-from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures, make_site_in_location
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -89,6 +89,30 @@ class IntegrationTestBandhuClinicSession(IntegrationTestCase):
 		self.assertEqual(result.name, in_progress.name)
 		self.assertEqual(result.status, "In Progress")
 
+	def test_find_active_session_picks_the_earlier_planned_session(self):
+		driver = self._make_practitioner("Two Session Test Driver", "Clinic Assistant cum Driver")
+		morning = frappe.get_doc(
+			self._session_fields(assigned_driver=driver, planned_start_time="09:30:00")
+		).insert(ignore_permissions=True)
+		frappe.get_doc(self._session_fields(assigned_driver=driver, planned_start_time="14:30:00")).insert(
+			ignore_permissions=True
+		)
+
+		result = find_active_session("assigned_driver", driver)
+
+		self.assertEqual(result.name, morning.name)
+
+	def test_find_active_session_puts_a_session_with_no_planned_time_last(self):
+		driver = self._make_practitioner("Untimed Session Test Driver", "Clinic Assistant cum Driver")
+		frappe.get_doc(self._session_fields(assigned_driver=driver)).insert(ignore_permissions=True)
+		timed = frappe.get_doc(
+			self._session_fields(assigned_driver=driver, planned_start_time="14:30:00")
+		).insert(ignore_permissions=True)
+
+		result = find_active_session("assigned_driver", driver)
+
+		self.assertEqual(result.name, timed.name)
+
 	def test_find_active_session_ignores_completed(self):
 		driver = self._make_practitioner("Completed Test Driver", "Clinic Assistant cum Driver")
 		frappe.get_doc(self._session_fields(assigned_driver=driver, status="Completed")).insert(
@@ -119,3 +143,26 @@ class IntegrationTestBandhuClinicSession(IntegrationTestCase):
 		result = find_active_session("assigned_driver", driver)
 
 		self.assertEqual(result.site, "Site Label Test Session")
+
+	def test_session_shows_the_lsg_and_phc_chc_of_its_site(self):
+		site = make_site_in_location("LSG Test Bengali Market", "Vazhakulam Gram Panchayat", "FHC Vazhakulam")
+
+		session = frappe.get_doc(self._session_fields(site=site)).insert(ignore_permissions=True)
+
+		self.assertEqual(session.lsg, "Vazhakulam Gram Panchayat")
+		self.assertEqual(session.phc_chc, "FHC Vazhakulam")
+
+	def test_moving_a_session_to_another_site_updates_its_lsg_and_phc_chc(self):
+		first_site = make_site_in_location(
+			"LSG Test Kochangadi", "Perumbavoor Municipality", "THQH Perumbavoor"
+		)
+		second_site = make_site_in_location(
+			"LSG Test BM Nagar", "Thrikkakkara Municipality", "UPHC Thrikakkara"
+		)
+		session = frappe.get_doc(self._session_fields(site=first_site)).insert(ignore_permissions=True)
+
+		session.site = second_site
+		session.save(ignore_permissions=True)
+
+		self.assertEqual(session.lsg, "Thrikkakkara Municipality")
+		self.assertEqual(session.phc_chc, "UPHC Thrikakkara")

@@ -390,3 +390,16 @@
 	min-height: 44px;
 	padding: 0 var(--padding-lg);
 }
+
+[data-page-route="cad-form"] .page-actions .menu-btn-group {
+	order: 1;
+}
+
+[data-page-route="cad-form"] .page-actions .menu-more-button {
+	background: transparent;
+}
+
+[data-page-route="cad-form"] .page-actions .menu-more-button:hover,
+[data-page-route="cad-form"] .page-actions .menu-more-button[aria-expanded="true"] {
+	background: var(--btn-default-bg);
+}

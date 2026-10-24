@@ -8,7 +8,9 @@ from bandhu_app.bandhu_app.utils.printing import render_print
 from bandhu_app.bandhu_app.utils.realtime import publish_board_update
 from bandhu_app.bandhu_app.utils.session import (
 	find_active_session,
+	find_session_left_open,
 	find_upcoming_sessions,
+	no_session_message,
 	require_running_session,
 )
 
@@ -67,12 +69,13 @@ def get_session_status() -> dict:
 	if not practitioner:
 		return {"has_session": False, "message": _("No Healthcare Practitioner linked to your account.")}
 
-	session = find_active_session("assigned_nurse", practitioner)
+	left_open = find_session_left_open("assigned_nurse", practitioner)
+	session = left_open or find_active_session("assigned_nurse", practitioner)
 
 	if not session:
 		return {
 			"has_session": False,
-			"message": _("No session scheduled for today. Please contact Programme Manager."),
+			"message": no_session_message("assigned_nurse", practitioner),
 		}
 
 	return {
@@ -81,6 +84,7 @@ def get_session_status() -> dict:
 		"status": session.status,
 		"clinic": session.clinic,
 		"site": session.site,
+		"left_open_on": str(left_open.date) if left_open else None,
 	}
 
 
@@ -144,12 +148,49 @@ def end_session(session_name: str) -> None:
 	if session_doc.status != "In Progress":
 		frappe.throw(_("This session is not open, so it cannot be closed."))
 
+	cancel_open_visits(session_name)
 	frappe.db.set_value(
 		"Bandhu Clinic Session",
 		session_name,
 		{"status": "Completed", "end_time": frappe.utils.now_datetime()},
 	)
 	publish_board_update(session_name)
+
+
+OPEN_VISIT_STATES = ["Waiting for Doctor", "Awaiting Test", "Awaiting Doctor Review", "Awaiting Medicine"]
+
+
+def find_open_visits(session_name: str, fields: list) -> list:
+	return frappe.get_all(
+		"Patient Encounter",
+		filters={"custom_clinic_session": session_name, "custom_workflow_state": ["in", OPEN_VISIT_STATES]},
+		fields=fields,
+		order_by="creation asc",
+	)
+
+
+def cancel_open_visits(session_name: str) -> None:
+	for visit in find_open_visits(session_name, ["name"]):
+		frappe.db.set_value(
+			"Patient Encounter",
+			visit.name,
+			{"custom_workflow_state": "Cancelled", "custom_called_at": None},
+		)
+		frappe.get_doc(
+			{
+				"doctype": "Comment",
+				"comment_type": "Comment",
+				"reference_doctype": "Patient Encounter",
+				"reference_name": visit.name,
+				"content": _("Cancelled because the session ended before this visit finished."),
+			}
+		).insert(ignore_permissions=True)
+
+
+@frappe.whitelist()
+def get_open_patients(session_name: str) -> list[str]:
+	require_session_access(session_name)
+	return [visit.patient_name for visit in find_open_visits(session_name, ["patient_name"])]
 
 
 @frappe.whitelist()

@@ -88,6 +88,16 @@ function inputField(field, label, type, required) {
 	);
 }
 
+function read_only_field(label, value) {
+	return (
+		'<div class="form-group"><label>' +
+		frappe.utils.escape_html(label) +
+		'</label><div class="like-disabled-input">' +
+		frappe.utils.escape_html(value || "") +
+		"</div></div>"
+	);
+}
+
 function renderWhere() {
 	const associations = options.associations || {};
 	const sites = filteredByHistory(options.sites, associations.project_sites, session.project);
@@ -99,6 +109,7 @@ function renderWhere() {
 	clinics = filteredByHistory(clinics, associations.site_clinics, session.site);
 
 	const units = filteredByHistory(options.units, associations.clinic_units, session.clinic);
+	const site = (options.sites || []).find((item) => item.value === session.site) || {};
 
 	return (
 		'<div class="card"><div class="section-label">' +
@@ -106,8 +117,10 @@ function renderWhere() {
 		'</div><div class="field-grid">' +
 		selectField("project", __("Project"), options.projects, true) +
 		selectField("site", __("Site"), sites, true) +
+		read_only_field(__("LSG"), site.lsg) +
+		read_only_field(__("PHC/CHC"), site.phc_chc) +
 		selectField("clinic", __("Clinic"), clinics, true) +
-		selectField("unit", __("Unit"), units, false) +
+		selectField("unit", __("Unit"), units, true) +
 		"</div></div>"
 	);
 }
@@ -273,6 +286,7 @@ function missingField() {
 	if (!session.project) return __("Pick a project.");
 	if (!session.site) return __("Pick a site.");
 	if (!session.clinic) return __("Pick a clinic.");
+	if (!session.unit) return __("Pick a unit.");
 	if (!session.date) return __("Set the session date.");
 	return null;
 }

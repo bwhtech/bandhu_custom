@@ -5,13 +5,15 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-from bandhu_app.bandhu_app.utils.session import validate_practitioner_roles
+from bandhu_app.bandhu_app.utils.session import validate_planned_times, validate_practitioner_roles
 
 ASSIGNMENT_ROLE_BY_FIELD = {
 	"assigned_doctor": "Doctor",
 	"assigned_nurse": "Nurse",
 	"assigned_driver": "Clinic Assistant cum Driver",
 }
+
+OPEN_STATUSES = ("Planned", "In Progress")
 
 
 class BandhuClinicSession(Document):
@@ -32,7 +34,10 @@ class BandhuClinicSession(Document):
 		departure_time: DF.Time | None
 		distance_travelled_km: DF.Data | None
 		end_time: DF.Datetime | None
+		location: DF.Link | None
+		lsg: DF.Data | None
 		notes: DF.SmallText | None
+		phc_chc: DF.Data | None
 		planned_end_time: DF.Time | None
 		planned_start_time: DF.Time | None
 		project: DF.Link
@@ -46,6 +51,14 @@ class BandhuClinicSession(Document):
 
 	def validate(self):
 		self.validate_assignment_roles()
+		self.validate_unit_while_open()
+		validate_planned_times(self)
 
 	def validate_assignment_roles(self):
 		validate_practitioner_roles(self, ASSIGNMENT_ROLE_BY_FIELD)
+
+	def validate_unit_while_open(self):
+		if self.status in OPEN_STATUSES and not self.unit:
+			frappe.throw(
+				_("Pick the unit for this session. The front desk cannot issue Clinic IDs without it.")
+			)
