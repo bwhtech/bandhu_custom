@@ -18,21 +18,24 @@ class IntegrationTestReportFilterLookups(IntegrationTestCase):
 	def setUp(self):
 		self.baseline = ensure_baseline_fixtures()
 
-	def lookup(self, user, doctype):
+	def lookup(self, user, doctype, title):
 		frappe.set_user(user)
 		try:
-			return [
-				row["value"] for row in search_link(doctype, "", reference_doctype="Bandhu Clinic Session")
-			]
+			return {
+				row["value"]: row.get("label")
+				for row in search_link(doctype, title, reference_doctype="Bandhu Clinic Session")
+			}
 		finally:
 			frappe.set_user("Administrator")
 
-	def test_managers_can_pick_every_value_the_report_filters_offer(self):
+	def test_managers_see_each_filter_value_by_its_title(self):
 		for role in MANAGER_ROLES:
 			user = make_user(f"report.lookup.{frappe.scrub(role)}@bandhuapp.test", role)
 			for doctype, baseline_key in FILTER_LINKS.items():
+				name = self.baseline[baseline_key]
+				title = frappe.db.get_value(doctype, name, frappe.get_meta(doctype).title_field)
 				with self.subTest(role=role, doctype=doctype):
-					self.assertIn(self.baseline[baseline_key], self.lookup(user, doctype))
+					self.assertEqual(self.lookup(user, doctype, title).get(name), title)
 
 
 def make_user(email: str, role: str) -> str:
