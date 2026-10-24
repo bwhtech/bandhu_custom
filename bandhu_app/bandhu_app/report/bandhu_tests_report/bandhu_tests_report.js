@@ -24,7 +24,7 @@ frappe.query_reports["Bandhu Tests Report"] = {
 			fieldname: "result",
 			label: __("Result"),
 			fieldtype: "Select",
-			options: ["", "Positive", "Negative", "Value", "Pending"],
+			options: ["", "Positive", "Negative", "Value", "Not Done", "Pending"],
 		},
 		{
 			fieldname: "project",

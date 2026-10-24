@@ -195,6 +195,35 @@ class IntegrationTestTestsReport(IntegrationTestCase):
 		self.assertEqual(summary["Awaiting Result"], 1)
 		self.assertEqual(summary["Patients Tested"], 1)
 
+	def test_tests_on_a_cancelled_visit_are_left_out(self):
+		session = self._make_session()
+		self._make_encounter(session, [{"test_name": "Malaria"}])
+		cancelled = self._make_encounter(session, [{"test_name": "Dengue"}])
+		frappe.db.set_value("Patient Encounter", cancelled.name, "custom_workflow_state", "Cancelled")
+
+		self.assertEqual([row["test_name"] for row in self._run()], ["Malaria"])
+
+	def test_a_test_marked_not_done_is_not_counted_as_done(self):
+		session = self._make_session()
+		self._make_encounter(
+			session,
+			[
+				{"test_name": "Malaria", "result_type": "Not Done"},
+				{"test_name": "Hb", "result_type": "Negative"},
+			],
+		)
+		self._make_encounter(session, [{"test_name": "Dengue", "result_type": "Not Done"}])
+
+		summary = {
+			card["label"]: card["value"]
+			for card in execute({"from_date": today(), "to_date": today(), "site": self.site})[4]
+		}
+		self.assertEqual(summary["Tests Done"], 1)
+		self.assertEqual(summary["Not Done"], 2)
+		self.assertEqual(summary["Awaiting Result"], 0)
+		self.assertEqual(summary["Patients Tested"], 1)
+		self.assertEqual({row["test_name"] for row in self._run(result="Not Done")}, {"Malaria", "Dengue"})
+
 	def _user_with_role(self, email, role):
 		if not frappe.db.exists("User", email):
 			frappe.get_doc(
