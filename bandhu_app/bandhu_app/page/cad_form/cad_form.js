@@ -7,6 +7,7 @@ let cadPage = null;
 let formOptions = { major_states: [], other_states: [], major_sectors: [] };
 let log_book_save_pending = false;
 let log_book_menu_item = null;
+let company_control = null;
 
 const MAX_PLAUSIBLE_AGE = 120;
 
@@ -48,7 +49,6 @@ const MEASUREMENT_FIELDS = [
 ];
 
 const CONTACT_FIELDS = [
-	{ name: "company_name", label: __("Name of Company"), type: "text" },
 	{
 		name: "mobile",
 		label: __("Mobile Number"),
@@ -182,6 +182,7 @@ async function renderFrontDesk(page, data) {
 		"</div>";
 
 	page.main.html(html);
+	make_company_control(page);
 	bindSearchEvents(page);
 	bindRegisterEvents(page);
 	await loadQueue(page);
@@ -277,6 +278,29 @@ function render_field(field) {
 
 function render_fields(fields) {
 	return fields.map(render_field).join("");
+}
+
+function render_company_field() {
+	return '<div class="company-field"></div>';
+}
+
+function make_company_control(page) {
+	company_control = frappe.ui.form.make_control({
+		parent: page.main.find(".company-field"),
+		df: {
+			fieldtype: "Link",
+			fieldname: "company_name",
+			label: __("Name of Company"),
+			options: "Bandhu Company",
+		},
+		render_input: true,
+	});
+}
+
+function reset_register_form(page) {
+	page.main.find(".cad-register-form").hide().html(renderRegisterForm());
+	make_company_control(page);
+	focus_scan_input(page);
 }
 
 function render_field_note(text) {
@@ -444,6 +468,7 @@ function renderRegisterForm() {
 		render_district_field() +
 		render_occupation_group() +
 		render_sector_group() +
+		render_company_field() +
 		render_fields(CONTACT_FIELDS) +
 		"</div>" +
 		'<div class="register-actions">' +
@@ -900,7 +925,8 @@ async function submitRegistration(page) {
 	if (values.occupation) args.occupation = values.occupation;
 	if (values.sector) args.sector = values.sector;
 	if (values.specify_sector) args.specify_sector = values.specify_sector;
-	if (values.company_name) args.company_name = values.company_name;
+	const company_name = company_control && company_control.get_value();
+	if (company_name) args.company_name = company_name;
 	if (values.abha_id) args.abha_id = values.abha_id;
 
 	const existing = await find_possible_duplicate(args);
@@ -920,10 +946,7 @@ async function submitRegistration(page) {
 
 	if (!patient) return;
 
-	await addPatientToQueue(page, patient, () => {
-		page.main.find(".cad-register-form").hide().html(renderRegisterForm());
-		focus_scan_input(page);
-	});
+	await addPatientToQueue(page, patient, () => reset_register_form(page));
 
 	// No print prompt here. The patient's row in the queue carries its own Print Card
 	// button, so the card can be printed now or at any point during the visit without a
@@ -977,10 +1000,7 @@ function confirm_register_anyway(page, existing) {
 			primary_action: async () => {
 				dialog.hide();
 				resolve(false);
-				await addPatientToQueue(page, existing.name, () => {
-					page.main.find(".cad-register-form").hide().html(renderRegisterForm());
-					focus_scan_input(page);
-				});
+				await addPatientToQueue(page, existing.name, () => reset_register_form(page));
 			},
 			secondary_action_label: __("Register as new"),
 			secondary_action: () => {
