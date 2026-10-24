@@ -97,6 +97,7 @@ async function loadDashboard(page) {
 		other_states: [],
 		major_sectors: [],
 		quick_countries: [],
+		state_countries: {},
 	};
 
 	await renderFrontDesk(page, data);
@@ -409,16 +410,25 @@ function render_country_group() {
 	});
 }
 
-function render_state_group() {
+function states_of(country, states) {
+	return (states || []).filter((state) => formOptions.state_countries[state] === country);
+}
+
+function render_native_place(country) {
+	const major_states = states_of(country, formOptions.major_states);
+	const other_states = states_of(country, formOptions.other_states);
+	if (!major_states.length && !other_states.length) return "";
+
+	return render_state_group(major_states, other_states) + render_district_field();
+}
+
+function render_state_group(major_states, other_states) {
 	return render_tab_group({
 		field: "native_state",
 		label: __("Native State"),
-		options: (formOptions.major_states || []).concat(["Other"]),
+		options: major_states.concat(["Other"]),
 		mode: "picker",
-		otherPickerHtml: render_other_picker(
-			formOptions.other_states || [],
-			__("-- Select State --")
-		),
+		otherPickerHtml: render_other_picker(other_states, __("-- Select State --")),
 	});
 }
 
@@ -464,8 +474,9 @@ function renderRegisterForm() {
 		render_field_note(__("Age or Date of Birth is required.")) +
 		render_fields(MEASUREMENT_FIELDS) +
 		render_country_group() +
-		render_state_group() +
-		render_district_field() +
+		'<div class="native-place">' +
+		render_native_place((formOptions.quick_countries || [])[0]) +
+		"</div>" +
 		render_occupation_group() +
 		render_sector_group() +
 		render_company_field() +
@@ -783,6 +794,8 @@ function bindRegisterEvents(page) {
 		});
 
 	page.main.off("click", ".tab-btn").on("click", ".tab-btn", function () {
+		if ($(this).hasClass("is-selected")) return;
+
 		const wrap = $(this).closest(".tab-group-wrap");
 		wrap.find(".tab-btn").removeClass("is-selected");
 		$(this).addClass("is-selected");
@@ -799,6 +812,8 @@ function bindRegisterEvents(page) {
 		}
 		wrap.find(".detail-field").prop("hidden", !isOther).val("");
 
+		if (hiddenField.data("field") === "native_country")
+			page.main.find(".native-place").html(render_native_place(hiddenField.val()));
 		if (hiddenField.data("field") === "native_state")
 			loadDistrictSuggestions(page, hiddenField.val());
 	});
@@ -808,6 +823,8 @@ function bindRegisterEvents(page) {
 		const hiddenField = wrap.find("input.cad-field");
 		hiddenField.val($(this).val());
 
+		if (hiddenField.data("field") === "native_country")
+			page.main.find(".native-place").html(render_native_place(hiddenField.val()));
 		if (hiddenField.data("field") === "native_state")
 			loadDistrictSuggestions(page, hiddenField.val());
 	});
@@ -833,6 +850,8 @@ async function loadDistrictSuggestions(page, state) {
 		method: "bandhu_app.bandhu_app.utils.state_districts.get_districts",
 		args: { state },
 	});
+	if (page.main.find('.cad-field[data-field="native_state"]').val() !== state) return;
+
 	const districts = (response && response.message) || [];
 	select.append(
 		districts

@@ -103,6 +103,7 @@ def get_form_options() -> dict:
 		"other_occupations": other_occupations,
 		"major_sectors": major_sectors,
 		"quick_countries": [row.country for row in frappe.get_single("Bandhu Settings").quick_countries],
+		"state_countries": dict(frappe.get_all("State", fields=["name", "country"], as_list=True)),
 	}
 
 
@@ -337,6 +338,11 @@ def register_patient(
 		validate_phone_number(mobile, throw=True)
 		if not re.fullmatch(r"\d{10}", mobile):
 			frappe.throw(_("Mobile number must be exactly 10 digits."))
+
+	if native_state and frappe.db.get_value("State", native_state, "country") != (native_country or None):
+		frappe.throw(_("{0} is not a state of the chosen country.").format(native_state))
+	if native_district and not native_state:
+		frappe.throw(_("Choose the native state before the district."))
 
 	abha_id = (abha_id or "").strip() or None
 	if abha_id and frappe.db.exists("Patient", {"custom_abha_id": abha_id}):

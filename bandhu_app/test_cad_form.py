@@ -144,6 +144,8 @@ class IntegrationTestCadForm(IntegrationTestCase):
 				mobile="9876543210",
 				height_cm=170,
 				weight_kg=68,
+				native_country="India",
+				native_state="Kerala",
 				native_district="Ernakulam",
 				company_name="Acme Textiles",
 				abha_id="ABHA-TEST-001",
@@ -159,6 +161,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		self.assertEqual(doc.mobile, "9876543210")
 		self.assertAlmostEqual(doc.custom_height_m, 1.70, places=2)
 		self.assertEqual(doc.custom_weight_kg, 68)
+		self.assertEqual(doc.custom_native_state, "Kerala")
 		self.assertEqual(doc.custom_native_district, "Ernakulam")
 		self.assertEqual(doc.custom_name_of_company, "Acme Textiles")
 		self.assertEqual(doc.custom_abha_id, "ABHA-TEST-001")
@@ -252,6 +255,61 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		self.assertFalse(doc.custom_native_country)
 		self.assertEqual(doc.custom_specify_native_country, "Bangladesh")
 
+	def test_register_patient_stores_a_state_of_the_chosen_country(self):
+		with self.set_user(self.cad_user):
+			patient_name = register_patient(
+				full_name="Test Indian State Patient",
+				dob="1990-05-15",
+				sex=self.gender,
+				native_country="India",
+				native_state="Bihar",
+				session=self.session,
+			)
+
+		self.assertEqual(frappe.db.get_value("Patient", patient_name, "custom_native_state"), "Bihar")
+
+	def test_register_patient_rejects_a_state_of_another_country(self):
+		with self.set_user(self.cad_user):
+			self.assertRaisesRegex(
+				frappe.ValidationError,
+				"not a state of the chosen country",
+				register_patient,
+				full_name="Test Nepal Bihar Patient",
+				dob="1990-05-15",
+				sex=self.gender,
+				native_country="Nepal",
+				native_state="Bihar",
+				session=self.session,
+			)
+
+	def test_register_patient_rejects_a_state_when_no_country_is_chosen(self):
+		with self.set_user(self.cad_user):
+			self.assertRaisesRegex(
+				frappe.ValidationError,
+				"not a state of the chosen country",
+				register_patient,
+				full_name="Test Unknown Country Bihar Patient",
+				dob="1990-05-15",
+				sex=self.gender,
+				specify_native_country="Bangladesh",
+				native_state="Bihar",
+				session=self.session,
+			)
+
+	def test_register_patient_rejects_a_district_without_a_state(self):
+		with self.set_user(self.cad_user):
+			self.assertRaisesRegex(
+				frappe.ValidationError,
+				"native state before the district",
+				register_patient,
+				full_name="Test Nepal Patna Patient",
+				dob="1990-05-15",
+				sex=self.gender,
+				native_country="Nepal",
+				native_district="Patna",
+				session=self.session,
+			)
+
 	def test_register_patient_rejects_negative_height(self):
 		frappe.set_user(self.cad_user)
 		try:
@@ -305,6 +363,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		self.assertIn("Bihar", options["major_states"])
 		self.assertNotIn("Kerala", options["major_states"])
 		self.assertIn("Construction", options["major_sectors"])
+		self.assertEqual(options["state_countries"]["Bihar"], "India")
 
 	def test_get_form_options_returns_quick_countries_in_settings_order(self):
 		self.set_quick_countries(["Nepal", "Bangladesh"])

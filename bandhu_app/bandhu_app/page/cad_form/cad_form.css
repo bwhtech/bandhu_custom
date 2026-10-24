@@ -242,6 +242,10 @@
 	grid-column: 1 / -1;
 }
 
+.cad-dash .native-place {
+	display: contents;
+}
+
 .cad-dash .tab-group-wrap {
 	grid-column: 1 / -1;
 }
