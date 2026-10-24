@@ -16,7 +16,7 @@ class Prescription(Document):
 
 		dispensed: DF.Check
 		dispensed_by: DF.Link | None
-		dosage_frequency: DF.Literal["OD", "BD", "TID", "QID"]
+		dosage_frequency: DF.Literal["", "OD", "BD", "TID", "QID"]
 		duration_days: DF.Int
 		instructions: DF.SmallText | None
 		medicines: DF.Link | None

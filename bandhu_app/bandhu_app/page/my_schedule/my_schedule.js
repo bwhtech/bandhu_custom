@@ -4,6 +4,12 @@ const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
 
 let schedulePage = null;
 
+const BOARDS = [
+	{ route: "cad-form", label: __("CAD"), role: "Clinic Assistant cum Driver" },
+	{ route: "doctor-form", label: __("Doctor"), role: "Doctor" },
+	{ route: "nurse-form", label: __("Nurse"), role: "Nurse" },
+];
+
 function daysFromToday(date) {
 	return moment(date).startOf("day").diff(moment().startOf("day"), "days");
 }
@@ -220,12 +226,32 @@ frappe.pages["my-schedule"].on_page_load = function (wrapper) {
 		single_column: true,
 	});
 
-	page.set_secondary_action(__("Refresh"), refreshSchedule);
-
 	schedulePage = page;
 };
 
+function find_return_board() {
+	const previous_route = frappe.get_prev_route()[0];
+	return (
+		BOARDS.find((board) => board.route === previous_route) ||
+		BOARDS.find((board) => frappe.user.has_role(board.role))
+	);
+}
+
+function set_back_button() {
+	const board = find_return_board();
+	if (!board) {
+		schedulePage.clear_secondary_action();
+		return;
+	}
+	schedulePage.set_secondary_action(
+		board.label,
+		() => frappe.set_route(board.route),
+		"arrow-left"
+	);
+}
+
 async function refreshSchedule() {
+	set_back_button();
 	await frappe.require(SESSION_UI_ASSET);
 	await bandhu.session_ui.refresh_page(schedulePage, loadSchedule);
 }

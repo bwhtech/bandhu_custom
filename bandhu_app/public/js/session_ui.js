@@ -390,7 +390,7 @@ frappe.provide("bandhu.session_ui");
 				return (
 					format_row_open() +
 					'<div class="bandhu-line-main"><div class="bandhu-line-title">' +
-					frappe.utils.escape_html(prescription.medicines) +
+					frappe.utils.escape_html(prescription.medicine_name) +
 					(schedule
 						? '<span class="bandhu-line-schedule">' +
 						  frappe.utils.escape_html(schedule) +

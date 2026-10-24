@@ -38,6 +38,11 @@ async function loadDashboard(page) {
 
 	nurseSession = data;
 
+	if (data.left_open_on) {
+		render_session_left_open(page, data);
+		return;
+	}
+
 	if (data.status === "Planned") {
 		page.main.html(
 			'<div class="nurse-dash">' +
@@ -73,6 +78,29 @@ async function loadDashboard(page) {
 	}
 }
 
+function render_session_left_open(page, data) {
+	page.main.html(
+		'<div class="nurse-dash">' +
+			bandhu.session_ui.format_welcome() +
+			bandhu.session_ui.format_session_info(data) +
+			'<div class="empty-state">' +
+			frappe.utils.icon("triangle-alert", "xl", "", "", "current-color empty-state-icon") +
+			'<span class="empty-state-text">' +
+			frappe.utils.escape_html(
+				__("This session on {0} was never closed. End it to open today's session.", [
+					frappe.datetime.str_to_user(data.left_open_on),
+				])
+			) +
+			"</span>" +
+			'<button class="btn btn-primary nurse-end-left-open">' +
+			frappe.utils.icon("circle-stop", "xs", "", "", "current-color") +
+			__("End Session") +
+			"</button></div></div>"
+	);
+
+	page.main.off("click").on("click", ".nurse-end-left-open", () => end_nurse_session(page));
+}
+
 async function startSession(page) {
 	frappe.dom.freeze();
 	try {
@@ -88,8 +116,20 @@ async function startSession(page) {
 	await loadDashboard(page);
 }
 
-function endSession(page) {
-	frappe.confirm(__("End the current session?"), async () => {
+async function end_nurse_session(page) {
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.nurse_form.nurse_form.get_open_patients",
+		args: { session_name: nurseSession.session_name },
+	});
+	const open_patients = response.message || [];
+	const question = open_patients.length
+		? __(
+				"Not finished yet: {0}. Their visits will be cancelled when the session ends. End the session anyway?",
+				[open_patients.map(frappe.utils.escape_html).join(", ")]
+		  )
+		: __("End the current session?");
+
+	frappe.confirm(question, async () => {
 		frappe.dom.freeze();
 		try {
 			await frappe.call({
@@ -157,7 +197,7 @@ async function loadQueues(page) {
 
 	page.main.off("click");
 
-	page.main.on("click", ".nurse-end-session", () => endSession(page));
+	page.main.on("click", ".nurse-end-session", () => end_nurse_session(page));
 
 	page.main.on("click", ".nurse-queue-row", function () {
 		frappe.set_route("Form", "Patient Encounter", $(this).data("name"));
@@ -315,7 +355,7 @@ function openDispenseDialog(page, encounter) {
 				fields: [
 					{
 						fieldtype: "Data",
-						fieldname: "medicines",
+						fieldname: "medicine_name",
 						label: __("Medicine"),
 						in_list_view: 1,
 						read_only: 1,
@@ -542,7 +582,7 @@ function render_queue_order(encounter, action) {
 	const items =
 		action === "test"
 			? (encounter.tests || []).map((test) => test.test_name)
-			: (encounter.prescriptions || []).map((prescription) => prescription.medicines);
+			: (encounter.prescriptions || []).map((prescription) => prescription.medicine_name);
 	const named = items.filter(Boolean);
 	if (!named.length) return "";
 

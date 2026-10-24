@@ -215,6 +215,15 @@ class TestDoctorForm(IntegrationTestCase):
 		self.encounter.reload()
 		self.assertFalse(self.encounter.custom_bandhu_prescription[0].dispensed_by)
 
+	def test_prescribe_medicine_keeps_a_blank_frequency_blank(self):
+		frappe.set_user(self.doctor_user_1)
+		prescribe_medicine(
+			self.encounter.name, [{"medicines": self.item, "duration_days": 5, "quantity": 10}]
+		)
+
+		self.encounter.reload()
+		self.assertFalse(self.encounter.custom_bandhu_prescription[0].dosage_frequency)
+
 	def test_prescribe_medicine_rejects_row_without_medicine(self):
 		frappe.set_user(self.doctor_user_1)
 		with self.assertRaises(frappe.ValidationError):
@@ -423,6 +432,32 @@ class TestDoctorForm(IntegrationTestCase):
 		self.assertEqual(referral.project, self.project)
 		self.assertEqual(referral.clinic_session, self.session_1.name)
 		self.assertEqual(referral.referral_by_source, self.practitioner_1.name)
+
+	def test_prescribe_medicine_creates_a_referral(self):
+		frappe.set_user(self.doctor_user_1)
+		prescribe_medicine(
+			self.encounter.name,
+			[{"medicines": self.item, "quantity": 9}],
+			referred_to="PHC Vazhakulam",
+			referral_reason="Malaria positive, needs the full antimalarial course",
+			referral_priority="High",
+		)
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_workflow_state, "Awaiting Medicine")
+		self.assertTrue(self.encounter.custom_has_referral)
+		referral = frappe.get_last_doc("Referral", filters={"patient_encounter": self.encounter.name})
+		self.assertEqual(referral.referred_to, "PHC Vazhakulam")
+		self.assertEqual(referral.priority, "High")
+
+	def test_prescribe_medicine_rejects_a_referral_missing_the_reason(self):
+		frappe.set_user(self.doctor_user_1)
+		with self.assertRaisesRegex(frappe.ValidationError, "needs both"):
+			prescribe_medicine(
+				self.encounter.name, [{"medicines": self.item, "quantity": 9}], referred_to="PHC Vazhakulam"
+			)
+
+		self.assertEqual(frappe.db.count("Referral", {"patient_encounter": self.encounter.name}), 0)
 
 	def test_complete_encounter_referral_defaults_to_medium_priority(self):
 		frappe.set_user(self.doctor_user_1)

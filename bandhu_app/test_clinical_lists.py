@@ -1,7 +1,11 @@
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from bandhu_app.bandhu_app.page.doctor_form.doctor_form import complete_encounter, get_clinical_options
+from bandhu_app.bandhu_app.page.doctor_form.doctor_form import (
+	complete_encounter,
+	get_clinical_options,
+	prescribe_medicine,
+)
 from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.patches.seed_services_from_visits import execute as seed_services_from_visits
 
@@ -16,6 +20,7 @@ class IntegrationTestClinicalLists(IntegrationTestCase):
 	def setUp(self):
 		baseline = ensure_baseline_fixtures()
 		self.appointment_type = baseline["appointment_type"]
+		self.item = baseline["item"]
 		self.today = frappe.utils.today()
 
 		self.category = make_list_entry("Diagnosis Category", "category_name", "Test Respiratory")
@@ -109,6 +114,28 @@ class IntegrationTestClinicalLists(IntegrationTestCase):
 			[row.service_name for row in self.encounter.custom_bandhu_services_provided], [self.service]
 		)
 		self.assertEqual(self.encounter.custom_workflow_state, "Completed")
+
+	def test_a_prescription_records_the_diagnosis_categories_and_services(self):
+		frappe.set_user(self.doctor_user)
+		prescribe_medicine(
+			self.encounter.name,
+			[{"medicines": self.item, "quantity": 9}],
+			diagnosis="Malaria, vivax",
+			diagnosis_categories=[self.category],
+			services_provided=[self.service],
+			clinical_notes="Fever with chills",
+		)
+
+		self.encounter.reload()
+		self.assertEqual(self.encounter.custom_workflow_state, "Awaiting Medicine")
+		self.assertEqual(self.encounter.custom_bandhu_diagnosis[0].diagnosis_name, "Malaria, vivax")
+		self.assertEqual(
+			[row.diagnosis_category for row in self.encounter.custom_diagnosis_categories], [self.category]
+		)
+		self.assertEqual(
+			[row.service_name for row in self.encounter.custom_bandhu_services_provided], [self.service]
+		)
+		self.assertEqual(self.encounter.custom_bandhu_clinical_notes, "Fever with chills")
 
 	def test_a_category_outside_the_list_is_refused_and_nothing_is_saved(self):
 		frappe.set_user(self.doctor_user)

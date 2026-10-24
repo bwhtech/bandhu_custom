@@ -2,6 +2,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import today
 
+from bandhu_app.bandhu_app.doctype.bandhu_settings.bandhu_settings import get_offered_genders
 from bandhu_app.bandhu_app.page.cad_form.cad_form import get_form_options, register_patient
 from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 
@@ -30,7 +31,7 @@ class IntegrationTestOccupationList(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 		cls.baseline = ensure_baseline_fixtures()
-		cls.gender = frappe.get_all("Gender", limit=1, pluck="name")[0]
+		cls.gender = get_offered_genders()[0]
 		cls.sector = frappe.get_all("Sectors", limit=1, pluck="name")[0]
 		cls.major_occupation = make_occupation("Test Construction Worker", 1)
 		cls.other_occupation = make_occupation("Test Boat Crew", 0)
