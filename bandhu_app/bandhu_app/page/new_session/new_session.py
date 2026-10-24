@@ -3,7 +3,7 @@
 
 import frappe
 from frappe import _
-from frappe.utils import today
+from frappe.utils import getdate, today
 
 from bandhu_app.bandhu_app.utils.session_schedule import (
 	association_maps,
@@ -92,6 +92,8 @@ def create_session(values: str) -> dict:
 	draft = as_session_draft(values)
 	if not draft.date:
 		frappe.throw(_("Pick a date for the session."))
+	if getdate(draft.date) < getdate(today()):
+		frappe.throw(_("Pick today or a later date."))
 
 	draft.status = "Planned"
 	draft.insert()

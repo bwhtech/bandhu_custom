@@ -4,12 +4,12 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import add_days, get_time, getdate, today
+from frappe.utils import add_days, getdate, today
 
 from bandhu_app.bandhu_app.doctype.bandhu_clinic_session.bandhu_clinic_session import (
 	ASSIGNMENT_ROLE_BY_FIELD,
 )
-from bandhu_app.bandhu_app.utils.session import validate_practitioner_roles
+from bandhu_app.bandhu_app.utils.session import validate_planned_times, validate_practitioner_roles
 
 PATTERN_FIELDS = (
 	"frequency",
@@ -100,7 +100,7 @@ class BandhuSessionSchedule(Document):
 		self.derive_project_from_clinic()
 		self.validate_validity_window()
 		self.validate_pattern()
-		self.validate_planned_times()
+		validate_planned_times(self)
 		self.validate_assignment_roles()
 		self.clear_generated_upto_on_pattern_change()
 		self.warn_about_assignment_clashes()
@@ -135,26 +135,21 @@ class BandhuSessionSchedule(Document):
 		if len(chosen) != len(set(chosen)):
 			frappe.throw(_("The same weekday is listed more than once."))
 
-	def validate_planned_times(self):
-		if self.planned_start_time and self.planned_end_time:
-			# A Time read from the DB is a timedelta, but one arriving from a client save is a
-			# string — and "13:30:00" <= "8:00:00" is True lexicographically, so every schedule
-			# with a single-digit start hour became unsavable from the Desk form.
-			if get_time(self.planned_end_time) <= get_time(self.planned_start_time):
-				frappe.throw(_("Planned End Time must be after Planned Start Time."))
-
 	def validate_assignment_roles(self):
 		validate_practitioner_roles(self, ASSIGNMENT_ROLE_BY_FIELD)
 
 	def clear_generated_upto_on_pattern_change(self):
-		if self.is_new() or not self.last_generated_upto:
+		if self.is_new():
 			return
 
 		before = self.get_doc_before_save()
 		if not before:
 			return
 
-		pattern_changed = any(self.get(field) != before.get(field) for field in PATTERN_FIELDS)
+		pattern_changed = any(
+			self.has_value_changed(field) and (self.get(field) or before.get(field))
+			for field in PATTERN_FIELDS
+		)
 		weekdays_changed = [row.weekday for row in self.weekdays] != [row.weekday for row in before.weekdays]
 		if pattern_changed or weekdays_changed:
 			self.last_generated_upto = None
@@ -186,17 +181,19 @@ class BandhuSessionSchedule(Document):
 		)
 
 	def generate_sessions_on_save(self):
-		# nightly job means an empty list and a support call.
 		from bandhu_app.bandhu_app.utils.session_schedule import (
 			enqueue_session_generation,
 			is_auto_generation_enabled,
 		)
 
-		if not self.enabled or not is_auto_generation_enabled():
+		regenerate = bool(self.flags.pattern_changed)
+		generate = bool(self.enabled) and is_auto_generation_enabled()
+		if not regenerate and not generate:
 			return
 
-		enqueue_session_generation(self.name, regenerate=bool(self.flags.pattern_changed))
-		frappe.msgprint(_("Sessions are being created in the background."), alert=True)
+		enqueue_session_generation(self.name, regenerate=regenerate, generate=generate)
+		if generate:
+			frappe.msgprint(_("Sessions are being created in the background."), alert=True)
 
 
 @frappe.whitelist(methods=["POST"])

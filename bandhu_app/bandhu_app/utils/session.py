@@ -2,7 +2,7 @@ from datetime import timedelta
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, cint, today
+from frappe.utils import add_days, cint, get_time, today
 
 _ACTIVE_STATUS_PRIORITY = ["In Progress", "Planned"]
 
@@ -200,6 +200,13 @@ def require_running_session(session_name: str) -> dict:
 		)
 
 	return session_doc
+
+
+def validate_planned_times(doc) -> None:
+	if not (doc.planned_start_time and doc.planned_end_time):
+		return
+	if get_time(doc.planned_end_time) <= get_time(doc.planned_start_time):
+		frappe.throw(_("Planned End Time must be after Planned Start Time."))
 
 
 def validate_practitioner_roles(doc, role_by_field: dict) -> None:
