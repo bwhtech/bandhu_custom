@@ -139,6 +139,10 @@
 	color: var(--green-500, #16794a);
 }
 
+.staff-onboarding-dash .onboarding-created-icon.is-warning {
+	color: var(--orange-500, #e86c13);
+}
+
 .staff-onboarding-dash .onboarding-created-detail {
 	margin-top: 2px;
 	font-size: var(--text-sm);

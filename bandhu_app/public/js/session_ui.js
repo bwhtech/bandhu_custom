@@ -227,7 +227,12 @@ frappe.provide("bandhu.session_ui");
 	// counting across columns to find the one being asked.
 	function format_identity_details(patient) {
 		return format_detail_row(
-			format_detail_field(__("Clinic ID"), patient.custom_bandhu_id, "id-card", true) +
+			format_detail_field(
+				__("Clinic ID"),
+				group_clinic_id(patient.custom_bandhu_id),
+				"id-card",
+				true
+			) +
 				format_detail_field(__("ABHA ID"), patient.custom_abha_id, "badge-check", true) +
 				format_detail_field(__("Mobile Number"), patient.mobile, "phone", true) +
 				// The endpoint returns the stored date; every other Bandhu screen shows dates
@@ -269,12 +274,14 @@ frappe.provide("bandhu.session_ui");
 		return format_detail_row(
 			// State and District took the same map-pin, which told a reader nothing about which
 			// of the two they were looking at.
-			format_detail_field(__("Native State"), patient.custom_native_state, "map") +
+			format_detail_field(__("Country"), patient.custom_native_country, "globe") +
+				format_detail_field(__("Native State"), patient.custom_native_state, "map") +
 				format_detail_field(
 					__("Native District"),
 					patient.custom_native_district,
 					"map-pin"
 				) +
+				format_detail_field(__("Occupation"), patient.custom_occupation, "users") +
 				format_detail_field(
 					__("Sector of Employment"),
 					patient.custom_sector_of_employment,
@@ -370,7 +377,7 @@ frappe.provide("bandhu.session_ui");
 				return (
 					format_row_open() +
 					'<div class="bandhu-line-main"><div class="bandhu-line-title">' +
-					frappe.utils.escape_html(prescription.medicines) +
+					frappe.utils.escape_html(prescription.medicine_name) +
 					(schedule
 						? '<span class="bandhu-line-schedule">' +
 						  frappe.utils.escape_html(schedule) +
@@ -485,6 +492,30 @@ frappe.provide("bandhu.session_ui");
 		dialog.show();
 	}
 
+	async function print_from_endpoint(method, args, popup_blocked_message) {
+		frappe.dom.freeze();
+		let printable_html;
+		try {
+			const response = await frappe.call({ method, args });
+			printable_html = response.message;
+		} finally {
+			frappe.dom.unfreeze();
+		}
+
+		if (!printable_html) return;
+
+		const print_window = window.open("", "_blank");
+		if (!print_window) {
+			frappe.msgprint(popup_blocked_message);
+			return;
+		}
+
+		print_window.document.write(printable_html);
+		print_window.document.close();
+		print_window.focus();
+		print_window.print();
+	}
+
 	function format_action_button(button_class, encounter_name, action, label, is_primary) {
 		return (
 			'<button type="button" class="btn btn-sm ' +
@@ -533,6 +564,7 @@ frappe.provide("bandhu.session_ui");
 		format_badge,
 		format_patient_details,
 		open_patient_details_dialog,
+		print_from_endpoint,
 		format_action_button,
 		group_clinic_id,
 	});

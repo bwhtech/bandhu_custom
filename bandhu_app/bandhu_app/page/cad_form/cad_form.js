@@ -5,10 +5,12 @@ const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
 let cadSession = null;
 let cadPage = null;
 let formOptions = { major_states: [], other_states: [], major_sectors: [] };
-
-const QUICK_COUNTRIES = ["India", "Nepal"];
+let log_book_save_pending = false;
+let log_book_menu_item = null;
 
 const MAX_PLAUSIBLE_AGE = 120;
+
+const LOG_BOOK_OPEN_STATUSES = ["Planned", "In Progress"];
 
 const MIN_SEARCH_LENGTH = 2;
 
@@ -68,6 +70,7 @@ async function loadDashboard(page) {
 	}
 
 	const data = statusResult.message || {};
+	set_log_book_menu(data.has_session ? data.status : null);
 
 	if (!data.has_session) {
 		renderNoSession(page, data);
@@ -77,12 +80,12 @@ async function loadDashboard(page) {
 	cadSession = data;
 
 	if (data.status === "Completed") {
-		renderCompleted(page, data);
+		render_completed(page, data);
 		return;
 	}
 
 	if (data.status === "Planned") {
-		renderWaitingForNurse(page, data);
+		render_waiting_for_nurse(page, data);
 		return;
 	}
 
@@ -93,6 +96,7 @@ async function loadDashboard(page) {
 		major_states: [],
 		other_states: [],
 		major_sectors: [],
+		quick_countries: [],
 	};
 
 	await renderFrontDesk(page, data);
@@ -110,7 +114,7 @@ function renderNoSession(page, data) {
 	);
 }
 
-function renderWaitingForNurse(page, data) {
+function render_waiting_for_nurse(page, data) {
 	page.main.html(
 		'<div class="cad-dash">' +
 			bandhu.session_ui.format_welcome() +
@@ -125,7 +129,7 @@ function renderWaitingForNurse(page, data) {
 	);
 }
 
-function renderCompleted(page, data) {
+function render_completed(page, data) {
 	page.main.html(
 		'<div class="cad-dash">' +
 			bandhu.session_ui.format_welcome() +
@@ -195,30 +199,11 @@ function focus_scan_input(page) {
 async function print_patient_card(patient) {
 	if (!patient) return;
 
-	frappe.dom.freeze();
-	let card_html;
-	try {
-		const response = await frappe.call({
-			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_patient_card_html",
-			args: { patient },
-		});
-		card_html = response.message;
-	} finally {
-		frappe.dom.unfreeze();
-	}
-
-	if (!card_html) return;
-
-	const card_window = window.open("", "_blank");
-	if (!card_window) {
-		frappe.msgprint(__("Allow pop-ups for this site to print the patient card."));
-		return;
-	}
-
-	card_window.document.write(card_html);
-	card_window.document.close();
-	card_window.focus();
-	card_window.print();
+	await bandhu.session_ui.print_from_endpoint(
+		"bandhu_app.bandhu_app.page.cad_form.cad_form.get_patient_card_html",
+		{ patient },
+		__("Allow pop-ups for this site to print the patient card.")
+	);
 }
 
 function renderSearchSection() {
@@ -379,19 +364,20 @@ function render_sex_group() {
 	return render_tab_group({
 		field: "sex",
 		label: __("Sex"),
-		options: ["Male", "Female", "Other"],
+		options: formOptions.genders || [],
 		mode: "direct",
 		required: true,
 	});
 }
 
 function render_country_group() {
+	const quick_countries = formOptions.quick_countries || [];
 	return render_tab_group({
 		field: "native_country",
 		label: __("Country"),
-		options: QUICK_COUNTRIES.concat(["Other"]),
+		options: quick_countries.concat(["Other"]),
 		mode: "picker",
-		defaultValue: "India",
+		defaultValue: quick_countries[0],
 		detailFieldHtml:
 			'<input type="text" class="form-control cad-field detail-field" data-field="specify_native_country" placeholder="' +
 			frappe.utils.escape_html(__("Specify country")) +
@@ -412,9 +398,29 @@ function render_state_group() {
 	});
 }
 
-function render_sector_group() {
+function render_occupation_group() {
+	if (
+		!(formOptions.major_occupations || []).length &&
+		!(formOptions.other_occupations || []).length
+	) {
+		return "";
+	}
+
 	return render_tab_group({
 		field: "occupation",
+		label: __("Occupation"),
+		options: (formOptions.major_occupations || []).concat(["Other"]),
+		mode: "picker",
+		otherPickerHtml: render_other_picker(
+			formOptions.other_occupations || [],
+			__("-- Select Occupation --")
+		),
+	});
+}
+
+function render_sector_group() {
+	return render_tab_group({
+		field: "sector",
 		label: __("Sector of Employment"),
 		options: (formOptions.major_sectors || []).concat(["Other"]),
 		mode: "direct",
@@ -436,6 +442,7 @@ function renderRegisterForm() {
 		render_country_group() +
 		render_state_group() +
 		render_district_field() +
+		render_occupation_group() +
 		render_sector_group() +
 		render_fields(CONTACT_FIELDS) +
 		"</div>" +
@@ -505,22 +512,34 @@ function confirm_add_to_queue(page, patient) {
 // would only bring it back on the encounter's next save — sync_to_queue rebuilds it from the
 // encounter, so the encounter is what has to end.
 function cancel_queued_visit(page, encounter, patient_name) {
-	frappe.confirm(
-		__("End {0}'s visit without treatment? They will drop off the doctor and nurse boards.", [
-			frappe.utils.escape_html(patient_name || __("this patient")),
-		]),
-		async () => {
+	frappe.prompt(
+		{
+			fieldtype: "Small Text",
+			fieldname: "reason",
+			label: __("Why is the visit ending?"),
+			description: __("They will drop off the doctor and nurse boards."),
+			reqd: 1,
+		},
+		async (values) => {
 			frappe.dom.freeze();
 			try {
 				await frappe.call({
 					method: "bandhu_app.bandhu_app.page.cad_form.cad_form.cancel_visit",
-					args: { encounter: encounter, session: cadSession.session_name },
+					args: {
+						encounter: encounter,
+						session: cadSession.session_name,
+						reason: values.reason,
+					},
 				});
 			} finally {
 				frappe.dom.unfreeze();
 			}
 			await loadQueue(page);
-		}
+		},
+		__("End {0}'s visit without treatment", [
+			frappe.utils.escape_html(patient_name || __("this patient")),
+		]),
+		__("End Visit")
 	);
 }
 
@@ -602,14 +621,21 @@ function match_scanned_card(query, results) {
 	return exact.length === 1 ? exact[0] : null;
 }
 
+function format_follow_up(patient) {
+	if (!patient.follow_up_date) return "";
+
+	return __("Follow-up {0}", [frappe.datetime.str_to_user(patient.follow_up_date)]);
+}
+
 function queue_scanned_patient(page, patient) {
 	// frappe.confirm appends its message as HTML (frappe/public/js/frappe/ui/messages.js:48) and
 	// __() substitutes {0} verbatim, so a patient name is an injection point until it is escaped.
+	const follow_up = format_follow_up(patient);
 	frappe.confirm(
 		__("Add {0} ({1}) to today's queue?", [
 			frappe.utils.escape_html(patient.patient_name || ""),
 			frappe.utils.escape_html(patient.custom_bandhu_id || ""),
-		]),
+		]) + (follow_up ? "<br>" + frappe.utils.escape_html(follow_up) : ""),
 		async () => {
 			await addPatientToQueue(page, patient.name, () => {
 				clear_search_results(page);
@@ -638,6 +664,7 @@ function renderSearchResults(page, results, capped) {
 				bandhu.session_ui.group_clinic_id(patient.custom_bandhu_id),
 				patient.sex,
 				patient.age,
+				format_follow_up(patient),
 			]
 				.filter(Boolean)
 				.map(frappe.utils.escape_html)
@@ -762,7 +789,7 @@ function bindRegisterEvents(page) {
 
 	page.main
 		.off("click", ".cad-register-submit")
-		.on("click", ".cad-register-submit", () => submitRegistration(page));
+		.on("click", ".cad-register-submit", () => submit_registration_once(page));
 }
 
 async function loadDistrictSuggestions(page, state) {
@@ -812,6 +839,18 @@ function years_since(date_string) {
 	return age < 0 ? null : age;
 }
 
+let registration_in_flight = false;
+
+async function submit_registration_once(page) {
+	if (registration_in_flight) return;
+	registration_in_flight = true;
+	try {
+		await submitRegistration(page);
+	} finally {
+		registration_in_flight = false;
+	}
+}
+
 async function submitRegistration(page) {
 	const values = {};
 	page.main.find(".cad-field").each(function () {
@@ -859,6 +898,7 @@ async function submitRegistration(page) {
 	if (values.native_state) args.native_state = values.native_state;
 	if (values.native_district) args.native_district = values.native_district;
 	if (values.occupation) args.occupation = values.occupation;
+	if (values.sector) args.sector = values.sector;
 	if (values.specify_sector) args.specify_sector = values.specify_sector;
 	if (values.company_name) args.company_name = values.company_name;
 	if (values.abha_id) args.abha_id = values.abha_id;
@@ -978,7 +1018,8 @@ async function loadQueue(page) {
 }
 
 function renderQueueTable(page, rows) {
-	page.main.find(".cad-queue-count").text(" (" + rows.length + ")");
+	const visiting = rows.filter((row) => row.current_stage !== "Cancelled").length;
+	page.main.find(".cad-queue-count").text(" (" + visiting + ")");
 	const body = page.main.find(".cad-queue-body");
 
 	if (!rows.length) {
@@ -1073,6 +1114,71 @@ function format_stage_badge(stage) {
 	return bandhu.session_ui.format_badge(__(stage), badge.theme, badge.variant);
 }
 
+function set_log_book_menu(status) {
+	log_book_menu_item.parent().toggleClass("hide", !LOG_BOOK_OPEN_STATUSES.includes(status));
+}
+
+async function open_log_book_dialog() {
+	const session_name = cadSession.session_name;
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_log_book",
+		args: { session: session_name },
+	});
+	const log_book = response.message || {};
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Log Book"),
+		fields: [
+			{
+				fieldname: "departure_time",
+				fieldtype: "Time",
+				label: __("Departure Time"),
+				default: log_book.departure_time,
+			},
+			{
+				fieldname: "arrival_time",
+				fieldtype: "Time",
+				label: __("Arrival Time"),
+				default: log_book.arrival_time,
+			},
+			{
+				fieldname: "distance_travelled_km",
+				fieldtype: "Float",
+				label: __("Distance Travelled (km)"),
+				precision: 1,
+				non_negative: 1,
+				default: log_book.distance_travelled_km,
+			},
+		],
+		primary_action_label: __("Save"),
+		primary_action: (values) => save_log_book(dialog, session_name, values),
+	});
+	dialog.show();
+}
+
+async function save_log_book(dialog, session_name, values) {
+	if (log_book_save_pending) return;
+
+	if (!Object.keys(values).length) {
+		frappe.show_alert({ message: __("Fill in the log book first."), indicator: "orange" });
+		return;
+	}
+
+	log_book_save_pending = true;
+	let response;
+	try {
+		response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.save_log_book",
+			args: { session: session_name, ...values },
+		});
+	} finally {
+		log_book_save_pending = false;
+	}
+	if (!response.message) return;
+	dialog.hide();
+	frappe.show_alert({ message: __("Log book saved"), indicator: "green" });
+}
+
 frappe.pages["cad-form"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -1085,6 +1191,16 @@ frappe.pages["cad-form"].on_page_load = function (wrapper) {
 		() => frappe.set_route("my-schedule"),
 		"calendar"
 	);
+	log_book_menu_item = page.add_custom_menu_item(
+		page.menu,
+		__("Log Book"),
+		open_log_book_dialog,
+		false,
+		null,
+		"book-open"
+	);
+	page.add_custom_menu_item(page.menu, __("Refresh"), refresh_board, false, null, "refresh");
+	set_log_book_menu(null);
 
 	cadPage = page;
 };
@@ -1094,14 +1210,26 @@ frappe.pages["cad-form"].on_page_load = function (wrapper) {
 // when the front desk is already up -- a full re-render would wipe a half-typed registration.
 async function refresh_board() {
 	await frappe.require(SESSION_UI_ASSET);
-	bandhu.session_ui.add_refresh_icon(cadPage, refresh_board);
 	const load = cadPage.main.find(".cad-queue-body").length ? loadQueue : loadDashboard;
-	await bandhu.session_ui.refresh_page(cadPage, load);
+	await bandhu.session_ui.refresh_page(
+		cadPage,
+		(await session_is_unchanged()) ? load : loadDashboard
+	);
 	bandhu.session_ui.subscribe_to_board_updates(
 		"cad-form",
 		() => (cadSession ? cadSession.session_name : null),
 		refresh_board
 	);
+}
+
+async function session_is_unchanged() {
+	if (!cadSession) return true;
+
+	const response = await frappe.call({
+		method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_session_status",
+	});
+	const status = response.message || {};
+	return status.session_name === cadSession.session_name && status.status === cadSession.status;
 }
 
 frappe.pages["cad-form"].on_page_show = refresh_board;
