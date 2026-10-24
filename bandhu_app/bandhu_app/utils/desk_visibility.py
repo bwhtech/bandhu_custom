@@ -46,6 +46,7 @@ def sync_bandhu_desktop_icons():
 	app_title = frappe.get_hooks("app_title", app_name="bandhu_app")[0]
 	stale_app_tile = frappe.db.get_value("Desktop Icon", {"label": app_title, "icon_type": "App"}, "name")
 	if stale_app_tile:
+		frappe.db.set_value("Desktop Icon", {"parent_icon": stale_app_tile}, "parent_icon", None)
 		frappe.delete_doc("Desktop Icon", stale_app_tile, ignore_permissions=True)
 
 	workspaces = frappe.get_all(
@@ -74,6 +75,7 @@ def sync_bandhu_desktop_icons():
 		icon.icon = workspace.icon
 		if image_path:
 			icon.icon_image = image_path
+		icon.flags.ignore_links = True
 		icon.save(ignore_permissions=True)
 		any_icon_changed = True
 

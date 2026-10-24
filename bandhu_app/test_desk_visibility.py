@@ -11,6 +11,7 @@ from bandhu_app.bandhu_app.utils.desk_visibility import (
 PHARMACY_WORKSPACE = "Pharmacist"
 FOREIGN_ICON = "Test Other App Folder"
 SEEDED_ROLE = "Report Manager"
+APP_TILE = "Bandhu App"
 
 
 def get_icon_roles(icon_name):
@@ -73,3 +74,12 @@ class IntegrationTestDeskVisibility(IntegrationTestCase):
 
 		self.assertEqual(get_icon_roles(PHARMACY_WORKSPACE), {SEEDED_ROLE})
 		self.assertEqual(get_icon_roles(FOREIGN_ICON), {"Administrator"})
+
+	def test_icon_sync_removes_a_leftover_app_tile_that_still_has_icons_under_it(self):
+		ensure_icon(APP_TILE, "App")
+		frappe.db.set_value("Desktop Icon", PHARMACY_WORKSPACE, "parent_icon", APP_TILE)
+
+		sync_bandhu_desktop_icons()
+
+		self.assertFalse(frappe.db.exists("Desktop Icon", APP_TILE))
+		self.assertFalse(frappe.db.get_value("Desktop Icon", PHARMACY_WORKSPACE, "parent_icon"))
