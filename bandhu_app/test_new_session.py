@@ -11,7 +11,7 @@ from bandhu_app.bandhu_app.page.new_session.new_session import (
 	create_session,
 	get_form_options,
 )
-from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures, make_site_in_location
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -69,6 +69,15 @@ class IntegrationTestNewSession(IntegrationTestCase):
 			for row in options["doctors"]
 		}
 		self.assertEqual(roles, {"Doctor"})
+
+	def test_form_options_give_each_site_its_lsg_and_phc_chc(self):
+		site = make_site_in_location(
+			"New Session LSG Test Site", "Vazhakulam Gram Panchayat", "FHC Vazhakulam"
+		)
+
+		option = next(item for item in get_form_options()["sites"] if item.value == site)
+
+		self.assertEqual((option.lsg, option.phc_chc), ("Vazhakulam Gram Panchayat", "FHC Vazhakulam"))
 
 	def test_create_inserts_a_planned_ad_hoc_session(self):
 		result = create_session(self.session_values())
