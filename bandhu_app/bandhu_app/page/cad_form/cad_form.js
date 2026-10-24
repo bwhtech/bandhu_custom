@@ -512,22 +512,34 @@ function confirm_add_to_queue(page, patient) {
 // would only bring it back on the encounter's next save — sync_to_queue rebuilds it from the
 // encounter, so the encounter is what has to end.
 function cancel_queued_visit(page, encounter, patient_name) {
-	frappe.confirm(
-		__("End {0}'s visit without treatment? They will drop off the doctor and nurse boards.", [
-			frappe.utils.escape_html(patient_name || __("this patient")),
-		]),
-		async () => {
+	frappe.prompt(
+		{
+			fieldtype: "Small Text",
+			fieldname: "reason",
+			label: __("Why is the visit ending?"),
+			description: __("They will drop off the doctor and nurse boards."),
+			reqd: 1,
+		},
+		async (values) => {
 			frappe.dom.freeze();
 			try {
 				await frappe.call({
 					method: "bandhu_app.bandhu_app.page.cad_form.cad_form.cancel_visit",
-					args: { encounter: encounter, session: cadSession.session_name },
+					args: {
+						encounter: encounter,
+						session: cadSession.session_name,
+						reason: values.reason,
+					},
 				});
 			} finally {
 				frappe.dom.unfreeze();
 			}
 			await loadQueue(page);
-		}
+		},
+		__("End {0}'s visit without treatment", [
+			frappe.utils.escape_html(patient_name || __("this patient")),
+		]),
+		__("End Visit")
 	);
 }
 
@@ -777,7 +789,7 @@ function bindRegisterEvents(page) {
 
 	page.main
 		.off("click", ".cad-register-submit")
-		.on("click", ".cad-register-submit", () => submitRegistration(page));
+		.on("click", ".cad-register-submit", () => submit_registration_once(page));
 }
 
 async function loadDistrictSuggestions(page, state) {
@@ -825,6 +837,18 @@ function years_since(date_string) {
 	if (before_birthday) age -= 1;
 
 	return age < 0 ? null : age;
+}
+
+let registration_in_flight = false;
+
+async function submit_registration_once(page) {
+	if (registration_in_flight) return;
+	registration_in_flight = true;
+	try {
+		await submitRegistration(page);
+	} finally {
+		registration_in_flight = false;
+	}
 }
 
 async function submitRegistration(page) {
@@ -994,7 +1018,8 @@ async function loadQueue(page) {
 }
 
 function renderQueueTable(page, rows) {
-	page.main.find(".cad-queue-count").text(" (" + rows.length + ")");
+	const visiting = rows.filter((row) => row.current_stage !== "Cancelled").length;
+	page.main.find(".cad-queue-count").text(" (" + visiting + ")");
 	const body = page.main.find(".cad-queue-body");
 
 	if (!rows.length) {

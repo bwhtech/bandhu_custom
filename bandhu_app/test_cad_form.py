@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import add_days, getdate, nowtime, today
+from frappe.utils import add_days, flt, getdate, nowtime, today
 
 from bandhu_app.bandhu_app.doctype.bandhu_settings.test_bandhu_settings import set_offered_genders
 from bandhu_app.bandhu_app.page.cad_form import cad_form
@@ -18,6 +18,7 @@ from bandhu_app.bandhu_app.page.cad_form.cad_form import (
 	register_patient,
 	search_patient,
 )
+from bandhu_app.bandhu_app.page.doctor_form.doctor_form import count_patients_with_doctor
 from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
 from bandhu_app.patches.seed_quick_countries import execute as seed_quick_countries
 
@@ -385,6 +386,42 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		self.assertEqual(queue_row.current_stage, "Waiting")
 		self.assertEqual(queue_row.status, "Active")
 
+	def test_create_encounter_carries_todays_height_and_weight_into_the_visit(self):
+		patient = self._make_patient("Test Measured Patient")
+		frappe.db.set_value(
+			"Patient", patient.name, {"custom_height_m": 1.13, "custom_weight_kg": 62, "custom_bmi": "48.56"}
+		)
+
+		frappe.set_user(self.cad_user)
+		try:
+			encounter_name = create_encounter(patient.name, self.session)
+		finally:
+			frappe.set_user("Administrator")
+
+		encounter = frappe.get_doc("Patient Encounter", encounter_name)
+		self.assertEqual(encounter.custom_height, "113")
+		self.assertEqual(flt(encounter.custom_weight), 62)
+		self.assertEqual(encounter.custom_bmi, "48.56")
+
+	def test_create_encounter_leaves_an_old_measurement_for_the_nurse(self):
+		patient = self._make_patient("Test Returning Measured Patient")
+		frappe.db.set_value(
+			"Patient",
+			patient.name,
+			{"custom_height_m": 1.68, "custom_weight_kg": 62, "creation": add_days(today(), -30)},
+			update_modified=False,
+		)
+
+		frappe.set_user(self.cad_user)
+		try:
+			encounter_name = create_encounter(patient.name, self.session)
+		finally:
+			frappe.set_user("Administrator")
+
+		encounter = frappe.get_doc("Patient Encounter", encounter_name)
+		self.assertFalse(encounter.custom_height)
+		self.assertFalse(encounter.custom_weight)
+
 	def test_create_encounter_rejects_session_not_yet_started(self):
 		patient = self._make_patient("Test Not Started Patient")
 		planned_session = self._make_session(
@@ -406,7 +443,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		frappe.set_user(self.cad_user)
 		try:
 			encounter_name = create_encounter(patient.name, self.session)
-			cancel_visit(encounter_name, self.session)
+			cancel_visit(encounter_name, self.session, reason="Left the queue")
 		finally:
 			frappe.set_user("Administrator")
 
@@ -424,6 +461,72 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		self.assertEqual(queue_row.current_stage, "Cancelled")
 		self.assertEqual(queue_row.status, "Done")
 
+	def test_cancel_visit_records_why_the_visit_ended(self):
+		patient = self._make_patient("Test Called Away Patient")
+
+		frappe.set_user(self.cad_user)
+		try:
+			encounter_name = create_encounter(patient.name, self.session)
+			cancel_visit(encounter_name, self.session, reason="Supervisor called him back <b>now</b>")
+		finally:
+			frappe.set_user("Administrator")
+
+		comment = frappe.db.get_value(
+			"Comment",
+			{"reference_doctype": "Patient Encounter", "reference_name": encounter_name},
+			"content",
+		)
+		self.assertIn("Supervisor called him back", comment)
+		self.assertNotIn("<b>", comment)
+		self.assertIn("&lt;b&gt;now&lt;/b&gt;", comment)
+
+	def test_cancelling_a_called_patient_frees_the_doctors_place(self):
+		patient = self._make_patient("Test Called Then Left Patient")
+
+		frappe.set_user(self.cad_user)
+		try:
+			encounter_name = create_encounter(patient.name, self.session)
+			frappe.db.set_value(
+				"Patient Encounter", encounter_name, "custom_called_at", frappe.utils.now_datetime()
+			)
+			cancel_visit(encounter_name, self.session, reason="Left before the doctor saw him")
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(count_patients_with_doctor(self.session), 0)
+
+	def test_a_visit_ended_outside_the_board_does_not_hold_the_doctors_place(self):
+		patient = self._make_patient("Test Cancelled From Desk Patient")
+
+		frappe.set_user(self.cad_user)
+		try:
+			encounter_name = create_encounter(patient.name, self.session)
+		finally:
+			frappe.set_user("Administrator")
+		frappe.db.set_value(
+			"Patient Encounter",
+			encounter_name,
+			{"custom_called_at": frappe.utils.now_datetime(), "custom_workflow_state": "Cancelled"},
+		)
+
+		self.assertEqual(count_patients_with_doctor(self.session), 0)
+
+	def test_cancel_visit_needs_a_reason(self):
+		patient = self._make_patient("Test No Reason Patient")
+
+		frappe.set_user(self.cad_user)
+		try:
+			encounter_name = create_encounter(patient.name, self.session)
+			with self.assertRaisesRegex(frappe.ValidationError, "Say why"):
+				cancel_visit(encounter_name, self.session, reason="  ")
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(
+			frappe.db.get_value("Patient Encounter", encounter_name, "custom_workflow_state"),
+			"Waiting for Doctor",
+		)
+
 	def test_cancel_visit_rejects_an_encounter_from_another_session(self):
 		patient = self._make_patient("Test Cross Session Patient")
 		other_session = self._make_session(self.cad_practitioner, self.doctor_practitioner)
@@ -432,7 +535,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		try:
 			encounter_name = create_encounter(patient.name, self.session)
 			with self.assertRaises(frappe.ValidationError):
-				cancel_visit(encounter_name, other_session)
+				cancel_visit(encounter_name, other_session, reason="Left the queue")
 		finally:
 			frappe.set_user("Administrator")
 
@@ -447,9 +550,9 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		frappe.set_user(self.cad_user)
 		try:
 			encounter_name = create_encounter(patient.name, self.session)
-			cancel_visit(encounter_name, self.session)
+			cancel_visit(encounter_name, self.session, reason="Left the queue")
 			with self.assertRaises(frappe.ValidationError):
-				cancel_visit(encounter_name, self.session)
+				cancel_visit(encounter_name, self.session, reason="Left the queue")
 		finally:
 			frappe.set_user("Administrator")
 
@@ -461,7 +564,7 @@ class IntegrationTestCadForm(IntegrationTestCase):
 		frappe.set_user(self.cad_user)
 		try:
 			first = create_encounter(patient.name, self.session)
-			cancel_visit(first, self.session)
+			cancel_visit(first, self.session, reason="Left the queue")
 			second = create_encounter(patient.name, self.session)
 		finally:
 			frappe.set_user("Administrator")

@@ -120,9 +120,15 @@ MAX_PATIENTS_WITH_DOCTOR = 3
 
 
 def count_patients_with_doctor(clinic_session: str) -> int:
+	from bandhu_app.bandhu_app.utils.patient_encounter import TERMINAL_WORKFLOW_STATES
+
 	return frappe.db.count(
 		"Patient Encounter",
-		{"custom_clinic_session": clinic_session, "custom_called_at": ["is", "set"]},
+		{
+			"custom_clinic_session": clinic_session,
+			"custom_called_at": ["is", "set"],
+			"custom_workflow_state": ["not in", list(TERMINAL_WORKFLOW_STATES)],
+		},
 	)
 
 
