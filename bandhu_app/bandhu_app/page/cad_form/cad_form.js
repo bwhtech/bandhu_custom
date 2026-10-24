@@ -59,14 +59,14 @@ const CONTACT_FIELDS = [
 ];
 
 async function loadDashboard(page) {
-	bandhu.session_ui.freeze();
+	const froze = bandhu.session_ui.freeze();
 	let statusResult;
 	try {
 		statusResult = await frappe.call({
 			method: "bandhu_app.bandhu_app.page.cad_form.cad_form.get_session_status",
 		});
 	} finally {
-		bandhu.session_ui.unfreeze();
+		bandhu.session_ui.unfreeze(froze);
 	}
 
 	const data = statusResult.message || {};

@@ -31,7 +31,7 @@ async function getPatientHistories(patients) {
 }
 
 async function loadDashboard(page) {
-	bandhu.session_ui.freeze();
+	const froze = bandhu.session_ui.freeze();
 	let status;
 	try {
 		const response = await frappe.call({
@@ -39,7 +39,7 @@ async function loadDashboard(page) {
 		});
 		status = response.message || {};
 	} finally {
-		bandhu.session_ui.unfreeze();
+		bandhu.session_ui.unfreeze(froze);
 	}
 
 	if (!status.has_session) {
@@ -70,7 +70,7 @@ function renderNoSession(page, message, upcoming) {
 }
 
 async function loadQueues(page) {
-	bandhu.session_ui.freeze();
+	const froze = bandhu.session_ui.freeze();
 	let active, completed;
 	try {
 		const [activeResult, completedResult] = await Promise.all([
@@ -100,7 +100,7 @@ async function loadQueues(page) {
 			history: historyByPatient[encounter.patient] || [],
 		}));
 	} finally {
-		bandhu.session_ui.unfreeze();
+		bandhu.session_ui.unfreeze(froze);
 	}
 
 	encountersByName = Object.fromEntries(

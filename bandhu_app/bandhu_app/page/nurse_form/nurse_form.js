@@ -7,7 +7,7 @@ let encountersByName = {};
 let nursePage = null;
 
 async function loadDashboard(page) {
-	bandhu.session_ui.freeze();
+	const froze = bandhu.session_ui.freeze();
 	let data;
 	try {
 		const response = await frappe.call({
@@ -15,7 +15,7 @@ async function loadDashboard(page) {
 		});
 		data = response.message || {};
 	} finally {
-		bandhu.session_ui.unfreeze();
+		bandhu.session_ui.unfreeze(froze);
 	}
 
 	if (!data.has_session) {
@@ -146,7 +146,7 @@ async function end_nurse_session(page) {
 }
 
 async function loadQueues(page) {
-	bandhu.session_ui.freeze();
+	const froze = bandhu.session_ui.freeze();
 	const sessionName = nurseSession.session_name;
 	let tests, medicines, completed, progressCounts;
 	try {
@@ -169,7 +169,7 @@ async function loadQueues(page) {
 			}),
 		]);
 	} finally {
-		bandhu.session_ui.unfreeze();
+		bandhu.session_ui.unfreeze(froze);
 	}
 
 	const testRows = tests.message || [];

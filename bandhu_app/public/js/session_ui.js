@@ -29,11 +29,13 @@ frappe.provide("bandhu.session_ui");
 	const subscribed_rooms = new Map();
 
 	function freeze() {
-		if (!background_refresh_depth) frappe.dom.freeze();
+		if (background_refresh_depth) return false;
+		frappe.dom.freeze();
+		return true;
 	}
 
-	function unfreeze() {
-		if (!background_refresh_depth) frappe.dom.unfreeze();
+	function unfreeze(froze) {
+		if (froze) frappe.dom.unfreeze();
 	}
 
 	function join_session_room(route, session) {
