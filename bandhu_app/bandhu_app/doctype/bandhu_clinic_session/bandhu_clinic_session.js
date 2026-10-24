@@ -15,6 +15,8 @@
 
 frappe.ui.form.on("Bandhu Clinic Session", {
 	refresh: function (frm) {
+		if (!frm.perm[0].write) return;
+
 		// START BUTTON
 		if (frm.doc.status === "Planned") {
 			frm.add_custom_button(__("Start Session"), async () => {

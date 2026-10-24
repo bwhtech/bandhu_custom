@@ -90,6 +90,39 @@ class IntegrationTestNewSession(IntegrationTestCase):
 
 		self.assertEqual({clash["role"] for clash in clashes}, {"Doctor"})
 
+	def test_check_clashes_ignores_a_session_at_another_time_that_day(self):
+		create_session(self.session_values(assigned_doctor=self.doctor))
+
+		clashes = check_clashes(
+			self.session_values(
+				assigned_doctor=self.doctor, planned_start_time="14:30:00", planned_end_time="18:00:00"
+			)
+		)
+
+		self.assertEqual(clashes, [])
+
+	def test_check_clashes_reports_overlapping_times(self):
+		create_session(self.session_values(assigned_doctor=self.doctor))
+
+		clashes = check_clashes(
+			self.session_values(
+				assigned_doctor=self.doctor, planned_start_time="13:00:00", planned_end_time="17:00:00"
+			)
+		)
+
+		self.assertEqual({clash["role"] for clash in clashes}, {"Doctor"})
+
+	def test_check_clashes_still_warns_when_a_time_is_missing(self):
+		create_session(self.session_values(assigned_doctor=self.doctor))
+
+		clashes = check_clashes(
+			self.session_values(
+				assigned_doctor=self.doctor, planned_start_time="14:30:00", planned_end_time=""
+			)
+		)
+
+		self.assertEqual({clash["role"] for clash in clashes}, {"Doctor"})
+
 	def test_check_clashes_reports_nothing_for_an_unassigned_session(self):
 		self.assertEqual(check_clashes(self.session_values()), [])
 
