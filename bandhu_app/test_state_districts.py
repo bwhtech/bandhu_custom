@@ -111,6 +111,27 @@ class IntegrationTestStateDistricts(IntegrationTestCase):
 			{"Uttar Pradesh": "Hamirpur", "Himachal Pradesh": "Hamirpur (Himachal Pradesh)"},
 		)
 
+	def test_seed_matches_a_district_already_typed_in_another_case(self):
+		frappe.db.delete("District", {"district_name": "Ernakulam"})
+		frappe.get_doc({"doctype": "District", "district_name": "ernakulam", "state": "Kerala"}).insert(
+			ignore_permissions=True
+		)
+
+		seed_indian_districts()
+
+		self.assertEqual(frappe.db.count("District", {"district_name": "Ernakulam", "state": "Kerala"}), 1)
+
+	def test_seed_gives_a_district_saved_without_a_state_its_state(self):
+		frappe.db.delete("District", {"district_name": "Ernakulam"})
+		stateless = frappe.get_doc({"doctype": "District", "district_name": "Ernakulam"})
+		stateless.flags.ignore_mandatory = True
+		stateless.insert(ignore_permissions=True)
+
+		seed_indian_districts()
+
+		self.assertEqual(frappe.db.count("District", {"district_name": "Ernakulam"}), 1)
+		self.assertEqual(frappe.db.get_value("District", stateless.name, "state"), "Kerala")
+
 	def test_user_without_the_cad_role_is_blocked(self):
 		state = self.make_state()
 
