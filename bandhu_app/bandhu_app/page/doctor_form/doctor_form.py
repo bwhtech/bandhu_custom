@@ -1,15 +1,20 @@
 import frappe
 from frappe import _
-from frappe.core.doctype.access_log.access_log import make_access_log
 from frappe.utils import flt
 
 from bandhu_app.bandhu_app.utils.clinic_test import get_enabled_tests
 from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
 from bandhu_app.bandhu_app.utils.patient_details import get_patient_details, get_session_encounters
+from bandhu_app.bandhu_app.utils.printing import render_print
 from bandhu_app.bandhu_app.utils.realtime import publish_board_update
-from bandhu_app.bandhu_app.utils.session import find_active_session, find_upcoming_sessions
+from bandhu_app.bandhu_app.utils.session import (
+	find_active_session,
+	find_upcoming_sessions,
+	no_session_message,
+)
 
 REFERRAL_PRIORITIES = {"Low", "Medium", "High"}
+CLINICAL_LIST_LIMIT = 500
 REFERRAL_LETTER_PRINT_FORMAT = "Bandhu Referral Letter"
 
 
@@ -67,7 +72,7 @@ def get_session_status() -> dict:
 	if not session:
 		return {
 			"has_session": False,
-			"message": _("No session scheduled for today. Please contact Programme Manager."),
+			"message": no_session_message("assigned_doctor", practitioner),
 		}
 
 	return {
@@ -115,9 +120,15 @@ MAX_PATIENTS_WITH_DOCTOR = 3
 
 
 def count_patients_with_doctor(clinic_session: str) -> int:
+	from bandhu_app.bandhu_app.utils.patient_encounter import TERMINAL_WORKFLOW_STATES
+
 	return frappe.db.count(
 		"Patient Encounter",
-		{"custom_clinic_session": clinic_session, "custom_called_at": ["is", "set"]},
+		{
+			"custom_clinic_session": clinic_session,
+			"custom_called_at": ["is", "set"],
+			"custom_workflow_state": ["not in", list(TERMINAL_WORKFLOW_STATES)],
+		},
 	)
 
 
@@ -253,6 +264,16 @@ def apply_clinical_notes(doc, chief_complaint, past_history, allergy_history) ->
 		doc.custom_allergy_history = allergy_history
 
 
+def apply_follow_up_date(doc, follow_up_date: str | None) -> None:
+	if not follow_up_date:
+		return
+
+	follow_up_date = frappe.utils.getdate(follow_up_date)
+	if not follow_up_date or follow_up_date <= frappe.utils.getdate(doc.encounter_date):
+		frappe.throw(_("The follow-up date must be after the visit date."))
+	doc.custom_follow_up_date = follow_up_date
+
+
 @frappe.whitelist(methods=["POST"])
 def order_test(
 	encounter: str,
@@ -292,6 +313,15 @@ def prescribe_medicine(
 	chief_complaint: str | None = None,
 	past_history: str | None = None,
 	allergy_history: str | None = None,
+	follow_up_date: str | None = None,
+	diagnosis: str | None = None,
+	diagnosis_categories: list | str | None = None,
+	services_provided: list | str | None = None,
+	clinical_notes: str | None = None,
+	referred_to: str | None = None,
+	referred_to_practitioner: str | None = None,
+	referral_reason: str | None = None,
+	referral_priority: str | None = None,
 ) -> None:
 	require_doctor_access()
 	prescriptions = frappe.parse_json(prescriptions)
@@ -339,11 +369,47 @@ def prescribe_medicine(
 			},
 		)
 
+	apply_assessment(
+		doc,
+		diagnosis,
+		diagnosis_categories,
+		services_provided,
+		clinical_notes,
+		referred_to,
+		referred_to_practitioner,
+		referral_reason,
+		referral_priority,
+	)
 	apply_clinical_notes(doc, chief_complaint, past_history, allergy_history)
+	apply_follow_up_date(doc, follow_up_date)
 
 	doc.custom_workflow_state = "Awaiting Medicine"
 	doc.custom_called_at = None
 	doc.save(ignore_permissions=True)
+
+
+def apply_assessment(
+	doc,
+	diagnosis: str | None,
+	diagnosis_categories,
+	services_provided,
+	clinical_notes: str | None,
+	referred_to: str | None,
+	referred_to_practitioner: str | None,
+	referral_reason: str | None,
+	referral_priority: str | None,
+) -> None:
+	if diagnosis:
+		doc.append("custom_bandhu_diagnosis", {"diagnosis_name": diagnosis})
+	add_selected_rows(doc, "custom_diagnosis_categories", "diagnosis_category", diagnosis_categories)
+	add_selected_rows(doc, "custom_bandhu_services_provided", "service_name", services_provided)
+	if clinical_notes:
+		doc.custom_bandhu_clinical_notes = clinical_notes
+
+	if referred_to or referral_reason:
+		if not (referred_to and referral_reason):
+			frappe.throw(_("A referral needs both where the patient is being referred to and why."))
+		create_referral(doc, referred_to, referred_to_practitioner, referral_reason, referral_priority)
 
 
 def create_referral(
@@ -381,10 +447,35 @@ def create_referral(
 	doc.custom_has_referral = 1
 
 
+@frappe.whitelist()
+def get_clinical_options() -> dict:
+	require_doctor_access()
+
+	return {
+		"diagnosis_categories": frappe.get_list(
+			"Diagnosis Category", order_by="name asc", limit=CLINICAL_LIST_LIMIT, pluck="name"
+		),
+		"services": frappe.get_list(
+			"Bandhu Service", order_by="name asc", limit=CLINICAL_LIST_LIMIT, pluck="name"
+		),
+	}
+
+
+def add_selected_rows(doc, fieldname: str, row_fieldname: str, selected) -> None:
+	selected = frappe.parse_json(selected) or []
+	if not isinstance(selected, list):
+		frappe.throw(_("Send the ticked options as a list."))
+
+	for value in selected:
+		doc.append(fieldname, {row_fieldname: value})
+
+
 @frappe.whitelist(methods=["POST"])
 def complete_encounter(
 	encounter: str,
 	diagnosis: str | None = None,
+	diagnosis_categories: list | str | None = None,
+	services_provided: list | str | None = None,
 	clinical_notes: str | None = None,
 	chief_complaint: str | None = None,
 	past_history: str | None = None,
@@ -393,6 +484,7 @@ def complete_encounter(
 	referred_to_practitioner: str | None = None,
 	referral_reason: str | None = None,
 	referral_priority: str | None = None,
+	follow_up_date: str | None = None,
 ) -> None:
 	require_doctor_access()
 
@@ -402,16 +494,19 @@ def complete_encounter(
 			_("This patient cannot be marked complete from their current state."),
 		)
 
-	if diagnosis:
-		doc.append("custom_bandhu_diagnosis", {"diagnosis_name": diagnosis})
-	if clinical_notes:
-		doc.custom_bandhu_clinical_notes = clinical_notes
+	apply_assessment(
+		doc,
+		diagnosis,
+		diagnosis_categories,
+		services_provided,
+		clinical_notes,
+		referred_to,
+		referred_to_practitioner,
+		referral_reason,
+		referral_priority,
+	)
 	apply_clinical_notes(doc, chief_complaint, past_history, allergy_history)
-
-	if referred_to or referral_reason:
-		if not (referred_to and referral_reason):
-			frappe.throw(_("A referral needs both where the patient is being referred to and why."))
-		create_referral(doc, referred_to, referred_to_practitioner, referral_reason, referral_priority)
+	apply_follow_up_date(doc, follow_up_date)
 
 	doc.custom_workflow_state = "Completed"
 	doc.custom_called_at = None
@@ -434,15 +529,4 @@ def get_referral_letter_html(encounter: str) -> str:
 	if not referral:
 		frappe.throw(_("This patient has no referral on record."), frappe.DoesNotExistError)
 
-	make_access_log(doctype="Referral", document=referral, method="Doctor Referral Letter")
-
-	frappe.flags.ignore_print_permissions = True
-	try:
-		return frappe.get_print(
-			"Referral",
-			referral,
-			print_format=REFERRAL_LETTER_PRINT_FORMAT,
-			no_letterhead=True,
-		)
-	finally:
-		frappe.flags.ignore_print_permissions = False
+	return render_print("Referral", referral, REFERRAL_LETTER_PRINT_FORMAT, "Doctor Referral Letter")

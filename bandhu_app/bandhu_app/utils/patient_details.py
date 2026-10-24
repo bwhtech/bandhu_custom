@@ -17,6 +17,7 @@ PATIENT_DETAIL_FIELDS = [
 	"custom_native_state",
 	"custom_native_district",
 	"custom_native_country",
+	"custom_occupation",
 	"custom_sector_of_employment",
 	"custom_specify_employment_sector",
 	"custom_name_of_company",
@@ -60,6 +61,7 @@ ENCOUNTER_CLINICAL_TABLES = {
 		],
 	),
 	"diagnosis": ("Bandhu Diagnosis", ["diagnosis_name", "notes"]),
+	"interventions": ("Encounter Intervention", ["intervention"]),
 }
 
 
@@ -92,6 +94,20 @@ def attach_test_shapes(tests: list) -> None:
 		master = masters.get(test.test_name)
 		test.result_shape = master.result_shape if master else None
 		test.unit = master.unit if master else None
+
+
+def attach_medicine_names(prescriptions: list) -> None:
+	item_codes = {prescription.medicines for prescription in prescriptions if prescription.medicines}
+	if not item_codes:
+		return
+
+	names = dict(
+		frappe.get_all(
+			"Item", filters={"name": ["in", list(item_codes)]}, fields=["name", "item_name"], as_list=True
+		)
+	)
+	for prescription in prescriptions:
+		prescription.medicine_name = names.get(prescription.medicines) or prescription.medicines
 
 
 def shared_test_note(tests: list) -> str | None:
@@ -130,6 +146,9 @@ def get_clinical_details_by_encounter(encounter_names: list) -> dict:
 			details[row.pop("parent")][key].append(row)
 
 	attach_test_shapes([test for encounter in details.values() for test in encounter["tests"]])
+	attach_medicine_names(
+		[prescription for encounter in details.values() for prescription in encounter["prescriptions"]]
+	)
 
 	for encounter_details in details.values():
 		encounter_details["shared_test_note"] = shared_test_note(encounter_details["tests"])

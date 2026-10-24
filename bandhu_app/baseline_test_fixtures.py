@@ -123,6 +123,25 @@ def get_or_create_unit() -> str:
 	)
 
 
+def make_unit_with_team(doctor: str, nurse: str, driver: str) -> str:
+	used_codes = set(frappe.get_all("Unit", pluck="unit_numeric_code"))
+	free_code = next(str(digit) for digit in range(10) if str(digit) not in used_codes)
+	return (
+		frappe.get_doc(
+			{
+				"doctype": "Unit",
+				"unit_name": f"Team Test Unit {free_code}",
+				"unit_numeric_code": free_code,
+				"doctor": doctor,
+				"nurse": nurse,
+				"cad": driver,
+			}
+		)
+		.insert(ignore_permissions=True)
+		.name
+	)
+
+
 def get_or_create_appointment_type() -> str:
 	seed_default_appointment_type()
 	return DEFAULT_APPOINTMENT_TYPE
@@ -178,6 +197,22 @@ def get_or_create_practitioner(custom_role: str) -> str:
 				"custom_role": custom_role,
 			}
 		)
+		.insert(ignore_permissions=True)
+		.name
+	)
+
+
+def make_site_in_location(site_name: str, lsg: str, phc_chc: str) -> str:
+	location = frappe.get_doc(
+		{
+			"doctype": "Bandhu Location",
+			"location_name": f"{site_name} Location",
+			"lsg": lsg,
+			"phcchc": phc_chc,
+		}
+	).insert(ignore_permissions=True)
+	return (
+		frappe.get_doc({"doctype": "Site", "site_name": site_name, "location": location.name})
 		.insert(ignore_permissions=True)
 		.name
 	)

@@ -5,6 +5,7 @@ const MAX_PATIENTS_WITH_DOCTOR = 3;
 
 let encountersByName = {};
 let testOptions = null;
+let clinical_options = null;
 let doctorSession = null;
 let doctorPage = null;
 
@@ -30,7 +31,7 @@ async function getPatientHistories(patients) {
 }
 
 async function loadDashboard(page) {
-	bandhu.session_ui.freeze();
+	const froze = bandhu.session_ui.freeze();
 	let status;
 	try {
 		const response = await frappe.call({
@@ -38,7 +39,7 @@ async function loadDashboard(page) {
 		});
 		status = response.message || {};
 	} finally {
-		bandhu.session_ui.unfreeze();
+		bandhu.session_ui.unfreeze(froze);
 	}
 
 	if (!status.has_session) {
@@ -69,7 +70,7 @@ function renderNoSession(page, message, upcoming) {
 }
 
 async function loadQueues(page) {
-	bandhu.session_ui.freeze();
+	const froze = bandhu.session_ui.freeze();
 	let active, completed;
 	try {
 		const [activeResult, completedResult] = await Promise.all([
@@ -99,7 +100,7 @@ async function loadQueues(page) {
 			history: historyByPatient[encounter.patient] || [],
 		}));
 	} finally {
-		bandhu.session_ui.unfreeze();
+		bandhu.session_ui.unfreeze(froze);
 	}
 
 	encountersByName = Object.fromEntries(
@@ -208,10 +209,10 @@ async function dispatchDoctorAction(page, encounter, action) {
 			await openOrderTestDialog(page, encounter);
 			break;
 		case "prescribe":
-			openPrescribeDialog(page, encounter);
+			await open_prescribe_dialog(page, encounter);
 			break;
 		case "complete":
-			openCompleteDialog(page, encounter);
+			await openCompleteDialog(page, encounter);
 			break;
 	}
 }
@@ -254,6 +255,25 @@ function history_fields(encounter) {
 			default: allergy_history_of(encounter),
 		},
 	];
+}
+
+function follow_up_date_field() {
+	return {
+		fieldtype: "Date",
+		fieldname: "follow_up_date",
+		label: __("Follow-up Date (optional)"),
+		min_date: frappe.datetime.str_to_obj(
+			frappe.datetime.add_days(frappe.datetime.get_today(), 1)
+		),
+	};
+}
+
+function follow_up_date_is_too_early(values) {
+	if (!values.follow_up_date || values.follow_up_date > frappe.datetime.get_today())
+		return false;
+
+	frappe.msgprint(__("The follow-up date must be after the visit date."));
+	return true;
 }
 
 function allergy_warning_fields(encounter) {
@@ -304,7 +324,6 @@ async function openOrderTestDialog(page, encounter) {
 				frappe.msgprint(__("Select at least one test."));
 				return;
 			}
-			dialog.hide();
 			await submitDoctorAction(page, "order_test", {
 				encounter,
 				tests: values.tests,
@@ -318,7 +337,8 @@ async function openOrderTestDialog(page, encounter) {
 	dialog.show();
 }
 
-function openPrescribeDialog(page, encounter) {
+async function open_prescribe_dialog(page, encounter) {
+	const options = await get_clinical_options();
 	const dialog = new frappe.ui.Dialog({
 		title: __("Prescribe Medicine"),
 		size: "large",
@@ -363,6 +383,10 @@ function openPrescribeDialog(page, encounter) {
 				],
 				data: [{}],
 			},
+			follow_up_date_field(),
+			{ fieldtype: "Section Break" },
+			...diagnosis_fields(options),
+			...referral_fields(),
 			...history_fields(encounter),
 		],
 		primary_action_label: __("Prescribe"),
@@ -372,82 +396,139 @@ function openPrescribeDialog(page, encounter) {
 				frappe.msgprint(__("Add at least one medicine."));
 				return;
 			}
-			dialog.hide();
+			if (referral_is_incomplete(values)) return;
+			if (follow_up_date_is_too_early(values)) return;
 			await submitDoctorAction(page, "prescribe_medicine", {
 				encounter,
 				prescriptions: rows,
 				chief_complaint: values.chief_complaint,
 				past_history: values.past_history,
 				allergy_history: values.allergy_history,
+				follow_up_date: values.follow_up_date,
+				...assessment_args(values),
 			});
 		},
 	});
 	dialog.show();
 }
 
-function openCompleteDialog(page, encounter) {
+async function get_clinical_options() {
+	if (!clinical_options) {
+		const response = await frappe.call({
+			method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form.get_clinical_options",
+		});
+		clinical_options = response.message || { diagnosis_categories: [], services: [] };
+	}
+	return clinical_options;
+}
+
+function multi_check_field(fieldname, label, values) {
+	if (!values.length) return [];
+	return [
+		{
+			fieldtype: "MultiCheck",
+			fieldname,
+			label,
+			options: values.map((value) => ({ label: value, value })),
+			columns: 2,
+		},
+	];
+}
+
+function diagnosis_fields(options) {
+	return [
+		{ fieldtype: "Data", fieldname: "diagnosis", label: __("Diagnosis (optional)") },
+		...multi_check_field(
+			"diagnosis_categories",
+			__("Diagnosis Category"),
+			options.diagnosis_categories
+		),
+		...multi_check_field("services_provided", __("Services Provided"), options.services),
+		{
+			fieldtype: "Small Text",
+			fieldname: "clinical_notes",
+			label: __("Observations and Notes on Examination"),
+		},
+	];
+}
+
+function referral_fields() {
+	return [
+		{ fieldtype: "Section Break" },
+		{ fieldtype: "Check", fieldname: "refer_patient", label: __("Refer this patient") },
+		{
+			fieldtype: "Data",
+			fieldname: "referred_to",
+			label: __("Referred To"),
+			depends_on: "eval:doc.refer_patient",
+			mandatory_depends_on: "eval:doc.refer_patient",
+		},
+		{
+			fieldtype: "Link",
+			fieldname: "referred_to_practitioner",
+			options: "Healthcare Practitioner",
+			label: __("Referred Practitioner (optional)"),
+			depends_on: "eval:doc.refer_patient",
+		},
+		{
+			fieldtype: "Select",
+			fieldname: "referral_priority",
+			label: __("Priority"),
+			options: "Low\nMedium\nHigh",
+			default: "Medium",
+			depends_on: "eval:doc.refer_patient",
+		},
+		{
+			fieldtype: "Small Text",
+			fieldname: "referral_reason",
+			label: __("Referral Reason"),
+			depends_on: "eval:doc.refer_patient",
+			mandatory_depends_on: "eval:doc.refer_patient",
+		},
+	];
+}
+
+function referral_is_incomplete(values) {
+	if (!values.refer_patient || (values.referred_to && values.referral_reason)) return false;
+
+	frappe.msgprint(__("A referral needs both where the patient is going and why."));
+	return true;
+}
+
+function assessment_args(values) {
+	return {
+		diagnosis: values.diagnosis,
+		diagnosis_categories: values.diagnosis_categories,
+		services_provided: values.services_provided,
+		clinical_notes: values.clinical_notes,
+		referred_to: values.refer_patient ? values.referred_to : null,
+		referred_to_practitioner: values.refer_patient ? values.referred_to_practitioner : null,
+		referral_reason: values.refer_patient ? values.referral_reason : null,
+		referral_priority: values.refer_patient ? values.referral_priority : null,
+	};
+}
+
+async function openCompleteDialog(page, encounter) {
+	const options = await get_clinical_options();
 	const dialog = new frappe.ui.Dialog({
 		title: __("Mark Complete"),
 		fields: [
-			{ fieldtype: "Data", fieldname: "diagnosis", label: __("Diagnosis (optional)") },
-			{
-				fieldtype: "Small Text",
-				fieldname: "clinical_notes",
-				label: __("Observations and Notes on Examination"),
-			},
-			{ fieldtype: "Section Break" },
-			{ fieldtype: "Check", fieldname: "refer_patient", label: __("Refer this patient") },
-			{
-				fieldtype: "Data",
-				fieldname: "referred_to",
-				label: __("Referred To"),
-				depends_on: "eval:doc.refer_patient",
-				mandatory_depends_on: "eval:doc.refer_patient",
-			},
-			{
-				fieldtype: "Link",
-				fieldname: "referred_to_practitioner",
-				options: "Healthcare Practitioner",
-				label: __("Referred Practitioner (optional)"),
-				depends_on: "eval:doc.refer_patient",
-			},
-			{
-				fieldtype: "Select",
-				fieldname: "referral_priority",
-				label: __("Priority"),
-				options: "Low\nMedium\nHigh",
-				default: "Medium",
-				depends_on: "eval:doc.refer_patient",
-			},
-			{
-				fieldtype: "Small Text",
-				fieldname: "referral_reason",
-				label: __("Referral Reason"),
-				depends_on: "eval:doc.refer_patient",
-				mandatory_depends_on: "eval:doc.refer_patient",
-			},
+			...diagnosis_fields(options),
+			follow_up_date_field(),
+			...referral_fields(),
 			...history_fields(encounter),
 		],
 		primary_action_label: __("Mark Complete"),
 		primary_action: async (values) => {
-			if (values.refer_patient && (!values.referred_to || !values.referral_reason)) {
-				frappe.msgprint(__("A referral needs both where the patient is going and why."));
-				return;
-			}
-			dialog.hide();
+			if (referral_is_incomplete(values)) return;
+			if (follow_up_date_is_too_early(values)) return;
 			await submitDoctorAction(page, "complete_encounter", {
 				encounter,
-				diagnosis: values.diagnosis,
-				clinical_notes: values.clinical_notes,
 				chief_complaint: values.chief_complaint,
 				past_history: values.past_history,
 				allergy_history: values.allergy_history,
-				referred_to: values.refer_patient ? values.referred_to : null,
-				referred_to_practitioner: values.refer_patient
-					? values.referred_to_practitioner
-					: null,
-				referral_reason: values.refer_patient ? values.referral_reason : null,
-				referral_priority: values.refer_patient ? values.referral_priority : null,
+				follow_up_date: values.follow_up_date,
+				...assessment_args(values),
 			});
 		},
 	});
@@ -455,20 +536,35 @@ function openCompleteDialog(page, encounter) {
 }
 
 async function submitDoctorAction(page, method, args, alertMessage = __("Saved")) {
+	const dialog = cur_dialog;
 	frappe.dom.freeze();
 	try {
 		await frappe.call({
 			method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form." + method,
-			args,
+			args: with_cleared_history(args),
 		});
+	} catch (error) {
+		if (dialog) return;
+		throw error;
 	} finally {
 		frappe.dom.unfreeze();
 	}
+	dialog?.hide();
 
 	if (alertMessage) {
 		frappe.show_alert({ message: alertMessage, indicator: "green" });
 	}
 	await bandhu.session_ui.refresh_page(page, loadQueues);
+}
+
+const HISTORY_FIELDNAMES = ["chief_complaint", "past_history", "allergy_history"];
+
+function with_cleared_history(args) {
+	const cleared = { ...args };
+	for (const fieldname of HISTORY_FIELDNAMES) {
+		if (fieldname in cleared && cleared[fieldname] === undefined) cleared[fieldname] = "";
+	}
+	return cleared;
 }
 
 const WAITING_ORDER = {
@@ -576,30 +672,11 @@ async function print_referral_letter(encounter) {
 async function print_through_endpoint(method, encounter, popup_blocked_message) {
 	if (!encounter) return;
 
-	frappe.dom.freeze();
-	let printable_html;
-	try {
-		const response = await frappe.call({
-			method: "bandhu_app.bandhu_app.page.doctor_form.doctor_form." + method,
-			args: { encounter },
-		});
-		printable_html = response.message;
-	} finally {
-		frappe.dom.unfreeze();
-	}
-
-	if (!printable_html) return;
-
-	const print_window = window.open("", "_blank");
-	if (!print_window) {
-		frappe.msgprint(popup_blocked_message);
-		return;
-	}
-
-	print_window.document.write(printable_html);
-	print_window.document.close();
-	print_window.focus();
-	print_window.print();
+	await bandhu.session_ui.print_from_endpoint(
+		"bandhu_app.bandhu_app.page.doctor_form.doctor_form." + method,
+		{ encounter },
+		popup_blocked_message
+	);
 }
 
 function formatTestLine(tests) {
@@ -625,6 +702,19 @@ function formatTestLine(tests) {
 	return parts.join(" \u00b7 ");
 }
 
+function format_vitals_line(encounter) {
+	return [
+		[__("Temp"), encounter.custom_temperature, "\u00b0F"],
+		[__("SpO2"), encounter.custom_spo2, "%"],
+		[__("Pulse"), encounter.custom_pulse_rate, ""],
+		[__("BP"), encounter.custom_blood_pressure, ""],
+		[__("BMI"), encounter.custom_bmi, ""],
+	]
+		.filter(([, value]) => value)
+		.map(([label, value, unit]) => label + " " + value + unit)
+		.join(" \u00b7 ");
+}
+
 // A doctor reads what was ordered and what came back, not how many rows a child table holds --
 // "2 test(s) done" says nothing they can act on.
 function renderClinicalSummary(encounter) {
@@ -632,13 +722,17 @@ function renderClinicalSummary(encounter) {
 	const prescriptions = encounter.prescriptions || [];
 	const lines = [];
 
+	const vitals = format_vitals_line(encounter);
+	if (vitals) {
+		lines.push(__("Vitals") + ": " + vitals);
+	}
 	if (tests.length) {
 		lines.push(__("Tests") + ": " + formatTestLine(tests));
 	}
 	if (prescriptions.length) {
 		const dispensed = prescriptions.filter((prescription) => prescription.dispensed).length;
 		const medicines = prescriptions
-			.map((prescription) => prescription.medicines)
+			.map((prescription) => prescription.medicine_name)
 			.filter(Boolean)
 			.join(", ");
 		lines.push(
@@ -647,6 +741,8 @@ function renderClinicalSummary(encounter) {
 				medicines +
 				(dispensed === prescriptions.length
 					? " \u00b7 " + __("dispensed")
+					: encounter.custom_workflow_state === "Completed"
+					? " \u00b7 " + __("{0} of {1} dispensed", [dispensed, prescriptions.length])
 					: " \u00b7 " + __("awaiting pharmacy"))
 		);
 	}

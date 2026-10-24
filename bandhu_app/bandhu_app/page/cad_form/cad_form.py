@@ -1,17 +1,24 @@
+import math
 import re
 
 import frappe
 from frappe import _
 from frappe.core.doctype.access_log.access_log import make_access_log
+from frappe.query_builder.functions import Max
 from frappe.rate_limiter import rate_limit
-from frappe.utils import flt, getdate, validate_phone_number
+from frappe.utils import flt, get_time, getdate, today, validate_phone_number
 
+from bandhu_app.bandhu_app.doctype.bandhu_settings.bandhu_settings import get_offered_genders
 from bandhu_app.bandhu_app.utils.patient import compact_age, render_patient_card
 from bandhu_app.bandhu_app.utils.patient_encounter import (
 	ENCOUNTER_TO_QUEUE_STAGE,
 	TERMINAL_WORKFLOW_STATES,
 )
-from bandhu_app.bandhu_app.utils.session import find_active_session, require_running_session
+from bandhu_app.bandhu_app.utils.session import (
+	find_active_session,
+	no_session_message,
+	require_running_session,
+)
 
 COMPANY_LIST_LIMIT = 500
 ADD_COMPANY_LIMIT = 60
@@ -62,7 +69,7 @@ def get_session_status() -> dict:
 	if not session:
 		return {
 			"has_session": False,
-			"message": _("No session scheduled for today. Please contact Programme Manager."),
+			"message": no_session_message("assigned_driver", practitioner),
 		}
 
 	return {
@@ -72,9 +79,6 @@ def get_session_status() -> dict:
 		"clinic": session.clinic,
 		"site": session.site,
 	}
-
-
-QUICK_COUNTRIES = ["India", "Nepal"]
 
 
 @frappe.whitelist()
@@ -90,12 +94,21 @@ def get_form_options() -> dict:
 	major_sectors = frappe.get_all(
 		"Sectors", filters={"is_major_sector": 1}, fields=["name"], order_by="name asc", pluck="name"
 	)
+	major_occupations = frappe.get_all(
+		"Occupation", filters={"is_major_occupation": 1}, order_by="name asc", pluck="name"
+	)
+	other_occupations = frappe.get_all(
+		"Occupation", filters={"is_major_occupation": 0}, order_by="name asc", pluck="name"
+	)
 	return {
+		"genders": get_offered_genders(),
 		"major_states": major_states,
 		"companies": companies,
 		"other_states": other_states,
+		"major_occupations": major_occupations,
+		"other_occupations": other_occupations,
 		"major_sectors": major_sectors,
-		"quick_countries": QUICK_COUNTRIES,
+		"quick_countries": [row.country for row in frappe.get_single("Bandhu Settings").quick_countries],
 	}
 
 
@@ -118,6 +131,7 @@ def add_company(company_name: str) -> str:
 SEARCH_LIMIT = 20
 
 MIN_SEARCH_LENGTH = 2
+FOLLOW_UP_SETTING_STATES = ("Awaiting Medicine", "Completed")
 
 
 @frappe.whitelist()
@@ -147,8 +161,10 @@ def search_patient(query: str) -> dict:
 	capped = len(results) > SEARCH_LIMIT
 	results = results[:SEARCH_LIMIT]
 
+	follow_up_dates = find_follow_up_dates([row.name for row in results])
 	for row in results:
 		row["age"] = compact_age(row.dob)
+		row["follow_up_date"] = follow_up_dates.get(row.name)
 
 	# The search reads the whole patient master by design (a CAD legitimately meets patients
 	# registered at another site), so the term is recorded rather than the search being narrowed.
@@ -158,6 +174,33 @@ def search_patient(query: str) -> dict:
 	make_access_log(doctype="Patient", method="CAD Patient Search", filters=query)
 
 	return {"results": results, "capped": capped}
+
+
+def find_follow_up_dates(patients: list) -> dict:
+	if not patients:
+		return {}
+
+	encounter = frappe.qb.DocType("Patient Encounter")
+	decided_visits = (
+		(encounter.patient.isin(patients))
+		& (encounter.docstatus < 2)
+		& (encounter.custom_workflow_state.isin(FOLLOW_UP_SETTING_STATES))
+	)
+	latest = (
+		frappe.qb.from_(encounter)
+		.select(encounter.patient, Max(encounter.creation).as_("creation"))
+		.where(decided_visits)
+		.groupby(encounter.patient)
+	)
+	visits = (
+		frappe.qb.from_(encounter)
+		.join(latest)
+		.on((latest.patient == encounter.patient) & (latest.creation == encounter.creation))
+		.select(encounter.patient, encounter.custom_follow_up_date)
+		.where(decided_visits & encounter.custom_follow_up_date.isnotnull())
+	).run(as_dict=True)
+
+	return {visit.patient: visit.custom_follow_up_date for visit in visits}
 
 
 @frappe.whitelist()
@@ -279,6 +322,7 @@ def register_patient(
 	native_state: str | None = None,
 	native_district: str | None = None,
 	occupation: str | None = None,
+	sector: str | None = None,
 	specify_sector: str | None = None,
 	company_name: str | None = None,
 	abha_id: str | None = None,
@@ -300,6 +344,8 @@ def register_patient(
 		frappe.throw(_("Full name is required."))
 	if not sex:
 		frappe.throw(_("Sex is required."))
+	if sex not in get_offered_genders():
+		frappe.throw(_("{0} is not one of the genders offered in Bandhu Settings.").format(sex))
 
 	dob = resolve_dob(dob, age)
 
@@ -337,7 +383,8 @@ def register_patient(
 		"custom_specify_native_country": specify_native_country or None,
 		"custom_native_state": native_state or None,
 		"custom_native_district": native_district or None,
-		"custom_sector_of_employment": occupation or None,
+		"custom_occupation": occupation or None,
+		"custom_sector_of_employment": sector or None,
 		"custom_specify_employment_sector": specify_sector or None,
 		"custom_name_of_company": company_name or None,
 		"custom_abha_id": abha_id or None,
@@ -396,6 +443,14 @@ def create_encounter(patient: str, session: str) -> str:
 			"encounter_date": frappe.utils.today(),
 		}
 	)
+	if getdate(patient_doc.creation) == getdate(frappe.utils.today()):
+		encounter.update(
+			{
+				"custom_height": flt(flt(patient_doc.custom_height_m) * 100, 1) or None,
+				"custom_weight": flt(patient_doc.custom_weight_kg) or None,
+				"custom_bmi": patient_doc.custom_bmi,
+			}
+		)
 	encounter.insert(ignore_permissions=True)
 
 	return encounter.name
@@ -436,8 +491,11 @@ def get_today_queue(session: str) -> list:
 	]
 
 
+MAX_CANCEL_REASON_LENGTH = 500
+
+
 @frappe.whitelist(methods=["POST"])
-def cancel_visit(encounter: str, session: str) -> None:
+def cancel_visit(encounter: str, session: str, reason: str | None = None) -> None:
 	"""End a visit the patient walked out of, so it leaves the doctor and nurse boards."""
 	require_session_access(session)
 	require_running_session(session)
@@ -449,5 +507,81 @@ def cancel_visit(encounter: str, session: str) -> None:
 	if encounter_doc.custom_workflow_state in TERMINAL_WORKFLOW_STATES:
 		frappe.throw(_("This visit has already ended."))
 
+	reason = (reason or "").strip()
+	if not reason:
+		frappe.throw(_("Say why the visit is ending."))
+	if len(reason) > MAX_CANCEL_REASON_LENGTH:
+		frappe.throw(_("Keep the reason under {0} characters.").format(MAX_CANCEL_REASON_LENGTH))
+	encounter_doc.add_comment("Comment", _("Visit cancelled: {0}").format(frappe.utils.escape_html(reason)))
+
 	encounter_doc.custom_workflow_state = "Cancelled"
+	encounter_doc.custom_called_at = None
 	encounter_doc.save(ignore_permissions=True)
+
+
+LOG_BOOK_FIELDS = ["departure_time", "arrival_time", "distance_travelled_km"]
+LOG_BOOK_OPEN_STATUSES = ("Planned", "In Progress")
+MAX_DISTANCE_TRAVELLED_KM = 500
+
+
+def parse_log_book_time(value: str) -> str:
+	try:
+		return get_time(value).strftime("%H:%M:%S")
+	except ValueError:
+		frappe.throw(_("Enter a valid time."))
+
+
+@frappe.whitelist()
+def get_log_book(session: str) -> dict:
+	require_session_access(session)
+	log_book = frappe.db.get_value("Bandhu Clinic Session", session, LOG_BOOK_FIELDS, as_dict=True) or {}
+	for fieldname in ("departure_time", "arrival_time"):
+		if log_book.get(fieldname) is not None:
+			log_book[fieldname] = get_time(log_book[fieldname]).strftime("%H:%M:%S")
+	return log_book
+
+
+@frappe.whitelist(methods=["POST"])
+def save_log_book(
+	session: str,
+	departure_time: str | None = None,
+	arrival_time: str | None = None,
+	distance_travelled_km: float | None = None,
+) -> dict:
+	require_session_access(session)
+
+	session_doc = frappe.db.get_value(
+		"Bandhu Clinic Session",
+		session,
+		["status", "date", *LOG_BOOK_FIELDS],
+		as_dict=True,
+		for_update=True,
+	)
+	if not session_doc:
+		frappe.throw(_("Clinic session not found."))
+	if session_doc.status not in LOG_BOOK_OPEN_STATUSES or str(session_doc.date) != today():
+		frappe.throw(_("The log book can only be filled for today's session before it is closed."))
+
+	values = {}
+	if departure_time is not None:
+		values["departure_time"] = parse_log_book_time(departure_time)
+	if arrival_time is not None:
+		values["arrival_time"] = parse_log_book_time(arrival_time)
+	if distance_travelled_km is not None:
+		if not math.isfinite(distance_travelled_km) or not (
+			0 <= distance_travelled_km <= MAX_DISTANCE_TRAVELLED_KM
+		):
+			frappe.throw(
+				_("Distance travelled must be between 0 and {0} km.").format(MAX_DISTANCE_TRAVELLED_KM)
+			)
+		values["distance_travelled_km"] = f"{flt(distance_travelled_km, 1):g}"
+
+	departure = values.get("departure_time", session_doc.departure_time)
+	arrival = values.get("arrival_time", session_doc.arrival_time)
+	if departure is not None and arrival is not None and get_time(arrival) < get_time(departure):
+		frappe.throw(_("Arrival time cannot be before departure time."))
+
+	if values:
+		frappe.db.set_value("Bandhu Clinic Session", session, values)
+
+	return get_log_book(session)

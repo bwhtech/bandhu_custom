@@ -1,6 +1,8 @@
+from datetime import timedelta
+
 import frappe
 from frappe import _
-from frappe.utils import add_days, cint, today
+from frappe.utils import add_days, cint, get_time, today
 
 _ACTIVE_STATUS_PRIORITY = ["In Progress", "Planned"]
 
@@ -150,24 +152,34 @@ def find_active_session(practitioner_field: str, practitioner: str) -> dict | No
 			practitioner_field: practitioner,
 			"status": ["in", _ACTIVE_STATUS_PRIORITY],
 		},
-		fields=["name", "status", "clinic", "site", "creation"],
-		order_by="creation desc",
+		fields=["name", "status", "clinic", "site", "planned_start_time", "creation"],
 	)
-	if not candidates:
-		return None
-
-	by_status = {row.status: row for row in reversed(candidates)}
+	candidates.sort(
+		key=lambda row: (row.planned_start_time is None, row.planned_start_time or timedelta(0), row.creation)
+	)
 	for status in _ACTIVE_STATUS_PRIORITY:
-		if status in by_status:
-			return label_sites([by_status[status]])[0]
+		for row in candidates:
+			if row.status == status:
+				return label_sites([row])[0]
 	return None
+
+
+def find_session_left_open(practitioner_field: str, practitioner: str) -> dict | None:
+	sessions = frappe.get_all(
+		"Bandhu Clinic Session",
+		filters={"date": ["<", today()], practitioner_field: practitioner, "status": "In Progress"},
+		fields=["name", "status", "clinic", "site", "date"],
+		order_by="date asc",
+		limit=1,
+	)
+	return label_sites(sessions)[0] if sessions else None
 
 
 def require_running_session(session_name: str) -> dict:
 	session_doc = frappe.db.get_value(
 		"Bandhu Clinic Session",
 		session_name,
-		["status", "assigned_doctor", "site"],
+		["status", "date", "assigned_doctor", "site"],
 		as_dict=True,
 	)
 	if not session_doc:
@@ -180,5 +192,45 @@ def require_running_session(session_name: str) -> dict:
 		frappe.throw(
 			_("This clinic session hasn't started yet. Ask the nurse to start the session first."),
 		)
+	if str(session_doc.date) != today():
+		frappe.throw(
+			_("This clinic session was on {0} and is over. Ask the nurse to close it.").format(
+				frappe.utils.formatdate(session_doc.date)
+			)
+		)
 
 	return session_doc
+
+
+def validate_planned_times(doc) -> None:
+	if not (doc.planned_start_time and doc.planned_end_time):
+		return
+	if get_time(doc.planned_end_time) <= get_time(doc.planned_start_time):
+		frappe.throw(_("Planned End Time must be after Planned Start Time."))
+
+
+def validate_practitioner_roles(doc, role_by_field: dict) -> None:
+	for fieldname, required_role in role_by_field.items():
+		practitioner = doc.get(fieldname)
+		if not practitioner:
+			continue
+		actual_role = frappe.get_cached_value("Healthcare Practitioner", practitioner, "custom_role")
+		if actual_role != required_role:
+			frappe.throw(
+				_("{0} must be a Healthcare Practitioner with role {1}, but {2} has role {3}.").format(
+					doc.meta.get_field(fieldname).label,
+					required_role,
+					practitioner,
+					actual_role or _("(none)"),
+				)
+			)
+
+
+def no_session_message(practitioner_field: str, practitioner: str) -> str:
+	closed_today = frappe.db.exists(
+		"Bandhu Clinic Session",
+		{"date": today(), practitioner_field: practitioner, "status": "Completed"},
+	)
+	if closed_today:
+		return _("Today's session has ended.")
+	return _("No session scheduled for today. Please contact Programme Manager.")

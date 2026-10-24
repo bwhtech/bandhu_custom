@@ -3,7 +3,7 @@
 
 import frappe
 from frappe import _
-from frappe.utils import today
+from frappe.utils import getdate, today
 
 from bandhu_app.bandhu_app.utils.session_schedule import (
 	association_maps,
@@ -32,14 +32,20 @@ ACCEPTED_FIELDS = (
 def get_form_options() -> dict:
 	require_scheduling_access()
 
-	sites = frappe.get_all("Site", fields=["name as value", "site_name as label"], order_by="site_name asc")
+	sites = frappe.get_all(
+		"Site",
+		fields=["name as value", "site_name as label", "location.lsg as lsg", "location.phcchc as phc_chc"],
+		order_by="site_name asc",
+	)
 	clinics = frappe.get_all("Clinic", fields=["name as value", "clinic_name as label", "project", "vehicle"])
 
 	return {
 		"sites": sites,
 		"clinics": clinics,
 		"projects": frappe.get_all("Bandhu Projects", pluck="name"),
-		"units": frappe.get_all("Unit", fields=["name as value", "unit_name as label"]),
+		"units": frappe.get_all(
+			"Unit", fields=["name as value", "unit_name as label", "doctor", "nurse", "cad"]
+		),
 		"vehicles": frappe.get_all("Vehicle", pluck="name"),
 		"doctors": practitioners_by_role("Doctor"),
 		"nurses": practitioners_by_role("Nurse"),
@@ -90,6 +96,8 @@ def create_session(values: str) -> dict:
 	draft = as_session_draft(values)
 	if not draft.date:
 		frappe.throw(_("Pick a date for the session."))
+	if getdate(draft.date) < getdate(today()):
+		frappe.throw(_("Pick today or a later date."))
 
 	draft.status = "Planned"
 	draft.insert()

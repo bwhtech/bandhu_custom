@@ -4,6 +4,13 @@ const SESSION_UI_ASSET = "/assets/bandhu_app/js/session_ui.js";
 
 let options = {};
 let session = {};
+let team_source_unit = "";
+
+const TEAM_BY_UNIT_FIELD = {
+	doctor: { team_field: "assigned_doctor", choices: "doctors" },
+	nurse: { team_field: "assigned_nurse", choices: "nurses" },
+	cad: { team_field: "assigned_driver", choices: "drivers" },
+};
 
 function filteredByHistory(list, historyMap, key) {
 	if (!key) return list;
@@ -26,6 +33,7 @@ function resetForm() {
 		planned_end_time: defaults.planned_end_time,
 		project: defaults.project,
 	};
+	team_source_unit = "";
 }
 
 function requiredMark(required) {
@@ -80,6 +88,16 @@ function inputField(field, label, type, required) {
 	);
 }
 
+function read_only_field(label, value) {
+	return (
+		'<div class="form-group"><label>' +
+		frappe.utils.escape_html(label) +
+		'</label><div class="like-disabled-input">' +
+		frappe.utils.escape_html(value || "") +
+		"</div></div>"
+	);
+}
+
 function renderWhere() {
 	const associations = options.associations || {};
 	const sites = filteredByHistory(options.sites, associations.project_sites, session.project);
@@ -91,6 +109,7 @@ function renderWhere() {
 	clinics = filteredByHistory(clinics, associations.site_clinics, session.site);
 
 	const units = filteredByHistory(options.units, associations.clinic_units, session.clinic);
+	const site = (options.sites || []).find((item) => item.value === session.site) || {};
 
 	return (
 		'<div class="card"><div class="section-label">' +
@@ -98,8 +117,10 @@ function renderWhere() {
 		'</div><div class="field-grid">' +
 		selectField("project", __("Project"), options.projects, true) +
 		selectField("site", __("Site"), sites, true) +
+		read_only_field(__("LSG"), site.lsg) +
+		read_only_field(__("PHC/CHC"), site.phc_chc) +
 		selectField("clinic", __("Clinic"), clinics, true) +
-		selectField("unit", __("Unit"), units, false) +
+		selectField("unit", __("Unit"), units, true) +
 		"</div></div>"
 	);
 }
@@ -181,7 +202,7 @@ function bind(page) {
 	page.main.on("change", ".new-session-field", function () {
 		const field = $(this).data("field");
 		applyFieldChange(field, $(this).val());
-		if (["project", "site", "clinic"].includes(field)) {
+		if (["project", "site", "clinic", "unit"].includes(field)) {
 			render(page);
 		}
 		scheduleClashCheck(page);
@@ -190,6 +211,21 @@ function bind(page) {
 
 function applyFieldChange(field, value) {
 	session[field] = value;
+
+	if (field === "unit" && value) {
+		const units = options.units || [];
+		const source_unit = units.find((item) => item.value === team_source_unit) || {};
+		const unit = units.find((item) => item.value === value) || {};
+		for (const [unit_field, { team_field, choices }] of Object.entries(TEAM_BY_UNIT_FIELD)) {
+			const offered = (options[choices] || []).some(
+				(item) => item.value === unit[unit_field]
+			);
+			if (!session[team_field] || session[team_field] === source_unit[unit_field]) {
+				session[team_field] = offered ? unit[unit_field] : "";
+			}
+		}
+		team_source_unit = value;
+	}
 
 	if (field === "clinic") {
 		const clinic = (options.clinics || []).find((item) => item.value === value);
@@ -250,6 +286,7 @@ function missingField() {
 	if (!session.project) return __("Pick a project.");
 	if (!session.site) return __("Pick a site.");
 	if (!session.clinic) return __("Pick a clinic.");
+	if (!session.unit) return __("Pick a unit.");
 	if (!session.date) return __("Set the session date.");
 	return null;
 }

@@ -4,24 +4,35 @@ from frappe.query_builder.functions import Count
 from frappe.utils import flt
 
 from bandhu_app.bandhu_app.utils.patient_details import get_patient_details, get_session_encounters
+from bandhu_app.bandhu_app.utils.printing import render_print
 from bandhu_app.bandhu_app.utils.realtime import publish_board_update
 from bandhu_app.bandhu_app.utils.session import (
 	find_active_session,
+	find_session_left_open,
 	find_upcoming_sessions,
+	no_session_message,
 	require_running_session,
 )
+
+PRESCRIPTION_PRINT_FORMAT = "Bandhu Prescription"
+PRINTABLE_PRESCRIPTION_STATES = ("Awaiting Medicine", "Completed")
+
+
+def require_nurse_access() -> None:
+	roles = frappe.get_roles()
+	if "Nurse" not in roles and "System Manager" not in roles:
+		frappe.throw(
+			_("You do not have permission to access this page."),
+			frappe.PermissionError,
+		)
 
 
 def require_session_access(session_name: str) -> None:
 	user = frappe.session.user
-	roles = frappe.get_roles(user)
-	if "System Manager" in roles:
+	require_nurse_access()
+	if "System Manager" in frappe.get_roles(user):
 		return
-	if "Nurse" not in roles:
-		frappe.throw(
-			_("You do not have permission to access this clinic session."),
-			frappe.PermissionError,
-		)
+
 	practitioner = frappe.db.get_value("Healthcare Practitioner", {"user_id": user}, "name")
 	if not practitioner:
 		frappe.throw(
@@ -34,6 +45,18 @@ def require_session_access(session_name: str) -> None:
 			_("You are not assigned to this clinic session."),
 			frappe.PermissionError,
 		)
+
+
+INTERVENTION_LIST_LIMIT = 500
+
+
+@frappe.whitelist()
+def get_intervention_options() -> list:
+	require_nurse_access()
+
+	return frappe.get_list(
+		"Other Intervention", order_by="name asc", limit=INTERVENTION_LIST_LIMIT, pluck="name"
+	)
 
 
 def get_nurse_practitioner():
@@ -63,12 +86,13 @@ def get_session_status() -> dict:
 	if not practitioner:
 		return {"has_session": False, "message": _("No Healthcare Practitioner linked to your account.")}
 
-	session = find_active_session("assigned_nurse", practitioner)
+	left_open = find_session_left_open("assigned_nurse", practitioner)
+	session = left_open or find_active_session("assigned_nurse", practitioner)
 
 	if not session:
 		return {
 			"has_session": False,
-			"message": _("No session scheduled for today. Please contact Programme Manager."),
+			"message": no_session_message("assigned_nurse", practitioner),
 		}
 
 	return {
@@ -77,6 +101,7 @@ def get_session_status() -> dict:
 		"status": session.status,
 		"clinic": session.clinic,
 		"site": session.site,
+		"left_open_on": str(left_open.date) if left_open else None,
 	}
 
 
@@ -140,12 +165,49 @@ def end_session(session_name: str) -> None:
 	if session_doc.status != "In Progress":
 		frappe.throw(_("This session is not open, so it cannot be closed."))
 
+	cancel_open_visits(session_name)
 	frappe.db.set_value(
 		"Bandhu Clinic Session",
 		session_name,
 		{"status": "Completed", "end_time": frappe.utils.now_datetime()},
 	)
 	publish_board_update(session_name)
+
+
+OPEN_VISIT_STATES = ["Waiting for Doctor", "Awaiting Test", "Awaiting Doctor Review", "Awaiting Medicine"]
+
+
+def find_open_visits(session_name: str, fields: list) -> list:
+	return frappe.get_all(
+		"Patient Encounter",
+		filters={"custom_clinic_session": session_name, "custom_workflow_state": ["in", OPEN_VISIT_STATES]},
+		fields=fields,
+		order_by="creation asc",
+	)
+
+
+def cancel_open_visits(session_name: str) -> None:
+	for visit in find_open_visits(session_name, ["name"]):
+		frappe.db.set_value(
+			"Patient Encounter",
+			visit.name,
+			{"custom_workflow_state": "Cancelled", "custom_called_at": None},
+		)
+		frappe.get_doc(
+			{
+				"doctype": "Comment",
+				"comment_type": "Comment",
+				"reference_doctype": "Patient Encounter",
+				"reference_name": visit.name,
+				"content": _("Cancelled because the session ended before this visit finished."),
+			}
+		).insert(ignore_permissions=True)
+
+
+@frappe.whitelist()
+def get_open_patients(session_name: str) -> list[str]:
+	require_session_access(session_name)
+	return [visit.patient_name for visit in find_open_visits(session_name, ["patient_name"])]
 
 
 @frappe.whitelist()
@@ -235,6 +297,7 @@ def record_vitals(
 	spo2: int | None = None,
 	bp_systolic: int | None = None,
 	bp_diastolic: int | None = None,
+	other_interventions: list | str | None = None,
 ) -> None:
 	doc = load_session_encounter(encounter)
 	require_running_session(doc.custom_clinic_session)
@@ -250,8 +313,12 @@ def record_vitals(
 		(_("BP systolic"), bp_systolic, 50, 300),
 		(_("BP diastolic"), bp_diastolic, 30, 200),
 	]
-	if not any(value is not None for _label, value, _low, _high in measurements):
-		frappe.throw(_("Enter at least one vital sign."))
+	interventions = frappe.parse_json(other_interventions) if other_interventions is not None else None
+	if interventions is not None and not isinstance(interventions, list):
+		frappe.throw(_("Send the ticked options as a list."))
+
+	if not interventions and not any(value is not None for _label, value, _low, _high in measurements):
+		frappe.throw(_("Enter at least one vital sign or tick an intervention."))
 
 	for label, value, low, high in measurements:
 		if value is None:
@@ -285,6 +352,9 @@ def record_vitals(
 		height_m = flt(doc.custom_height) / 100
 		doc.custom_bmi = round(flt(doc.custom_weight) / (height_m * height_m), 2)
 
+	if interventions is not None:
+		doc.set("custom_other_interventions", [{"intervention": value} for value in interventions])
+
 	doc.save(ignore_permissions=True)
 
 
@@ -307,3 +377,16 @@ def dispense_medicine(encounter: str, dispensed_rows: list | str | None = None) 
 
 	doc.custom_workflow_state = "Completed"
 	doc.save(ignore_permissions=True)
+
+
+@frappe.whitelist()
+def get_prescription_html(encounter: str) -> str:
+	doc = load_session_encounter(encounter)
+	if doc.custom_workflow_state not in PRINTABLE_PRESCRIPTION_STATES:
+		frappe.throw(
+			_("A prescription can only be printed once the doctor has sent the patient for medicine.")
+		)
+	if not doc.custom_bandhu_prescription:
+		frappe.throw(_("No medicine is prescribed for this patient."), frappe.DoesNotExistError)
+
+	return render_print("Patient Encounter", doc.name, PRESCRIPTION_PRINT_FORMAT, "Nurse Prescription Print")

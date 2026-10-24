@@ -3,11 +3,12 @@ from frappe import _
 from frappe.query_builder.functions import Coalesce
 from frappe.utils import date_diff, getdate
 
+from bandhu_app.bandhu_app.utils.clinic_stats import CANCELLED_STATE, TEST_NOT_DONE
 from bandhu_app.bandhu_app.utils.patient import age_group
 from bandhu_app.bandhu_app.utils.session import fetch_map
 
 PENDING = "Pending"
-RESULT_SERIES = ("Positive", "Negative", "Value", PENDING)
+RESULT_SERIES = ("Positive", "Negative", "Value", TEST_NOT_DONE, PENDING)
 
 
 def execute(filters=None):
@@ -64,6 +65,7 @@ def fetch_tests(filters) -> list:
 		.where(
 			(test.parenttype == "Patient Encounter")
 			& (encounter.docstatus < 2)
+			& (Coalesce(encounter.custom_workflow_state, "") != CANCELLED_STATE)
 			& (session.date >= filters.from_date)
 			& (session.date <= filters.to_date)
 		)
@@ -170,7 +172,8 @@ def build_chart(rows: list) -> dict:
 
 
 def build_summary(rows: list) -> list:
-	done = [row for row in rows if row["result"] != PENDING]
+	done = [row for row in rows if row["result"] not in (PENDING, TEST_NOT_DONE)]
+	not_done = [row for row in rows if row["result"] == TEST_NOT_DONE]
 
 	return [
 		{"label": _("Tests Ordered"), "value": len(rows), "datatype": "Int"},
@@ -180,14 +183,15 @@ def build_summary(rows: list) -> list:
 			"value": len([row for row in done if row["result"] == "Positive"]),
 			"datatype": "Int",
 		},
+		{"label": _("Not Done"), "value": len(not_done), "datatype": "Int"},
 		{
 			"label": _("Awaiting Result"),
-			"value": len(rows) - len(done),
+			"value": len(rows) - len(done) - len(not_done),
 			"datatype": "Int",
 		},
 		{
 			"label": _("Patients Tested"),
-			"value": len({row["patient"] for row in rows}),
+			"value": len({row["patient"] for row in done}),
 			"datatype": "Int",
 		},
 	]
@@ -234,11 +238,5 @@ def get_columns() -> list:
 			"options": "Bandhu Clinic Session",
 			"width": 150,
 		},
-		{
-			"fieldname": "encounter",
-			"label": _("Encounter"),
-			"fieldtype": "Link",
-			"options": "Patient Encounter",
-			"width": 150,
-		},
+		{"fieldname": "encounter", "label": _("Encounter"), "fieldtype": "Data", "width": 150},
 	]

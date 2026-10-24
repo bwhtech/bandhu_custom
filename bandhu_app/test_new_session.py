@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import today
+from frappe.utils import add_days, today
 
 from bandhu_app.bandhu_app.page.new_session.new_session import (
 	as_session_draft,
@@ -11,7 +11,7 @@ from bandhu_app.bandhu_app.page.new_session.new_session import (
 	create_session,
 	get_form_options,
 )
-from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures, make_site_in_location
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -70,6 +70,15 @@ class IntegrationTestNewSession(IntegrationTestCase):
 		}
 		self.assertEqual(roles, {"Doctor"})
 
+	def test_form_options_give_each_site_its_lsg_and_phc_chc(self):
+		site = make_site_in_location(
+			"New Session LSG Test Site", "Vazhakulam Gram Panchayat", "FHC Vazhakulam"
+		)
+
+		option = next(item for item in get_form_options()["sites"] if item.value == site)
+
+		self.assertEqual((option.lsg, option.phc_chc), ("Vazhakulam Gram Panchayat", "FHC Vazhakulam"))
+
 	def test_create_inserts_a_planned_ad_hoc_session(self):
 		result = create_session(self.session_values())
 
@@ -82,11 +91,56 @@ class IntegrationTestNewSession(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			create_session(self.session_values(date=""))
 
+	def test_create_rejects_a_session_with_no_unit(self):
+		with self.assertRaises(frappe.ValidationError):
+			create_session(self.session_values(unit=""))
+
+	def test_create_rejects_a_date_in_the_past(self):
+		with self.assertRaises(frappe.ValidationError):
+			create_session(self.session_values(date=add_days(today(), -1)))
+
+	def test_create_rejects_an_end_time_before_the_start(self):
+		with self.assertRaises(frappe.ValidationError):
+			create_session(self.session_values(planned_start_time="17:00:00", planned_end_time="9:00:00"))
+
 	def test_check_clashes_reports_a_doctor_already_booked_that_day(self):
 		booked = create_session(self.session_values(assigned_doctor=self.doctor))
 		self.assertTrue(frappe.db.exists("Bandhu Clinic Session", booked["name"]))
 
 		clashes = check_clashes(self.session_values(assigned_doctor=self.doctor))
+
+		self.assertEqual({clash["role"] for clash in clashes}, {"Doctor"})
+
+	def test_check_clashes_ignores_a_session_at_another_time_that_day(self):
+		create_session(self.session_values(assigned_doctor=self.doctor))
+
+		clashes = check_clashes(
+			self.session_values(
+				assigned_doctor=self.doctor, planned_start_time="14:30:00", planned_end_time="18:00:00"
+			)
+		)
+
+		self.assertEqual(clashes, [])
+
+	def test_check_clashes_reports_overlapping_times(self):
+		create_session(self.session_values(assigned_doctor=self.doctor))
+
+		clashes = check_clashes(
+			self.session_values(
+				assigned_doctor=self.doctor, planned_start_time="13:00:00", planned_end_time="17:00:00"
+			)
+		)
+
+		self.assertEqual({clash["role"] for clash in clashes}, {"Doctor"})
+
+	def test_check_clashes_still_warns_when_a_time_is_missing(self):
+		create_session(self.session_values(assigned_doctor=self.doctor))
+
+		clashes = check_clashes(
+			self.session_values(
+				assigned_doctor=self.doctor, planned_start_time="14:30:00", planned_end_time=""
+			)
+		)
 
 		self.assertEqual({clash["role"] for clash in clashes}, {"Doctor"})
 

@@ -1,6 +1,7 @@
 # Copyright (c) 2026, CMID and Contributors
 # See license.txt
 
+import json
 from datetime import date, timedelta
 
 import frappe
@@ -17,7 +18,7 @@ from bandhu_app.bandhu_app.utils.session_schedule import (
 	occurrence_dates,
 	preview_occurrences,
 )
-from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures
+from bandhu_app.baseline_test_fixtures import ensure_baseline_fixtures, make_site_in_location
 
 EXTRA_TEST_RECORD_DEPENDENCIES = []
 IGNORE_TEST_RECORD_DEPENDENCIES = []
@@ -132,6 +133,42 @@ class IntegrationTestSessionSchedule(IntegrationTestCase):
 		self.assertEqual(generate_sessions_for_schedule(schedule.name), [])
 		self.assertEqual(self.sessions_of(schedule.name), created_on_save)
 
+	def test_saving_an_unchanged_schedule_from_the_form_keeps_a_hand_edited_session(self):
+		schedule = self.build_schedule(weekdays=["Monday"], valid_from=today(), save=True)
+		edited_session = frappe.get_doc("Bandhu Clinic Session", self.sessions_of(schedule.name)[-1])
+		edited_session.planned_start_time = "07:15:00"
+		edited_session.save(ignore_permissions=True)
+
+		stored = frappe.get_doc("Bandhu Session Schedule", schedule.name)
+		posted = json.loads(frappe.as_json(stored.as_dict()))
+		posted.update(
+			{fieldname: "" for fieldname in ("valid_upto", "holiday_list") if not posted.get(fieldname)}
+		)
+		frappe.get_doc(posted).save(ignore_permissions=True)
+
+		self.assertEqual(
+			frappe.db.get_value("Bandhu Clinic Session", edited_session.name, "planned_start_time"),
+			timedelta(hours=7, minutes=15),
+		)
+
+	def test_a_pattern_changed_while_disabled_leaves_no_session_on_the_old_day(self):
+		schedule = self.build_schedule(weekdays=["Monday"], valid_from=today(), save=True)
+
+		schedule.enabled = 0
+		schedule.weekdays = []
+		schedule.append("weekdays", {"weekday": "Wednesday"})
+		schedule.save(ignore_permissions=True)
+		schedule.enabled = 1
+		schedule.save(ignore_permissions=True)
+
+		future_dates = frappe.get_all(
+			"Bandhu Clinic Session",
+			filters={"session_schedule": schedule.name, "date": [">", today()]},
+			pluck="date",
+		)
+		self.assertTrue(future_dates)
+		self.assertEqual({getdate(day).weekday() for day in future_dates}, {2})
+
 	def test_a_cancelled_session_is_not_recreated(self):
 		schedule = self.build_schedule(weekdays=all_weekday_names(), valid_from=today(), save=True)
 		created = self.sessions_of(schedule.name)
@@ -164,6 +201,15 @@ class IntegrationTestSessionSchedule(IntegrationTestCase):
 		self.assertEqual(session.clinic, self.clinic)
 		self.assertEqual(session.status, "Planned")
 		self.assertEqual(str(session.planned_start_time), "9:00:00")
+
+	def test_schedule_and_its_sessions_show_the_lsg_and_phc_chc_of_the_site(self):
+		site = make_site_in_location("LSG Test Pathadipalam", "Kalamassery Municipality", "UPHC Kalamassery")
+
+		schedule = self.build_schedule(weekdays=all_weekday_names(), valid_from=today(), site=site, save=True)
+		session = frappe.get_doc("Bandhu Clinic Session", self.sessions_of(schedule.name)[0])
+
+		self.assertEqual((schedule.lsg, schedule.phc_chc), ("Kalamassery Municipality", "UPHC Kalamassery"))
+		self.assertEqual((session.lsg, session.phc_chc), ("Kalamassery Municipality", "UPHC Kalamassery"))
 
 	def test_rebuild_leaves_a_session_that_has_an_encounter(self):
 		schedule = self.build_schedule(weekdays=all_weekday_names(), valid_from=today(), save=True)

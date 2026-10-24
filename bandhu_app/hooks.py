@@ -29,8 +29,8 @@ required_apps = ["erpnext", "healthcare"]
 # bump ?v= on every edit or browsers keep the old file.
 app_include_css = ["/assets/bandhu_app/css/desk.css?v=12"]
 app_include_js = [
-	"/assets/bandhu_app/js/session_ui.js?v=3",
-	"/assets/bandhu_app/js/workspace_redirect.js?v=2",
+	"/assets/bandhu_app/js/session_ui.js?v=4",
+	"/assets/bandhu_app/js/workspace_redirect.js?v=3",
 ]
 
 # include js, css files in header of web template
@@ -82,7 +82,13 @@ doctype_js = {"Patient": "public/js/patient.js"}
 # ----------
 
 # add methods and filters to jinja environment
-jinja = {"methods": ["bandhu_app.bandhu_app.utils.custom_qr_code.get_qr_code_image_source"]}
+jinja = {
+	"methods": [
+		"bandhu_app.bandhu_app.utils.custom_qr_code.get_qr_code_image_source",
+		"bandhu_app.bandhu_app.utils.patient.compact_age",
+		"bandhu_app.bandhu_app.utils.custom_bandhu_id.group_clinic_id",
+	]
+}
 
 # Installation
 # ------------
@@ -96,7 +102,6 @@ after_install = "bandhu_app.install.after_install"
 after_migrate = [
 	"bandhu_app.bandhu_app.utils.desk_visibility.sync_bandhu_desktop_icons",
 	"bandhu_app.bandhu_app.utils.desk_visibility.restrict_other_app_desktop_icons",
-	"bandhu_app.bandhu_app.page.staff_onboarding.staff_onboarding.seed_default_genders",
 	"bandhu_app.bandhu_app.utils.patient_encounter.seed_default_appointment_type",
 ]
 
@@ -275,5 +280,8 @@ doc_events = {
 			"bandhu_app.bandhu_app.utils.patient_encounter.sync_to_queue",
 			"bandhu_app.bandhu_app.utils.realtime.broadcast_encounter_change",
 		],
+	},
+	"Stock Entry": {
+		"validate": "bandhu_app.bandhu_pharmacy.stock_entry.validate_funding_source_and_clinic",
 	},
 }
