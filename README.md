@@ -67,12 +67,28 @@ sessions, clinics, PHI, tests, treatment, referrals, patient history and medicin
 	<img width="1402" alt="Dashboard" src=".github/screenshots/dashboard.png">
 </div>
 
+The Medicine Utilisation Report compares what doctors prescribed with what nurses dispensed, for each
+medicine, unit and district.
+
+<div>
+	<img width="1402" alt="Medicine Utilisation Report" src=".github/screenshots/medicine-report.png">
+</div>
+
 ### Admin
 
 Onboard staff, create sessions and recurring schedules, and keep the projects, units and sites up to date.
 
 <div>
 	<img width="1402" alt="Admin workspace" src=".github/screenshots/admin.png">
+</div>
+
+### Session schedules
+
+Pick the site, the days and the team once, and the app creates the sessions: every week, every two weeks
+or once a month. The next dates show as you choose.
+
+<div>
+	<img width="1402" alt="New Schedule, choosing the days" src=".github/screenshots/new-schedule.png">
 </div>
 
 ### Features
@@ -126,9 +142,9 @@ bench --site test_site run-tests --app bandhu_app
 
 Found a bug or have a question? [Open an issue](https://github.com/bwhtech/bandhu_custom/issues).
 
-## About BWH Studios
+## About BWH Tech
 
-Bandhu App is developed and maintained by BWH Studios, a tech company based in Jagdalpur, Chhattisgarh,
+Bandhu App is developed and maintained by BWH Tech, a tech company based in Jagdalpur, Chhattisgarh,
 specializing in Frappe customizations and consulting.
 
 #### License
