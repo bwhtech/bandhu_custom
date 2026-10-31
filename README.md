@@ -142,9 +142,9 @@ bench --site test_site run-tests --app bandhu_app
 
 Found a bug or have a question? [Open an issue](https://github.com/bwhtech/bandhu_custom/issues).
 
-## About BWH Studios
+## About BWH Tech
 
-Bandhu App is developed and maintained by BWH Studios, a tech company based in Jagdalpur, Chhattisgarh,
+Bandhu App is developed and maintained by BWH Tech, a tech company based in Jagdalpur, Chhattisgarh,
 specializing in Frappe customizations and consulting.
 
 #### License
